@@ -8,9 +8,9 @@ __pycache__/
 # --- Run residue ---
 logs/
 debug_indent_*.txt
-zowe/workspace/Output/
-zowe/workspace/Review/
-zowe/workspace/Logs/
+mainframe/workspace/Output/
+mainframe/workspace/Review/
+mainframe/workspace/Logs/
 
 # --- Cleanup artefacts ---
 _quarantine_*/
