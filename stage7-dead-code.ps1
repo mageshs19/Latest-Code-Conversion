@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 if (git status --porcelain) { Write-Host "ABORT: tree not clean." -ForegroundColor Red; exit 1 }
 
 $groupA = @(
@@ -35,8 +35,8 @@ function Kill($list, $label) {
     }
 }
 
-Kill $groupA "GROUP A - documentation"
-Kill $groupB "GROUP B - shims"
-Kill $groupC "GROUP C - batch CLI cluster"
+Remove-Group $groupA "GROUP A - documentation"
+Remove-Group $groupB "GROUP B - shims"
+Remove-Group $groupC "GROUP C - batch CLI cluster"
 
 Write-Host "`nNow run: .\tools\baseline.ps1" -ForegroundColor Cyan
