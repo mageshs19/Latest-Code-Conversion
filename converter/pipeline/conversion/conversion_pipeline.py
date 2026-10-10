@@ -1,4 +1,4 @@
-# LOCATION: converter/pipeline/conversion/conversion_pipeline.py
+﻿# LOCATION: converter/pipeline/conversion/conversion_pipeline.py
 # ACTION: REPLACE ENTIRE FILE
 
 from __future__ import annotations
@@ -349,32 +349,23 @@ class ConversionPipeline:
             validation_messages.extend(lrf_messages)
 
         # ------------------------------------------------------------------
-        # Flow-Bucket Orchestration
-        #
-        # KNOWN DEFECT: this module is not fixed-format aware. It reads raw
-        # lines without stripping the 6-digit COBOL sequence area, so
-        # _parse_program_sections() cannot find WORKING-STORAGE and the pass
-        # logs "No WORKING-STORAGE SECTION found - skipping orchestration"
-        # on every real program. See tests/test_flow_bucket_production_
-        # integration.py, which targets the NON-v2 module and therefore
-        # fails. Fix or remove as a separate change.
         # ------------------------------------------------------------------
-        try:
-            from converter.pipeline.flow_bucket_pipeline_orchestration_v2 import (
-                apply_production_flow_bucket_orchestration
-            )
-
-            organized_cobol, flow_messages = apply_production_flow_bucket_orchestration(
-                converted_cobol
-            )
-            validation_messages.extend(flow_messages)
-            converted_cobol = organized_cobol
-
-        except Exception as e:  # noqa: BLE001
-            validation_messages.append(
-                f"Flow-Bucket Orchestration warning: {str(e)} "
-                "(continuing with unorganized output)"
-            )
+        # Flow-Bucket Orchestration - REMOVED 10-10-2026
+        #
+        # The pass never executed: it read raw lines without stripping the
+        # 6-digit COBOL sequence area, so _parse_program_sections() could not
+        # find WORKING-STORAGE and it logged "No WORKING-STORAGE SECTION
+        # found - skipping orchestration" on every program. All five of its
+        # stated goals are already delivered by fixed-format-aware passes,
+        # verified on VMDZ7200:
+        #     cursor flags + 88 levels -> db2_infrastructure_generator
+        #     NNNN / TS-TIMESTAMP      -> timestamp_generator
+        #     WS section markers       -> infrastructure block builder
+        #
+        # If working-storage bucketing is wanted later, build it as registry
+        # stages in converter/pipeline/registry.py, fixed-format aware from
+        # the start.
+        # ------------------------------------------------------------------
 
         #
         # Cursor driving flow.
