@@ -11,7 +11,7 @@ if ($dirty) {
 }
 
 # ---- 1. move the folder (two-step for Windows case safety)
-git mv src/idms_db2_phase2/testing runners.__tmp
+git mv runners runners.__tmp
 git mv runners.__tmp runners
 Write-Host "moved  testing -> runners" -ForegroundColor Green
 
@@ -23,13 +23,13 @@ if (Test-Path .\runners\run_retrieval.py) {
 
 # ---- 3. rewrite references (LITERAL replace, no regex)
 $pairs = @(
-    @('src/idms_db2_phase2/testing/run_retrieval.py', 'runners/convert_programs.py'),
-    @('src\idms_db2_phase2\testing\run_retrieval.py', 'runners\convert_programs.py'),
-    @('src/idms_db2_phase2/testing',                  'runners'),
-    @('src\idms_db2_phase2\testing',                  'runners'),
-    @('idms_db2_phase2.testing',                      'runners'),
-    @('idms_db2_phase2/testing',                      'runners'),
-    @('idms_db2_phase2\testing',                      'runners')
+    @('runners/convert_programs.py', 'runners/convert_programs.py'),
+    @('runners\convert_programs.py', 'runners\convert_programs.py'),
+    @('runners',                  'runners'),
+    @('runners',                  'runners'),
+    @('runners',                      'runners'),
+    @('runners',                      'runners'),
+    @('runners',                      'runners')
 )
 
 $files = Get-ChildItem -Path $root -Recurse -File -Include *.py,*.md,*.txt,*.cfg,*.toml,*.env,*.bat,*.ps1 |

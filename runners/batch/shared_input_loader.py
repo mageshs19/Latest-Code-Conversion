@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/batch/shared_input_loader.py
+# LOCATION: runners/batch/shared_input_loader.py
 # ACTION: REPLACE ENTIRE FILE
 
 from __future__ import annotations

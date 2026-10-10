@@ -1,19 +1,19 @@
-# LOCATION: src/idms_db2_phase2/testing/execution/orchestrator.py
+# LOCATION: runners/execution/orchestrator.py
 # ACTION: CREATE NEW FILE
 
 """Batch orchestrator: selects steps, runs them, reports the outcome."""
 
 from __future__ import annotations
 
-from idms_db2_phase2.testing.batch_console import BatchConsole
-from idms_db2_phase2.testing.execution.models import (
+from runners.batch_console import BatchConsole
+from runners.execution.models import (
     BatchOutcome,
     BatchStep,
     StepOutcome,
 )
-from idms_db2_phase2.testing.execution.output_reader import OutputReader
-from idms_db2_phase2.testing.execution.report_renderer import ReportRenderer
-from idms_db2_phase2.testing.execution.step_runner import StepRunner
+from runners.execution.output_reader import OutputReader
+from runners.execution.report_renderer import ReportRenderer
+from runners.execution.step_runner import StepRunner
 from rules.batch_console_rules import (
     EXIT_ERROR,
     EXIT_OK,

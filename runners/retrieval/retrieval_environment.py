@@ -10,8 +10,8 @@ def bootstrap_sys_path(current_file: Path) -> tuple[Path, Path]:
     Returns (src_dir, project_root).
     """
     resolved = current_file.resolve()
-    src_dir = resolved.parents[2]
-    project_root = resolved.parents[3]
+    src_dir = resolved.parents[1]
+    project_root = resolved.parents[2]
 
     for path in (project_root, src_dir):
         if str(path) not in sys.path:

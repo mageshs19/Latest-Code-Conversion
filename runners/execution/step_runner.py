@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/execution/step_runner.py
+# LOCATION: runners/execution/step_runner.py
 # ACTION: REPLACE ENTIRE FILE
 
 """Runs one batch step as a subprocess.
@@ -43,13 +43,13 @@ from config.path_settings import (
     DEFAULT_RETRIEVAL_OUTPUT_DIR,
     DEFAULT_UPDATE_OUTPUT_DIR,
 )
-from idms_db2_phase2.testing.execution.environment import (
+from runners.execution.environment import (
     PROJECT_ROOT,
     runner_path,
     subprocess_environment,
 )
-from idms_db2_phase2.testing.execution.models import BatchStep, StepOutcome
-from idms_db2_phase2.testing.execution.output_reader import OutputReader
+from runners.execution.models import BatchStep, StepOutcome
+from runners.execution.output_reader import OutputReader
 from rules.batch_console_rules import (
     MSG_RUNNER_MISSING,
     REVIEW_FOLDER_ARG,

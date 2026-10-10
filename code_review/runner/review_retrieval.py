@@ -50,14 +50,14 @@ from config.path_settings import (  # noqa: E402
 from idms_db2_phase2.infrastructure.logger_factory import (  # noqa: E402
     LoggerFactory,
 )
-from idms_db2_phase2.testing.retrieval.retrieval_input_loader import (  # noqa: E402
+from runners.retrieval.retrieval_input_loader import (  # noqa: E402
     load_shared_inputs,
 )
-from idms_db2_phase2.testing.retrieval.retrieval_input_selector import (  # noqa: E402
+from runners.retrieval.retrieval_input_selector import (  # noqa: E402
     selected_program_paths,
     validate_inputs,
 )
-from idms_db2_phase2.testing.retrieval.retrieval_program_converter import (  # noqa: E402
+from runners.retrieval.retrieval_program_converter import (  # noqa: E402
     convert_one_program,
     resolve_target_program_id,
 )

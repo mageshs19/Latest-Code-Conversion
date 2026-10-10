@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/line_preservation_audit.py
+# LOCATION: runners/line_preservation_audit.py
 # ACTION: REPLACE ENTIRE FILE
 
 """

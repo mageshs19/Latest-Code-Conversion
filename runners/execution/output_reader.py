@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/execution/output_reader.py
+# LOCATION: runners/execution/output_reader.py
 # ACTION: CREATE NEW FILE
 
 """Reads meaning out of a runner's console output.

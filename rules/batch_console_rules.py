@@ -94,8 +94,8 @@ STEP_REVIEW_RETRIEVAL = "review_retrieval"
 STEP_REVIEW_UPDATE = "review_update"
 
 STEP_DEFINITIONS = (
-    (STEP_CONVERT_RETRIEVAL, "Convert retrieval", "src/idms_db2_phase2/testing/run_retrieval.py", False),
-    (STEP_CONVERT_UPDATE,    "Convert update",    "src/idms_db2_phase2/testing/run_update.py",    False),
+    (STEP_CONVERT_RETRIEVAL, "Convert retrieval", "runners/convert_programs.py", False),
+    (STEP_CONVERT_UPDATE,    "Convert update",    "runners/run_update.py",    False),
     (STEP_REVIEW_RETRIEVAL,  "Review retrieval",  "code_review/runner/review_file.py",            True),
     (STEP_REVIEW_UPDATE,     "Review update",     "code_review/runner/review_file.py",            True),
 )

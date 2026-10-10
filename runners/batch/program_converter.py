@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/batch/program_converter.py
+# LOCATION: runners/batch/program_converter.py
 # ACTION: REPLACE ENTIRE FILE
 
 from __future__ import annotations

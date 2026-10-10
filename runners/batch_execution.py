@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/batch_execution.py
+# LOCATION: runners/batch_execution.py
 # ACTION: REPLACE ENTIRE FILE
 
 """Batch execution entry point: convert and code review in one command.
@@ -13,7 +13,7 @@
 Exit codes: 0 all steps passed, 1 a step was rejected, 2 a step errored.
 
 Command line only. Every behaviour lives in
-idms_db2_phase2.testing.execution.
+runners.execution.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from __future__ import annotations
 # Path bootstrap.
 #
 # This block MUST stay above every project import. Running
-# "python src\idms_db2_phase2\testing\batch_execution.py" puts only the
+# "python runners\batch_execution.py" puts only the
 # testing folder on sys.path, so without this the first import fails
 # with ModuleNotFoundError.
 # ---------------------------------------------------------------------
@@ -39,7 +39,7 @@ for _candidate in (PROJECT_ROOT, SRC_DIR):
 
 import argparse  # noqa: E402
 
-from idms_db2_phase2.testing.execution.orchestrator import (  # noqa: E402
+from runners.execution.orchestrator import (  # noqa: E402
     BatchExecution,
 )
 from rules.batch_console_rules import (  # noqa: E402

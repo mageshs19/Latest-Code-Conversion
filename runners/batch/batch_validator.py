@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/batch/batch_validator.py
+# LOCATION: runners/batch/batch_validator.py
 # ACTION: REPLACE ENTIRE FILE
 """Batch input validation.
 

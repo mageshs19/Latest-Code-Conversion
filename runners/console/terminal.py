@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/console/terminal.py
+# LOCATION: runners/console/terminal.py
 # ACTION: CREATE NEW FILE
 
 """Terminal capability detection and colour.

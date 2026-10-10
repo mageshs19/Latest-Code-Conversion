@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/execution/input_inspector.py
+# LOCATION: runners/execution/input_inspector.py
 # ACTION: CREATE NEW FILE
 
 """Counts input files and locates artefact folders.

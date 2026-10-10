@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/pytest_runner.py
+# LOCATION: runners/pytest_runner.py
 # ACTION: CREATE NEW FILE
 
 """Runs the project's pytest suite and returns structured results.
@@ -319,5 +319,5 @@ class PytestRunner:
     # =================================================================
     @staticmethod
     def _resolve_project_root() -> Path:
-        # .../src/idms_db2_phase2/testing/pytest_runner.py -> project root
-        return Path(__file__).resolve().parents[3]
+        # .../runners/pytest_runner.py -> project root
+        return Path(__file__).resolve().parents[1]

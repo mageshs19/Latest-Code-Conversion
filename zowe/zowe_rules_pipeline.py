@@ -40,7 +40,7 @@ PIPELINE_COMMANDS = PIPELINE_STEPS + (
 )
 
 # ---- Subprocess runners ----
-CONVERT_RUNNER = "src/idms_db2_phase2/testing/run_retrieval.py"
+CONVERT_RUNNER = "runners/convert_programs.py"
 REVIEW_RUNNER = "code_review/runner/review_file.py"
 REVIEW_KIND = "UNKNOWN"
 

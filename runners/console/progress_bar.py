@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/console/progress_bar.py
+# LOCATION: runners/console/progress_bar.py
 # ACTION: CREATE NEW FILE
 
 """Progress bar rendering and the indeterminate pulse animation.
@@ -18,7 +18,7 @@ from __future__ import annotations
 import sys
 import threading
 
-from idms_db2_phase2.testing.console.terminal import TerminalCapabilities
+from runners.console.terminal import TerminalCapabilities
 from rules.batch_console_rules import (
     BAR_CLOSE,
     BAR_OPEN,

@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/execution/models.py
+# LOCATION: runners/execution/models.py
 # ACTION: CREATE NEW FILE
 
 """Batch execution data models. Data only, no behaviour beyond derivation."""

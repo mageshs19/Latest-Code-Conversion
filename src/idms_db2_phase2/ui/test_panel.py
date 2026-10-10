@@ -5,7 +5,7 @@
 
 Reads only from session state and writes only to it. Contains no test
 logic of its own: discovery, invocation and report parsing all live in
-idms_db2_phase2.testing.pytest_runner, so the panel stays
+runners.pytest_runner, so the panel stays
 presentation-only and the runner stays testable.
 """
 
@@ -17,7 +17,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from idms_db2_phase2.testing.pytest_runner import (
+from runners.pytest_runner import (
     PytestRunner,
     TestRunResult,
 )

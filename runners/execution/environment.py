@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/execution/environment.py
+# LOCATION: runners/execution/environment.py
 # ACTION: CREATE NEW FILE
 
 """Paths and child-process environment for batch execution.
@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# .../src/idms_db2_phase2/testing/execution/environment.py -> project root
+# .../runners/execution/environment.py -> project root
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 SRC_DIR = PROJECT_ROOT / "src"
 

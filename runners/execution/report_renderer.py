@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/execution/report_renderer.py
+# LOCATION: runners/execution/report_renderer.py
 # ACTION: CREATE NEW FILE
 
 """Renders every batch section through BatchConsole.
@@ -9,10 +9,10 @@ while BatchConsole decides HOW a line is drawn.
 
 from __future__ import annotations
 
-from idms_db2_phase2.testing.execution.environment import PROJECT_ROOT
-from idms_db2_phase2.testing.execution.input_inspector import InputInspector
-from idms_db2_phase2.testing.execution.models import BatchOutcome
-from idms_db2_phase2.testing.execution.output_reader import OutputReader
+from runners.execution.environment import PROJECT_ROOT
+from runners.execution.input_inspector import InputInspector
+from runners.execution.models import BatchOutcome
+from runners.execution.output_reader import OutputReader
 from rules.batch_console_rules import (
     DEFAULT_REPORT_FOLDER,
     LABEL_COPYBOOK,

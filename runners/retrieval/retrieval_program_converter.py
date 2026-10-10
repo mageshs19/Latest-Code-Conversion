@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/retrieval/retrieval_program_converter.py
+# LOCATION: runners/retrieval/retrieval_program_converter.py
 # ACTION: REPLACE ENTIRE FILE
 
 """Converts one retrieval program and prints its report.

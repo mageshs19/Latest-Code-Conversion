@@ -1,4 +1,4 @@
-# LOCATION: src/idms_db2_phase2/testing/batch_console.py
+# LOCATION: runners/batch_console.py
 # ACTION: REPLACE ENTIRE FILE
 
 """Console renderer for batch execution.
@@ -38,8 +38,8 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 
-from idms_db2_phase2.testing.console.progress_bar import ProgressBar
-from idms_db2_phase2.testing.console.terminal import (
+from runners.console.progress_bar import ProgressBar
+from runners.console.terminal import (
     Palette,
     TerminalCapabilities,
 )
