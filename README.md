@@ -1,4 +1,4 @@
-# IDMS DB2 Phase 2 Converter
+﻿# IDMS DB2 Phase 2 Converter
 
 Standalone Phase 2 project for converting IDMS COBOL programs into DB2 embedded SQL COBOL.
 
@@ -37,7 +37,7 @@ Use:
 From the project root:
 
 ```bash
-set PYTHONPATH=src
+set PYTHONPATH=.
 python -m streamlit run converter/app.py --server.port 8502
 
 $env:PYTHONPATH = "src"
@@ -47,13 +47,10 @@ python runners\convert_programs.py
 python runners\run_update.py
 
 
-python runners\batch_execution.py --mode retrieval
-python runners\batch_execution.py --no-review
-python runners\batch_execution.py --quiet
 
 
 python -m pip install "pytest>=9.1.1"
-$env:PYTHONPATH = "src;."
+$env:PYTHONPATH = "."
 python -m pytest tests -q
 
 

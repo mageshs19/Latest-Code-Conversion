@@ -147,9 +147,9 @@ MSG_NO_OUTPUT_FOUND = (
 )
 MSG_NO_OUTPUT_HINT = (
     "Next step: run the conversion first, then run the code review again.\n"
-    "  set PYTHONPATH=src\n"
-    "  python review\\runner\\review_retrieval.py   (retrieval programs)\n"
-    "  python review\\runner\\review_update.py      (update programs)"
+    "  set PYTHONPATH=.\n"
+    "  python review\\runner\\review_file.py --folder <output folder>"
+    ""
 )
 
 # ---- Nothing to convert ----------------------------------------------
