@@ -105,3 +105,5 @@ if ($ok) {
     Write-Host "BASELINE BROKEN" -ForegroundColor Red
     exit 1
 }
+
+foreach ($token in @('[ERROR]', 'ModuleNotFoundError', 'Enhancement pipeline FAILED', 'unknown pipeline stage')) {

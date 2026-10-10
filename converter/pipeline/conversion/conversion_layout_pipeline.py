@@ -154,9 +154,11 @@ class ConversionLayoutPipeline:
             )
             production_ready_program = enhancement_pipeline.execute()
             converted_cobol = production_ready_program
-        except Exception as e:
-            validation_messages.append(f"Enhancement pipeline error: {str(e)}")
-        
+        except Exception as exc:  # noqa: BLE001
+            validation_messages.append(
+                f"Enhancement pipeline FAILED and was skipped: "
+                f"{type(exc).__name__}: {exc}"
+            )
         return converted_cobol
     
 
