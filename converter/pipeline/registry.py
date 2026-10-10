@@ -4,8 +4,15 @@ ADD     -> one line.      REMOVE -> delete one line.
 REORDER -> move one line. DISABLE -> enabled=False.
 
 STATUS
-  [LIVE]   runs through run_pipeline(); direct call removed
-  [PARKED] registered but disabled; direct call still active
+  [LIVE]   the owning method delegates via run_stage(); composer is
+           constructed here, not at the call site
+  [PARKED] registered but disabled; the direct call is still active in
+           conversion_pipeline.py
+
+WARNING
+  A stage marked [LIVE] whose call site delegates to run_stage() MUST
+  be enabled. Disabling it makes the pass silently stop running, and
+  the row/column baseline will not notice.
 """
 
 from __future__ import annotations
@@ -63,6 +70,7 @@ def _unnecessary_comments():
 
 
 PIPELINE: tuple[Stage, ...] = (
+    # ---- still called directly in conversion_pipeline.py ---------------
     composer_stage(
         "cursor_order_cleanup",
         "[PARKED] Remove ORDER BY from parent cursors when configured",
@@ -81,23 +89,22 @@ PIPELINE: tuple[Stage, ...] = (
         _cursor_close_guarantee,
         enabled=False,
     ),
+
+    # ---- delegated via run_stage() - MUST stay enabled ------------------
     composer_stage(
         "extract_output_write_paragraph",
-        "[PARKED] Lift a guarded WRITE out of the per-row paragraph",
+        "[LIVE] Lift a guarded WRITE out of the per-row paragraph",
         _output_write_paragraph,
-        enabled=False,
     ),
     composer_stage(
         "declare_counters",
-        "[PARKED] Declare referenced row counters and emit end-of-run totals",
+        "[LIVE] Declare referenced row counters and emit end-of-run totals",
         _counter_declaration,
-        enabled=False,
     ),
     composer_stage(
         "normalise_procedure_indent",
-        "[PARKED] Move PROCEDURE DIVISION statements to Area B",
+        "[LIVE] Move PROCEDURE DIVISION statements to Area B",
         _procedure_indent,
-        enabled=False,
     ),
     composer_stage(
         "cleanup_final_comments",
