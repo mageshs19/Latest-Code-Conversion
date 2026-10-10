@@ -1,4 +1,34 @@
-"""CHK-14 End-of-cursor handling in the fetch paragraph."""
+"""CHK-14 End-of-cursor handling in the fetch paragraph.
+
+CORRECTION - criterion 05 recognised only ONE of two valid loop shapes
+
+    The converter drives a cursor with whichever idiom the source used,
+    and CursorFlowComposer supports both:
+
+        INLINE   PERFORM 720-FETCH-DZBFASC1 UNTIL DZBFASC1-EOC
+
+        SPAN     PERFORM BEHANDELING THRU BEHANDELING-EXIT
+                     UNTIL DZBFASC1-EOC
+
+    Criterion 05 asserted the INLINE text verbatim with startswith(),
+    so every span-loop program failed even though its cursor was
+    correctly driven. The conversion log for VMDZ7200 says so plainly:
+
+        Cursor flow: correlated cursor DZBFASC1 with span loop
+        PERFORM BEHANDELING THRU BEHANDELING-EXIT.
+        Cursor flow: rewrote span loop exit condition to DZBFASC1-EOC.
+
+    It also required opener and terminator on ONE physical line, which a
+    fixed-format program is free to split.
+
+    The criterion now asserts the property that actually matters: SOME
+    loop terminates on this cursor's end-of-cursor flag. Which paragraph
+    the loop performs, and whether the statement spans lines, is a
+    formatting choice - not a correctness property.
+
+    Criteria 02 and 04 still carry the rest of the contract: the FETCH
+    paragraph must SET the flag, and no loop may test raw SQLCODE.
+"""
 
 from __future__ import annotations
 
@@ -105,25 +135,38 @@ class EndOfCursorHandlingCheck(Check):
                 ],
             )
 
-        # ---- 05 each fetch is performed UNTIL its flag --------------
+        # ---- 05 each cursor is driven by a loop on its flag ---------
+        #
+        # Accepts BOTH idioms the converter emits, and tolerates a
+        # statement split across physical lines. See the module
+        # docstring for why the verbatim INLINE form was wrong.
         if not fetches:
             record.skip(
-                "05", "Every FETCH paragraph is performed until its flag",
+                "05",
+                "Every cursor FETCH is driven by a loop on its "
+                "end-of-cursor flag",
                 "Program contains no FETCH paragraph.",
             )
         else:
             code = [sql.norm(line.logical) for line in view.code]
             missing = []
+
             for para in fetches:
-                wanted = (
-                    f"PERFORM {para.name} UNTIL "
-                    f"{para.cursor}{std.CURSOR_EOC_SUFFIX}"
-                )
-                if not any(line.startswith(wanted) for line in code):
-                    missing.append(wanted)
+                eoc = f"{para.cursor}{std.CURSOR_EOC_SUFFIX}"
+                terminator = f"UNTIL {eoc}"
+
+                if not any(terminator in line for line in code):
+                    missing.append(
+                        f"no loop terminates on {eoc} "
+                        f"(fetch paragraph {para.name})"
+                    )
+
             record.expect_all(
-                "05", "Every FETCH paragraph is performed until its flag",
+                "05",
+                "Every cursor FETCH is driven by a loop on its "
+                "end-of-cursor flag",
                 missing,
+                note="INLINE and SPAN loop forms are both accepted.",
             )
 
         # ---- 06 flag block marker present ---------------------------
