@@ -16,3 +16,6 @@ mainframe/workspace/Logs/
 _quarantine_*/
 caps_files_audit.csv
 cleanup_caps_*.log
+
+# --- Review runner artefacts ---
+review/report/output/
