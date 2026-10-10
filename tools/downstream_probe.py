@@ -28,7 +28,7 @@ This probe feeds the KNOWN-GOOD records to each candidate pass in turn
 and reports the first one that changes the line count or introduces a
 stray token.
 
-    $env:PYTHONPATH = "src;."
+    $env:PYTHONPATH = "."
     python tools\downstream_probe.py
 """
 

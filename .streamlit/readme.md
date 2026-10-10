@@ -1,5 +1,5 @@
 $env:STREAMLIT_BROWSER_GATHER_USAGE_STATS = "false"
 $env:STREAMLIT_SERVER_FILE_WATCHER_TYPE = "none"
 $env:STREAMLIT_SERVER_HEADLESS = "true"
-$env:PYTHONPATH = "src;."
+$env:PYTHONPATH = "."
 python -m streamlit run converter\app.py

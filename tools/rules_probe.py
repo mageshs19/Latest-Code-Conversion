@@ -26,7 +26,7 @@ utf-8-sig and reports a BOM separately as a hygiene note.
 
 Run from the project root:
 
-    $env:PYTHONPATH = "src;."
+    $env:PYTHONPATH = "."
     python tools\\rules_probe.py
 
 Exit codes: 0 all names resolve, 1 one or more are missing.

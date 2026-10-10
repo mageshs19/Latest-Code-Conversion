@@ -8,7 +8,7 @@ WHY THIS FILE EXISTS
 1. sys.path bootstrap.
    The converter lives under src/ while rules/, patterns/ and catalogs/
    sit at the project root, so BOTH must be importable. README documents
-   $env:PYTHONPATH = "src;." but a forgotten environment variable then
+   $env:PYTHONPATH = "." but a forgotten environment variable then
    reports as a mysterious collection error. Setting it here makes
    `python -m pytest tests -q` work from a clean shell.
 

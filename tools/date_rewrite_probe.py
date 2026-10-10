@@ -9,7 +9,7 @@ This probe answers that question directly: it feeds the exact VMDZ7200
 condition to the rewriter alone, with no pipeline around it, and checks
 every emitted record.
 
-    $env:PYTHONPATH = "src;."
+    $env:PYTHONPATH = "."
     python tools\date_rewrite_probe.py
 
 Exit 0: the rewriter is clean, the defect is downstream.

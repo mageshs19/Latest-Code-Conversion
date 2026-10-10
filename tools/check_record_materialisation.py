@@ -2,7 +2,7 @@
 # ACTION: CREATE NEW FILE
 """Pinpoints why record materialisation did not run.
 
-    set PYTHONPATH=src;.
+    set PYTHONPATH=.
     python tools\\check_record_materialisation.py
 
 Exit 0 = the composer works in isolation; the problem is wiring.

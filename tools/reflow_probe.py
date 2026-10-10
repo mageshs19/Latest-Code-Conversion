@@ -3,7 +3,7 @@
 
 """Feeds the real VMDZ7200 condition to CobolAreaAlignmentReflow alone.
 
-    $env:PYTHONPATH = "src;."
+    $env:PYTHONPATH = "."
     python tools\\reflow_probe.py
 
 A '!' on any emitted body names the reflow as the source of the stray
