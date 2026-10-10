@@ -299,11 +299,18 @@ class ConversionLayoutSteps:
         converted_cobol: str,
         validation_messages: list[str],
     ) -> str:
-        normalizer = ProcedureIndentNormalizer()
-        converted_cobol = normalizer.compose(converted_cobol)
-        validation_messages.extend(self._component_messages(normalizer))
-        return converted_cobol
+        """Align every PROCEDURE DIVISION statement line to Area B.
 
+        MIGRATED - registered in converter/pipeline/registry.py as
+        'normalise_procedure_indent'.
+        """
+        from converter.pipeline.run import run_pipeline
+        from converter.pipeline.stage import Document
+
+        doc = run_pipeline(Document(cobol=converted_cobol))
+        validation_messages.extend(doc.messages)
+        return doc.cobol
+    
     # =================================================================
     # 8. Final resequence
     # =================================================================
@@ -329,21 +336,16 @@ class ConversionLayoutSteps:
         This runs AFTER all other passes including resequencing, so it
         operates on the final fixed-format output with line numbers.
 
-        MIGRATED - the composer is no longer constructed here. This pass
-        is registered in converter/pipeline/registry.py under the stage
-        name 'cleanup_final_comments'. This method remains as the call
-        site so ConversionLayoutPipeline.finish() is unchanged.
-
-        To disable this pass, set enabled=False on its registry entry.
-        To reorder it, move its line in registry.PIPELINE.
+        MIGRATED - registered in converter/pipeline/registry.py as
+        'cleanup_final_comments'. This method remains as the call site so
+        ConversionLayoutPipeline.finish() is unchanged.
         """
-        from converter.pipeline.run import run_pipeline
+        from converter.pipeline.run import run_stage
         from converter.pipeline.stage import Document
 
-        doc = run_pipeline(Document(cobol=converted_cobol))
+        doc = run_stage("cleanup_final_comments", Document(cobol=converted_cobol))
         validation_messages.extend(doc.messages)
         return doc.cobol
-
 
 # ---------------------------------------------------------------------
 # Backwards-compatible aliases for step 4.
