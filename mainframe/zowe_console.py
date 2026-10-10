@@ -228,7 +228,7 @@ def credentials(artifact: str, connection) -> None:
     row(NAME_USER, f"{user}  [{setting_source(artifact, NAME_USER)}]")
     row(
         NAME_PASSWORD,
-        f"{mask(password)}  [{setting_source(artifact, NAME_PASSWORD)}]",
+        f"{mask(NAME_PASSWORD, password)}  [{setting_source(artifact, NAME_PASSWORD)}]",
     )
 
 
