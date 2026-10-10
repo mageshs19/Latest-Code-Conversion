@@ -17,8 +17,9 @@ LAYOUT_KIND = "KIND"
 
 
 FALLBACK_INPUT_DIR = Path(
-    r"C:\S\S-Input"
-  )
+    r"H:\Belfius\IDMS-DB2\Input"
+    r"\Case2-Automation on COBOL IDMS to COBOL DB2 - Code Conversion Phase"
+)
 
 
 
@@ -377,3 +378,5 @@ __all__ = [
     "update_program_paths",
     "ensure_output_dirs",
 ]
+
+

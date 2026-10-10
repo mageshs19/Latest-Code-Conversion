@@ -1,0 +1,239 @@
+================================================================================
+CURSOR IMPLEMENTATION: PYTHON LOGIC
+================================================================================
+
+================================================================================
+STEP 1: IDMS → DB2 CURSOR SYNTAX MAPPING
+================================================================================
+
+KEY DIFFERENCE:
+────────────────
+Both OBTAIN FIRST and OBTAIN NEXT use SAME cursor declaration & close
+They DIFFER ONLY in the fetch strategy
+
+OBTAIN FIRST  → OPEN cursor, then FETCH (fresh start)
+OBTAIN NEXT   → FETCH only (continue from current position)
+              → Cursor already OPEN from previous OBTAIN FIRST
+
+
+Cursor Naming: {TABLE_NAME}_C{order} (order = nesting depth: 1, 2, 3...)
+Paragraphs: 710/720/730 (order=1), 810/820/830 (order=2), etc.
+
+
+WORKING-STORAGE SECTION:
+────────────────────────
+
+    01 SQLCODE PIC S9(9) COMP.
+    01 SQLSTATE PIC X(5).
+
+    EXEC SQL DECLARE CURSOR_NAME_C1 CURSOR FOR
+        SELECT COL1, COL2, COL3
+        FROM TABLE_NAME
+        WHERE FK_KEY = :HOST_VAR
+        ORDER BY COL1 ASC
+    END-EXEC.
+
+
+PROCEDURE DIVISION - OBTAIN FIRST FLOW:
+─────────────────────────────────────────
+
+    710-OPEN-CURSOR.
+        EXEC SQL
+            OPEN CURSOR_NAME_C1
+        END-EXEC.
+        
+        IF SQLCODE NOT = 0
+            MOVE "ERROR OPENING CURSOR" TO ERROR-MSG
+            MOVE SQLCODE TO ERROR-CODE
+            STOP RUN
+        END-IF.
+    
+    720-FETCH-FIRST.
+        EXEC SQL
+            FETCH CURSOR_NAME_C1
+            INTO :HOST-STRUCT
+        END-EXEC.
+        
+        EVALUATE SQLCODE
+            WHEN 0
+                CONTINUE (Row found, process it)
+            WHEN 100
+                MOVE "END-OF-DATA" TO END-FLAG
+            WHEN OTHER
+                MOVE "ERROR FETCHING" TO ERROR-MSG
+                MOVE SQLCODE TO ERROR-CODE
+        END-EVALUATE.
+    
+    730-CLOSE-CURSOR.
+        EXEC SQL
+            CLOSE CURSOR_NAME_C1
+        END-EXEC.
+
+
+PROCEDURE DIVISION - OBTAIN NEXT FLOW:
+──────────────────────────────────────
+
+    720-FETCH-NEXT.
+        EXEC SQL
+            FETCH NEXT FROM CURSOR_NAME_C1
+            INTO :HOST-STRUCT
+        END-EXEC.
+        
+        EVALUATE SQLCODE
+            WHEN 0
+                CONTINUE (Row found, process it)
+            WHEN 100
+                MOVE "END-OF-DATA" TO END-FLAG
+            WHEN OTHER
+                MOVE "ERROR FETCHING" TO ERROR-MSG
+        END-EVALUATE.
+
+
+SQLCODE VALUES:
+────────────────
+    0    → Success (row fetched)
+  +100   → No more rows (end of cursor)
+  -911   → Deadlock / Timeout
+  -803   → Duplicate key
+  -208   → Table/column not found
+  -901   → Unexpected system error
+
+================================================================================
+STEP 2: COLUMN MINIMIZATION (LOGIC)
+================================================================================
+
+File: src/idms_db2_phase2/services/cursor_select_minimizer_service.py
+
+Logic: Remove ORDER BY-only columns from SELECT/FETCH when safe
+
+1. Find DECLARE cursor blocks and FETCH blocks
+2. Identify columns used ONLY in ORDER BY (not in result set)
+3. IF column used elsewhere outside cursor → KEEP
+4. ELSE → REMOVE from SELECT and FETCH
+5. Preserve SELECT/FETCH synchronization by position
+
+Result: Minimal SELECT (only columns actually needed)
+
+
+================================================================================
+STEP 3: ORDER BY CLAUSE GENERATION
+================================================================================
+
+QUESTION: When should ORDER BY be added to a cursor SELECT?
+
+ANSWER: Depends on Access Type (CALC DN, CALC DL, VIA)
+──────────────────────────────────────────────────────
+
+RULE: Check for seq.no field (NR_ID_ with underscore)
+          ↓
+          ├─ NO seq.no → CALC DN → NO ORDER BY
+          │
+          └─ YES seq.no
+             ├─ Multiple PKs → CALC DL → ORDER BY ASC
+             └─ Single PK → VIA → ORDER BY DESC
+
+
+DETAILED LOGIC:
+───────────────
+
+    if has_seq_no_field(record):
+        # Record has seq.no field (NR_ID_)
+        
+        if count_primary_keys(record) > 1:
+            # CASE 2: CALC DL (Duplicate Lost)
+            # Has: CALC key + seq.no field + multiple primary keys
+            # Example: VMBFAS
+            # → Add ORDER BY ASC
+            return ['PK_FIELD_1', 'PK_FIELD_2', '...', 'NR_ID_479BFAS ASC']
+        
+        elif count_primary_keys(record) == 1:
+            # CASE 3: VIA (Via accessed)
+            # Has: FOREIGN key (child) + seq.no field + single primary key
+            # Example: VMBEVEF
+            # → Add ORDER BY DESC
+            return ['NR_ID_479EVEF DESC']
+    
+    else:
+        # NO seq.no field (NR_ID_)
+        # CASE 1: CALC DN (Duplicate Not Allowed)
+        # Has: CALC key + NO seq.no field
+        # Example: VMBEFF
+        # → NO ORDER BY (return empty list)
+        return []
+
+
+NAMING RULE: NR_ID_ Underscore
+────────────────────────────────
+
+    NR_ID_  (with underscore)
+    └─ seq.no field - INCLUDE in ORDER BY
+    
+    NR_ID   (no underscore)
+    └─ regular field - DON'T INCLUDE in ORDER BY
+
+
+PYTHON IMPLEMENTATION FILES:
+─────────────────────────────
+
+File 1: src/idms_db2_phase2/resolvers/access_type_classifier.py
+├─ Method: is_calc_dn(record)
+│  └─ Returns: True if has CALC key AND NO seq.no field
+│
+├─ Method: is_calc_dl(record)
+│  └─ Returns: True if has CALC key AND has seq.no field
+│
+├─ Method: is_via_accessed(record)
+│  └─ Returns: True if has FOREIGN key AND NO CALC key
+│
+├─ Method: has_seq_no_field(record)
+│  └─ Returns: True if any column starts with NR_ID_
+│
+└─ Method: _is_seq_no_field(column_name)
+   └─ Returns: normalized.startswith("NR_ID_")  # ← Checks underscore
+
+
+File 2: src/idms_db2_phase2/resolvers/cursor_order_by_resolver.py
+├─ Entry Point: order_by_columns_for_record(record)
+│  ├─ IF is_calc_dn(record):
+│  │  └─ return []  # CASE 1: NO ORDER BY
+│  │
+│  └─ ELSE:
+│     ├─ IF is_calc_dl(record) AND has_seq_no_field(record):
+│     │  ├─ primary_keys = get_primary_keys(record)
+│     │  └─ IF len(primary_keys) > 1:
+│     │     └─ return [columns] ORDER BY ASC  # CASE 2
+│     │
+│     └─ IF is_via_accessed(record) AND has_seq_no_field(record):
+│        ├─ primary_keys = get_primary_keys(record)
+│        └─ IF len(primary_keys) == 1:
+│           └─ return [NR_ID_] ORDER BY DESC  # CASE 3
+
+
+EXAMPLES:
+─────────
+
+CASE 1 - CALC DN (VMBEFF):
+  ├─ CALC key: YES
+  ├─ seq.no field: NO (no NR_ID_)
+  ├─ Primary keys: 1
+  └─ RESULT: NO ORDER BY
+     SELECT COLUMNS FROM VMBEFF WHERE ...
+
+CASE 2 - CALC DL (VMBFAS):
+  ├─ CALC key: YES
+  ├─ seq.no field: YES (has NR_ID_479BFAS)
+  ├─ Primary keys: 2+ (CALC_PK_1, CALC_PK_2, NR_ID_479BFAS)
+  └─ RESULT: ORDER BY ASC
+     SELECT COLUMNS FROM VMBFAS WHERE ...
+     ORDER BY CALC_PK_1, CALC_PK_2, NR_ID_479BFAS ASC
+
+CASE 3 - VIA (VMBEVEF):
+  ├─ FOREIGN key: YES (child record)
+  ├─ seq.no field: YES (has NR_ID_479EVEF)
+  ├─ Primary keys: 1 (only NR_ID_479EVEF)
+  └─ RESULT: ORDER BY DESC
+     SELECT COLUMNS FROM VMBEVEF WHERE FK_KEY = ?
+     ORDER BY NR_ID_479EVEF DESC
+
+
+

@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\testing\run_retrieval.py", line 11, in <module>
-    from config.path_settings import (  # noqa: E402
-    ...<3 lines>...
-    )
-ModuleNotFoundError: No module named 'config.path_settings'

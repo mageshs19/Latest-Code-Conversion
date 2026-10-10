@@ -1,0 +1,67 @@
+================================================================================
+CURSOR IMPLEMENTATION: WHAT'S IMPLEMENTED IN PYTHON
+================================================================================
+
+================================================================================
+STEP 1: CURSOR IDENTIFICATION
+================================================================================
+
+Supported IDMS Operations:
+- OBTAIN FIRST <record> → Start iteration from beginning
+- OBTAIN NEXT <record> → Continue iteration
+
+NOT supported: OBTAIN NEXT REVERSE, FIND, READ
+
+Classification:
+- Top-level OBTAIN → cursor_order = 1, 2, 3... (nesting depth)
+- Paragraph numbers: 710/720/730 (order=1), 810/820/830 (order=2), etc.
+- Cursor naming: {TABLE_NAME}_C{order}
+
+
+================================================================================
+STEP 2: COLUMN MINIMIZATION
+================================================================================
+
+File: src/idms_db2_phase2/services/cursor_select_minimizer_service.py
+
+Algorithm:
+1. Extract all DCLGEN columns
+2. Find columns USED in PROCEDURE DIVISION
+3. Add structural dependencies (OCCURS/REDEFINES groups)
+4. Add parent key columns (if child cursor)
+5. Add WHERE clause columns
+6. Add ORDER BY columns
+7. Preserve original DCLGEN order
+
+Result: SELECT only necessary columns (5-15 typically, not all 50-100+)
+
+
+================================================================================
+STEP 3: ORDER BY CLAUSE GENERATION
+================================================================================
+
+File: src/idms_db2_phase2/resolvers/access_type_classifier.py
+File: src/idms_db2_phase2/resolvers/cursor_order_by_resolver.py
+
+LOGIC:
+
+if NOT has_seq_no_field(record):
+    → CASE 1: CALC DN → return [] (NO ORDER BY)
+    
+else if has_seq_no_field(record) AND len(primary_keys) > 1:
+    → CASE 2: CALC DL → return columns ORDER BY ASC
+    
+else if has_seq_no_field(record) AND len(primary_keys) == 1:
+    → CASE 3: VIA → return columns ORDER BY DESC
+
+
+Seq.no field detection:
+- NR_ID_* (with underscore) → IS seq.no field
+- NR_ID* (no underscore) → Regular field (ignore)
+
+
+EXAMPLES:
+
+VMBEFF: CALC key + NO seq.no → CALC DN → NO ORDER BY
+VMBFAS: CALC key + seq.no + 2+ PKs → CALC DL → ORDER BY ASC
+VMBEVEF: FOREIGN key + seq.no + 1 PK → VIA → ORDER BY DESC
