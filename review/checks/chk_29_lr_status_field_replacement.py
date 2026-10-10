@@ -36,7 +36,7 @@ class LRStatusFieldReplacementCheck(Check):
         # ---- 01 NO LR-STATUS FIELD USAGE IN OUTPUT -----
         lr_status_usage = [
             l for l in view.lines
-            if "LR-STATUS" in l.logical and not l.is_comment()
+            if "LR-STATUS" in l.logical and not l.is_comment
         ]
         record.expect_none(
             "01",
@@ -72,7 +72,7 @@ class LRStatusFieldReplacementCheck(Check):
         # ---- 05 REPLACEMENT COMMENTS PRESENT --------
         replacement_comments = [
             l for l in view.lines
-            if l.is_comment() and "LR-STATUS" in l.logical
+            if l.is_comment and "LR-STATUS" in l.logical
         ]
         if replacement_comments or not lr_status_usage:
             record.ok(

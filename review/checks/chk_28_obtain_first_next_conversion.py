@@ -66,7 +66,7 @@ class ObtainFirstNextConversionCheck(Check):
         residual_obtain = [
             l for l in view.lines
             if l.logical.strip().startswith("OBTAIN")
-            and not l.is_comment()
+            and not l.is_comment
         ]
         record.expect_none(
             "05",

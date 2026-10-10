@@ -115,6 +115,33 @@ class CobolView:
     def has_token(self, token: str) -> bool:
         return str(token).upper() in self.all_text
 
+    def has_comment(self, token: str) -> bool:
+        """True when any COMMENT line contains the token.
+
+        Added for CHK-28/29/30, which detect LRF expansion from the
+        audit comments the converter leaves behind:
+
+            *DB2: Expanded LRF FIRST VMBTL03-R01 WHERE SWEEP-VMBFAS
+
+        Case-insensitive, and reads the LOGICAL line so fixed-format
+        sequence areas can never interfere.
+        """
+        needle = str(token or "").strip().upper()
+        if not needle:
+            return False
+        return any(needle in line.logical.upper() for line in self.comments)
+
+    def logical_text(self) -> str:
+        """Whole program as logical lines, one per row.
+
+        A METHOD, not a property, because CHK-31 calls it:
+            verb in view.logical_text()
+
+        Differs from all_text: sequence areas are stripped, so a token
+        can never match digits in columns 1-6 or 73-80.
+        """
+        return "\n".join(line.logical for line in self.populated)
+    
     def code_with(self, token: str) -> list[Line]:
         t = str(token).upper()
         return [l for l in self.code if t in l.logical]

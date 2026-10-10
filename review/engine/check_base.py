@@ -23,6 +23,7 @@ def _finding(item) -> Finding:
     return Finding(text=str(item))
 
 
+
 class Recorder:
     """Collects criterion outcomes for one check."""
 
@@ -44,6 +45,23 @@ class Recorder:
 
     def ok(self, num, desc) -> None:
         self._add(num, desc, Outcome.PASS)
+
+
+
+    def pass_all(self, num, desc) -> None:
+        """Record a criterion as passing with nothing to report.
+
+        Alias for ok(). Checks use pass_all() to mean "this criterion is
+        satisfied by construction and has no findings to list", which
+        reads better at the call site than ok() when the criterion is a
+        whole-program property rather than a line-level assertion.
+
+        Added 10-10-2026: CHK-16, 20, 26 and 27 called it and every one
+        of them raised AttributeError, which the reviewer downgrades to
+        BLOCK. A BLOCKED check does not fail a review, so four checks
+        were silently skipped on every program.
+        """
+        self.ok(num, desc)
 
     def fail(self, num, desc, note="", findings=None) -> None:
         self._add(num, desc, Outcome.FAIL, note=note, findings=findings)

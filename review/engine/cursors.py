@@ -32,9 +32,7 @@ PARAGRAPH = re.compile(
 PERFORM = re.compile(
     r"^PERFORM\s+(?P<name>[A-Z0-9][A-Z0-9-]*)\b(?P<rest>.*)$"
 )
-CURSOR_VERB = re.compile(
-    r"\b(?P<operation>OPEN|FETCH|CLOSE)\s+(?P<cursor>[A-Z][A-Z0-9-]*)\b"
-)
+CURSOR_VERB = re.compile(r"\b(?P<operation>OPEN|FETCH|CLOSE)\s+(?P<cursor>[A-Z][A-Z0-9-]*)\b")
 
 # COBOL scope terminators that look like a paragraph header because they
 # are a single word followed by a period. These are language facts, not
@@ -134,6 +132,34 @@ def cursors_used(view, operation: str) -> set[str]:
             out.add(match.group("cursor").upper())
     return out
 
+def close_statements(view) -> list[sql.SqlBlock]:
+    """Every EXEC SQL CLOSE block, in source order.
+
+    Added for CHK-27, which pairs each OPEN with its CLOSE. A declared
+    cursor opened and never closed leaks the result set; with WITH HOLD
+    it survives COMMIT, so a long batch abends on resource limits.
+    """
+    return [block for block in sql.sql_blocks(view) if block.verb == "CLOSE"]
+
+
+def cursor_name(block) -> str:
+    """The cursor named by an OPEN / FETCH / CLOSE block.
+
+    Returns "" when the block names no cursor, so a caller can build a
+    name set without guarding every element.
+    """
+    match = CURSOR_VERB.search(getattr(block, "text", "") or "")
+    return match.group("cursor").upper() if match else ""
+
+def open_statements(view) -> list[sql.SqlBlock]:
+    """Every EXEC SQL OPEN block, in source order.
+
+    Added for CHK-27 (cursor lifecycle), which pairs each OPEN with its
+    CLOSE. Returns the SQL blocks rather than cursor names so the check
+    can report the offending line.
+    """
+    return [block for block in sql.sql_blocks(view) if block.verb == "OPEN"]
+
 
 def is_paragraph_header(logical: str, stop_words) -> bool:
     """A single word plus a period that is not a scope terminator.
@@ -176,3 +202,22 @@ def paragraph_body(view, para: CursorParagraph, stop_words=None) -> list[str]:
             break
         out.append(logical)
     return out
+
+def open_statements(view) -> list[sql.SqlBlock]:
+    """Every EXEC SQL OPEN block, in source order."""
+    return [b for b in sql.sql_blocks(view) if b.verb == "OPEN"]
+
+
+def close_statements(view) -> list[sql.SqlBlock]:
+    """Every EXEC SQL CLOSE block, in source order."""
+    return [b for b in sql.sql_blocks(view) if b.verb == "CLOSE"]
+
+
+def cursor_name(block) -> str:
+    """The cursor named by an OPEN / CLOSE / FETCH block.
+
+    Returns "" when the block names no cursor, so a caller can build a
+    name set without guarding every element.
+    """
+    match = CURSOR_VERB.search(getattr(block, "text", "") or "")
+    return match.group("cursor").upper() if match else ""

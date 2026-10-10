@@ -42,7 +42,7 @@ class StoreModifyEraseRemovalCheck(Check):
         store_residual = [
             l for l in view.lines
             if l.logical.strip().startswith("STORE")
-            and not l.is_comment()
+            and not l.is_comment
         ]
         record.expect_none(
             "01",
@@ -55,7 +55,7 @@ class StoreModifyEraseRemovalCheck(Check):
         modify_residual = [
             l for l in view.lines
             if l.logical.strip().startswith("MODIFY")
-            and not l.is_comment()
+            and not l.is_comment
         ]
         record.expect_none(
             "02",
@@ -68,7 +68,7 @@ class StoreModifyEraseRemovalCheck(Check):
         erase_residual = [
             l for l in view.lines
             if l.logical.strip().startswith("ERASE")
-            and not l.is_comment()
+            and not l.is_comment
         ]
         record.expect_none(
             "03",
@@ -81,7 +81,7 @@ class StoreModifyEraseRemovalCheck(Check):
         idms_status = [
             l for l in view.lines
             if any(s in l.logical for s in ["DB-RECORD", "DB-FOUND"])
-            and not l.is_comment()
+            and not l.is_comment
         ]
         record.expect_none(
             "04",
@@ -93,7 +93,7 @@ class StoreModifyEraseRemovalCheck(Check):
         # Expanded LRF UPDATE comments should show conversion
         conversion_comments = [
             l for l in view.lines
-            if l.is_comment() and ("Expanded LRF" in l.logical or "STORE" in l.logical)
+            if l.is_comment and ("Expanded LRF" in l.logical or "STORE" in l.logical)
         ]
         if store_residual or modify_residual or erase_residual:
             record.fail(

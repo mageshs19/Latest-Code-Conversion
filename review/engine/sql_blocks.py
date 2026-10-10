@@ -127,6 +127,12 @@ def sql_blocks(view) -> list[SqlBlock]:
         out.append(_build(start, len(code) - 1, buffer))
     return out
 
+def fetch_statements(view) -> list[SqlBlock]:
+    """Every EXEC SQL FETCH block, in source order.
+
+    Added for CHK-27, which asserts each FETCH carries an INTO clause.
+    """
+    return [block for block in sql_blocks(view) if block.verb == "FETCH"]
 
 def _build(first: int, last: int, lines: list) -> SqlBlock:
     text = norm(" ".join(line.logical for line in lines))
