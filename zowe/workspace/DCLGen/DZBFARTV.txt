@@ -1,0 +1,120 @@
+      ******************************************************************
+      * DCLGEN TABLE(DZ.DZBFARTV)                                      *
+      *        LIBRARY(ES.BDB2.VIEW.COB.TST(DZBFARTV))                 *
+      *        ACTION(REPLACE)                                         *
+      *        LANGUAGE(COBOL)                                         *
+      *        APOST                                                   *
+      *        DBCSDELIM(NO)                                           *
+      * ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+      ******************************************************************
+           EXEC SQL DECLARE DZBFARTV TABLE
+           ( CT_TGDSERV_479BFAR             CHAR(4) NOT NULL,
+             NR_CIOFMAS_479BFAR             DECIMAL(8, 0) NOT NULL,
+             DA_CRFMAS_479BFAR              DATE NOT NULL,
+             NR_IDFMAS_479BFAR              DECIMAL(6, 0) NOT NULL,
+             CT_OPDFMAS_479BFAR             DECIMAL(3, 0) NOT NULL,
+             CT_OPGFMAS_479BFAR             DECIMAL(3, 0) NOT NULL,
+             NR_ISGDIF_479BFAR              CHAR(9) NOT NULL,
+             DA_INFSDGD_479BFAR             DATE NOT NULL,
+             DA_UEGDFAR_479BFAR             DATE NOT NULL,
+             NR_STGDFAR_479BFAR             CHAR(13) NOT NULL,
+             NS_DBGDFAR_479BFAR             DECIMAL(2, 0) NOT NULL,
+             NR_DSGDFAR_479BFAR             CHAR(12) NOT NULL,
+             NR_RTRGFAR_479BFAR             CHAR(6) NOT NULL,
+             DA_VAGDFAR_479BFAR             DATE NOT NULL,
+             AM_CNSGFAR_479BFAR             DECIMAL(15, 2) NOT NULL,
+             AM_CNDGFAR_479BFAR             DECIMAL(15, 2) NOT NULL,
+             RA_TIGDFAR_479BFAR             DECIMAL(4, 2) NOT NULL,
+             AM_CRNGFAR_479BFAR             DECIMAL(15, 2) NOT NULL,
+             NR_IDXGFAR_479BFAR             CHAR(6) NOT NULL,
+             CO_RIGFAR_479BFAR              CHAR(1) NOT NULL,
+             NR_IDRGFAR_479BFAR             CHAR(6) NOT NULL,
+             NR_CDGFAR_479BFAR              CHAR(4) NOT NULL,
+             CO_STATGFR_479BFAR             CHAR(16) NOT NULL,
+             NS_INFSPD_479BFAR              DECIMAL(3, 0) NOT NULL,
+             SX_INFSD_479BFAR               CHAR(1) NOT NULL,
+             NS_IDGFAR_479BFAR              DECIMAL(2, 0) NOT NULL,
+             CO_DEV_479BFAR                 CHAR(3) NOT NULL,
+             NB_KRDEV_479BFAR               DECIMAL(11, 5) NOT NULL,
+             AM_BSDEV_479BFAR               DECIMAL(15, 2) NOT NULL,
+             CO_TYP_479BFAR                 CHAR(3) NOT NULL,
+             CO_SUBTP_479BFAR               CHAR(3) NOT NULL,
+             CO_CONT_479BFAR                CHAR(3) NOT NULL,
+             CO_TPVGL_479BFAR               CHAR(2) NOT NULL,
+             AM_VGL_479BFAR                 DECIMAL(15, 2) NOT NULL,
+             NR_PROD_479BFAR                CHAR(4) NOT NULL,
+             NR_CIW_479BFAR                 CHAR(8) NOT NULL,
+             NS_IDR_479BFAR                 DECIMAL(2, 0) NOT NULL,
+             AM_BINTR_479BFAR               DECIMAL(15, 2) NOT NULL,
+             AM_TPREM_479BFAR               DECIMAL(15, 2) NOT NULL,
+             RA_RVTPR_479BFAR               DECIMAL(6, 3) NOT NULL,
+             AM_UPREM_479BFAR               DECIMAL(15, 2) NOT NULL,
+             CO_RVUPR_479BFAR               CHAR(1) NOT NULL,
+             RA_RVUPR_479BFAR               DECIMAL(6, 3) NOT NULL,
+             RA_PUT_479BFAR                 DECIMAL(6, 3) NOT NULL,
+             AM_PUT_479BFAR                 DECIMAL(15, 2) NOT NULL,
+             TS_CREATE_479BFAR              TIMESTAMP NOT NULL,
+             TS_UPDATE_479BFAR              TIMESTAMP NOT NULL,
+             ID_USERID_479BFAR              CHAR(8) NOT NULL,
+             NR_CIOFMAS_479SIAR             DECIMAL(8, 0) NOT NULL,
+             NR_IDFMAS_479SIAR              DECIMAL(6, 0) NOT NULL,
+             DA_INVTR_479BFAR               DATE NOT NULL
+           ) END-EXEC.
+      ******************************************************************
+      * COBOL DECLARATION FOR TABLE DZ.DZBFARTV                        *
+      ******************************************************************
+       01  DCLDZBFARTV.
+           10 CT-TGDSERV-479BFAR   PIC X(4).
+           10 NR-CIOFMAS-479BFAR   PIC S9(8)V USAGE COMP-3.
+           10 DA-CRFMAS-479BFAR    PIC X(10).
+           10 NR-IDFMAS-479BFAR    PIC S9(6)V USAGE COMP-3.
+           10 CT-OPDFMAS-479BFAR   PIC S9(3)V USAGE COMP-3.
+           10 CT-OPGFMAS-479BFAR   PIC S9(3)V USAGE COMP-3.
+           10 NR-ISGDIF-479BFAR    PIC X(9).
+           10 DA-INFSDGD-479BFAR   PIC X(10).
+           10 DA-UEGDFAR-479BFAR   PIC X(10).
+           10 NR-STGDFAR-479BFAR   PIC X(13).
+           10 NS-DBGDFAR-479BFAR   PIC S9(2)V USAGE COMP-3.
+           10 NR-DSGDFAR-479BFAR   PIC X(12).
+           10 NR-RTRGFAR-479BFAR   PIC X(6).
+           10 DA-VAGDFAR-479BFAR   PIC X(10).
+           10 AM-CNSGFAR-479BFAR   PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-CNDGFAR-479BFAR   PIC S9(13)V9(2) USAGE COMP-3.
+           10 RA-TIGDFAR-479BFAR   PIC S9(2)V9(2) USAGE COMP-3.
+           10 AM-CRNGFAR-479BFAR   PIC S9(13)V9(2) USAGE COMP-3.
+           10 NR-IDXGFAR-479BFAR   PIC X(6).
+           10 CO-RIGFAR-479BFAR    PIC X(1).
+           10 NR-IDRGFAR-479BFAR   PIC X(6).
+           10 NR-CDGFAR-479BFAR    PIC X(4).
+           10 CO-STATGFR-479BFAR   PIC X(16).
+           10 NS-INFSPD-479BFAR    PIC S9(3)V USAGE COMP-3.
+           10 SX-INFSD-479BFAR     PIC X(1).
+           10 NS-IDGFAR-479BFAR    PIC S9(2)V USAGE COMP-3.
+           10 CO-DEV-479BFAR       PIC X(3).
+           10 NB-KRDEV-479BFAR     PIC S9(6)V9(5) USAGE COMP-3.
+           10 AM-BSDEV-479BFAR     PIC S9(13)V9(2) USAGE COMP-3.
+           10 CO-TYP-479BFAR       PIC X(3).
+           10 CO-SUBTP-479BFAR     PIC X(3).
+           10 CO-CONT-479BFAR      PIC X(3).
+           10 CO-TPVGL-479BFAR     PIC X(2).
+           10 AM-VGL-479BFAR       PIC S9(13)V9(2) USAGE COMP-3.
+           10 NR-PROD-479BFAR      PIC X(4).
+           10 NR-CIW-479BFAR       PIC X(8).
+           10 NS-IDR-479BFAR       PIC S9(2)V USAGE COMP-3.
+           10 AM-BINTR-479BFAR     PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-TPREM-479BFAR     PIC S9(13)V9(2) USAGE COMP-3.
+           10 RA-RVTPR-479BFAR     PIC S9(3)V9(3) USAGE COMP-3.
+           10 AM-UPREM-479BFAR     PIC S9(13)V9(2) USAGE COMP-3.
+           10 CO-RVUPR-479BFAR     PIC X(1).
+           10 RA-RVUPR-479BFAR     PIC S9(3)V9(3) USAGE COMP-3.
+           10 RA-PUT-479BFAR       PIC S9(3)V9(3) USAGE COMP-3.
+           10 AM-PUT-479BFAR       PIC S9(13)V9(2) USAGE COMP-3.
+           10 TS-CREATE-479BFAR    PIC X(26).
+           10 TS-UPDATE-479BFAR    PIC X(26).
+           10 ID-USERID-479BFAR    PIC X(8).
+           10 NR-CIOFMAS-479SIAR   PIC S9(8)V USAGE COMP-3.
+           10 NR-IDFMAS-479SIAR    PIC S9(6)V USAGE COMP-3.
+           10 DA-INVTR-479BFAR     PIC X(10).
+      ******************************************************************
+      * THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 51      *
+      ******************************************************************

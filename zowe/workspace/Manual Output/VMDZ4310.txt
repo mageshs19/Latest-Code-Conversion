@@ -1,0 +1,512 @@
+000100 CBL ARITH(EXTEND)                                                00000100
+000200 IDENTIFICATION DIVISION.                                         00000200
+000300*========================                                         00000300
+000400 PROGRAM-ID. VMDZ4310.                                            00000400
+000500                                                                  00000500
+000600 AUTHOR. JAINRG 2026/04.                                          00000600
+001110******************************************************************00001110
+001111*  THIS PROGRAM IS BEING USED FOR "EXTRACTING EVENTS DATA FOR     00001111
+001112*  MONTHLY CHANGES" BY FETCH THE DATA FROM THE FOLLOWING (2)      00001112
+001113*  KASBONS DB2 TABLES BY USING THE INPUT KASBONS DATA:            00001113
+001114*  DZBEFFTB & DZEVEFTB                                            00001114
+001115******************************************************************00001115
+001170                                                                  00001170
+001200 ENVIRONMENT DIVISION.                                            00001200
+001300*=====================                                            00001300
+001400 CONFIGURATION SECTION.                                           00001400
+001500*----------------------                                           00001500
+001600 SOURCE-COMPUTER. ES9000.                                         00001600
+001700 OBJECT-COMPUTER. ES9000.                                         00001700
+001800 SPECIAL-NAMES.                                                   00001800
+001900     DECIMAL-POINT IS COMMA.                                      00001900
+002000                                                                  00002000
+002100 INPUT-OUTPUT SECTION.                                            00002100
+002200*---------------------                                            00002200
+002300 FILE-CONTROL.                                                    00002300
+002400     SELECT FI-MUTATIES         ASSIGN TO UT-S-DD010.             00002400
+002500     SELECT FO-MUTATIES         ASSIGN TO UT-S-DD100.             00002500
+002600                                                                  00002600
+003300 DATA DIVISION.                                                   00003300
+003400*==============                                                   00003400
+003800                                                                  00003800
+003900 FILE SECTION.                                                    00003900
+004000*-------------                                                    00004000
+004100 FD  FI-MUTATIES                                                  00004100
+004200     LABEL RECORD IS STANDARD                                     00004200
+004300     RECORDING F                                                  00004300
+004400     BLOCK CONTAINS 0.                                            00004400
+004500 01  FI-MUTATIES-REC          PIC  X(21).                         00004500
+004600*                                                                 00004600
+004700 FD  FO-MUTATIES                                                  00004700
+004800     LABEL RECORD IS STANDARD                                     00004800
+004900     RECORDING F                                                  00004900
+005000     BLOCK CONTAINS 0.                                            00005000
+005100 01  FO-MUTATIES-REC            PIC  X(1500).                     00005100
+005200*                                                                 00005200
+005300 WORKING-STORAGE SECTION.                                         00005300
+005400*------------------------                                         00005400
+005500* -- DATE PARM --                                                 00005500
+005600*01  W-DATE              PIC 9(8).                                00005600
+005700*01  W-DATE-X REDEFINES W-DATE.                                   00005700
+005800*    05  W-DATE-Y        PIC 9(4).                                00005800
+005900*    05  W-DATE-M        PIC 9(2).                                00005900
+006000*    05  W-DATE-D        PIC 9(2).                                00006000
+006100                                                                  00006100
+006200 01  VOLGNUMMER                   PIC 9(07) VALUE ZEROES.         00006200
+006400                                                                  00006400
+006410 01  WS-VAR.                                                      00006410
+006500   02  WS-NR-ISSUE.                                               00006500
+006600       03  WS-NR-ID-ISSUE         PIC X(7).                       00006600
+006700       03  WS-NR-CD-ISSUE         PIC X(2).                       00006700
+006800                                                                  00006800
+006900* -- CLE DU FORMULAIRE --                                         00006900
+007000   02  WS-NR-ID-GOOD.                                             00007000
+007100       03  WS-NR-CIO              PIC 9(8).                       00007100
+007200       03  WS-DA-CREA             PIC 9(8).                       00007200
+007300       03  WS-NR-ID               PIC 9(6).                       00007300
+007400       03  WS-CT-OPD              PIC 999.                        00007400
+007500       03  WS-CT-OPG              PIC 999.                        00007500
+007600       03  FILLER                 PIC XX.                         00007600
+007700                                                                  00007700
+007800   02  WS-MUTATIES.                                               00007800
+007900       03 WS-IN-NR-TIT-BC         PIC X(13).                      00007900
+008000       03 WS-NR-SUITE             PIC X(2).                       00008000
+008010       03 WS-OLD-CI               PIC X(6).                       00008010
+008011   02  WS-TOTAL-INPUT             PIC S9(11) COMP-3 VALUE +0.     00008011
+008012   02  WS-COUNT-TREATED           PIC 9(15) VALUE ZEROES.         00008012
+008013                                                                  00008013
+008100                                                                  00008100
+008200* ----- USERABEN -----                                            00008200
+008300 01  USERABEN                     PIC X(8) VALUE 'USERABEN'.      00008300
+008500 01  CS-VMDZ4310                  PIC X(8) VALUE 'VMDZ4310'.      00008500
+008600 01  HELP-VAR.                                                    00008600
+008700   02  HELP-DA-UBSECIS-STOCK      PIC 9(8).                       00008700
+008800   02  HELP-DA-CR-EVENT-PROD      PIC 9(8).                       00008800
+008900   02  HELP-NR-CIO-FORM-AS.                                       00008900
+009000     03 HELP-NR-CIO-FORM-AS-1POS  PIC X(1).                       00009000
+009100     03 HELP-NR-CIO-FORM-AS-26POS PIC X(5).                       00009100
+009200   02  HELP-NR-ID-STOCK-CD        PIC 9(13) VALUE 0.              00009200
+009300   02  HELP-NR-ID-STOCK-CD-P13-R REDEFINES HELP-NR-ID-STOCK-CD.   00009300
+009400     03 HELP-NR-ID-STOCK-CD-112POS  PIC X(12).                    00009400
+009500     03 HELP-NR-ID-STOCK-CD-13POS   PIC 9(1).                     00009500
+018102 01  WS-TIMESTAMP-FIELDS.                                         00018102
+018202     05 TS-SYSTEM.                                                00018202
+018302        10  DA-SYS.                                               00018302
+018402            15  DA-SYS-CCYY.                                      00018402
+018502                20  CC            PIC X(2).                       00018502
+018602                20  YY            PIC X(2).                       00018602
+018702            15  MM                PIC X(2).                       00018702
+018802            15  DD                PIC X(2).                       00018802
+018902        10  HR-SYS.                                               00018902
+019002            15  HH                PIC X(2).                       00019002
+019102            15  MI                PIC X(2).                       00019102
+019202            15  SS                PIC X(2).                       00019202
+019302            15  TT                PIC X(2).                       00019302
+019402     05 TS-TIMESTAMP.                                             00019402
+019502        10  CC                    PIC X(2).                       00019502
+019602        10  YY                    PIC X(2).                       00019602
+019702        10  TE-MARKER1            PIC X             VALUE '-'.    00019702
+019802        10  MM                    PIC X(2).                       00019802
+019902        10  TE-MARKER2            PIC X             VALUE '-'.    00019902
+020002        10  DD                    PIC X(2).                       00020002
+020102        10  TE-MARKER3            PIC X             VALUE '-'.    00020102
+020202        10  HH                    PIC X(2).                       00020202
+020302        10  TE-MARKER4            PIC X             VALUE '.'.    00020302
+020402        10  MI                    PIC X(2).                       00020402
+020502        10  TE-MARKER5            PIC X             VALUE '.'.    00020502
+020602        10  SS                    PIC X(2).                       00020602
+020702        10  TE-MARKER6            PIC X             VALUE '.'.    00020702
+020802        10  TT                    PIC X(2).                       00020802
+020902        10  NNNN                  PIC 9(04)         VALUE 0.      00020902
+021002 01 WS-DATUMVELDEN.                                               00021002
+021102    03  DA-YYMMDD.                                                00021102
+021202        05  YY                   PIC 99       VALUE ZERO.         00021202
+021302        05  MM                   PIC 99       VALUE ZERO.         00021302
+021402        05  DD                   PIC 99       VALUE ZERO.         00021402
+021502    03  DA-DDMMCCYY.                                              00021502
+021602        05  DD                   PIC 99       VALUE ZERO.         00021602
+021702        05  MM                   PIC 99       VALUE ZERO.         00021702
+021802        05  CC                   PIC 99       VALUE ZERO.         00021802
+021902        05  YY                   PIC 99       VALUE ZERO.         00021902
+022002    03  DA-CCYYMMDD.                                              00022002
+022102        05  CC                   PIC 99       VALUE ZERO.         00022102
+022202        05  YY                   PIC 99       VALUE ZERO.         00022202
+022302        05  MM                   PIC 99       VALUE ZERO.         00022302
+022402        05  DD                   PIC 99       VALUE ZERO.         00022402
+022502    03  DA-CCYYMMDD-R REDEFINES DA-CCYYMMDD.                      00022502
+022602        05  CCYY                 PIC 9999.                        00022602
+022702        05  MM                   PIC 99.                          00022702
+022802        05  DD                   PIC 99.                          00022802
+022902    03  DA-DD-MM-CCYY.                                            00022902
+023002        05  DD                   PIC 9(02).                       00023002
+023102        05  TE-MARKER5           PIC X        VALUE '.'.          00023102
+023202        05  MM                   PIC 9(02).                       00023202
+023302        05  TE-MARKER6           PIC X        VALUE '.'.          00023302
+023402        05  CCYY                 PIC 9(04).                       00023402
+023403                                                                  00023403
+023404*---------------------------------------------------------------* 00023404
+023405*--- COPYBOOKS                                                    00023405
+023406*---------------------------------------------------------------* 00023406
+023407     COPY VMDZ510I.                                               00023407
+023408                                                                  00023408
+023409*    COPY VMDZ05.                                                 00023409
+023410                                                                  00023410
+023411*---------------------------------------------------------------* 00023411
+023412*--- SWITCHES                                                     00023412
+023413*---------------------------------------------------------------* 00023413
+023414 01  SW-MUTATIES-EOF            PIC X.                            00023414
+023415     88 MUTATIES-NOT-EOF                  VALUE 'N'.              00023415
+023416     88 MUTATIES-EOF                      VALUE 'Y'.              00023416
+023417                                                                  00023417
+023418     EXEC SQL INCLUDE SQLERRWS END-EXEC.                          00023418
+023419     EXEC SQL INCLUDE SQLCA    END-EXEC.                          00023419
+023420     EXEC SQL INCLUDE DZEVEFTV END-EXEC.                          00023420
+023421     EXEC SQL INCLUDE DZBEFFTV END-EXEC.                          00023421
+023422                                                                  00023422
+023423 LINKAGE SECTION.                                                 00023423
+023424*----------------                                                 00023424
+023425 01  LS-PARM-INPUT.                                               00023425
+023426     02  LS-PARM                PIC S9(004) COMP.                 00023426
+023427     02  LS-PARAM-IND           PIC X.                            00023427
+023428     02  LS-DATE8               PIC  9(008).                      00023428
+023429                                                                  00023429
+023430                                                                  00023430
+023431 PROCEDURE DIVISION USING LS-PARM-INPUT.                          00023431
+023432*=======================================                          00023432
+023433 MAIN.                                                            00023433
+023434*-----                                                            00023434
+023435     PERFORM 1000-INIT-TREATMENT                                  00023435
+023436     PERFORM 2000-TREAT-MUTATIES UNTIL MUTATIES-EOF               00023436
+023437     PERFORM 3000-END-TREATMENT                                   00023437
+023438     STOP RUN                                                     00023438
+023439     .                                                            00023439
+023440                                                                  00023440
+023441*----------------------------------------------------------------*00023441
+023442 1000-INIT-TREATMENT.                                             00023442
+023443*---------------                                                  00023443
+023444     MOVE CS-VMDZ4310 TO PROGRAM-NAME                             00023444
+023445     PERFORM 1100-GET-TIMESTAMP                                   00023445
+023446     OPEN INPUT  FI-MUTATIES                                      00023446
+023447          OUTPUT FO-MUTATIES                                      00023447
+023448     SET MUTATIES-NOT-EOF TO TRUE.                                00023448
+023449                                                                  00023449
+023450     PERFORM 1200-READ-MUTATIES                                   00023450
+023451     .                                                            00023451
+023452                                                                  00023452
+023453*----------------------------------------------------------------*00023453
+023454 3000-END-TREATMENT.                                              00023454
+023455*--------------                                                   00023455
+023456                                                                  00023456
+023457     CLOSE FI-MUTATIES                                            00023457
+023458           FO-MUTATIES                                            00023458
+023459                                                                  00023459
+023460     DISPLAY '# TREATED    = ' WS-COUNT-TREATED                   00023460
+023461     DISPLAY 'TOTAL INPUTS ='  WS-TOTAL-INPUT                     00023461
+023462     .                                                            00023462
+023463                                                                  00023463
+023464*----------------------------------------------------------------*00023464
+023465 2000-TREAT-MUTATIES.                                             00023465
+023466*--------------                                                   00023466
+023467     PERFORM 2100-SEARCH-MUTATIES.                                00023467
+023468     PERFORM 2200-MOVE-MUTATIES.                                  00023468
+023469     PERFORM 2300-WRITE-MUTATIES.                                 00023469
+023470     PERFORM 1200-READ-MUTATIES                                   00023470
+023471     .                                                            00023471
+023472                                                                  00023472
+023473*----------------------------------------------------------------*00023473
+023474 2100-SEARCH-MUTATIES.                                            00023474
+023475*---------------                                                  00023475
+023476     INITIALIZE DCLDZEVEFTV.                                      00023476
+023477     INITIALIZE DCLDZBEFFTV.                                      00023477
+023478     INITIALIZE HELP-VAR.                                         00023478
+023504     MOVE '1002'                     TO CT-RKTPROD-479BEFF        00023504
+023505                                   OF DCLDZBEFFTV.                00023505
+023506     MOVE WS-IN-NR-TIT-BC            TO HELP-NR-ID-STOCK-CD.      00023506
+023507     MOVE HELP-NR-ID-STOCK-CD-112POS TO NR-IDSTOCK-479BEFF        00023507
+023508                                   OF DCLDZBEFFTV.                00023508
+023509     MOVE HELP-NR-ID-STOCK-CD-13POS  TO NR-CDSTK-479BEFF          00023509
+023510                                   OF DCLDZBEFFTV.                00023510
+023511     MOVE WS-NR-SUITE                TO NS-DBSTK-479BEFF          00023511
+023512                                   OF DCLDZBEFFTV.                00023512
+023515     MOVE 2101 TO SQL-LOCATION.                                   00023515
+023516     EXEC SQL                                                     00023516
+023517       SELECT NR_IDISSUE_479BEFF,                                 00023517
+023518              NR_CDISSUE_479BEFF,                                 00023518
+023519              AM_CNSTK_479BEFF,                                   00023519
+023520              NR_IDSTOCK_479BEFF,                                 00023520
+023522              NS_DBSTK_479BEFF,                                   00023522
+023523              NX_CPCRESK_479BEFF,                                 00023523
+023524              AM_INTERSK_479BEFF,                                 00023524
+023525              CO_IDPRKSK_479BEFF,                                 00023525
+023526              NS_IRMOSTK_479BEFF,                                 00023526
+023527              DA_UBSECIS_479BEFF,                                 00023527
+023528              NX_CPCRESK_479BEFF,                                 00023528
+023529              NX_CPAIDSK_479BEFF                                  00023529
+023530         INTO :DCLDZBEFFTV.NR-IDISSUE-479BEFF,                    00023530
+023531              :DCLDZBEFFTV.NR-CDISSUE-479BEFF,                    00023531
+023532              :DCLDZBEFFTV.AM-CNSTK-479BEFF,                      00023532
+023533              :DCLDZBEFFTV.NR-IDSTOCK-479BEFF,                    00023533
+023535              :DCLDZBEFFTV.NS-DBSTK-479BEFF,                      00023535
+023536              :DCLDZBEFFTV.NX-CPCRESK-479BEFF,                    00023536
+023537              :DCLDZBEFFTV.AM-INTERSK-479BEFF,                    00023537
+023538              :DCLDZBEFFTV.CO-IDPRKSK-479BEFF,                    00023538
+023539              :DCLDZBEFFTV.NS-IRMOSTK-479BEFF,                    00023539
+023540              :DCLDZBEFFTV.DA-UBSECIS-479BEFF,                    00023540
+023541              :DCLDZBEFFTV.NX-CPCRESK-479BEFF,                    00023541
+023542              :DCLDZBEFFTV.NX-CPAIDSK-479BEFF                     00023542
+023543         FROM DZBEFFTV                                            00023543
+023544       WHERE CT_RKTPROD_479BEFF = :DCLDZBEFFTV.CT-RKTPROD-479BEFF 00023544
+023545         AND NR_IDSTOCK_479BEFF = :DCLDZBEFFTV.NR-IDSTOCK-479BEFF 00023545
+023546         AND NR_CDSTK_479BEFF   = :DCLDZBEFFTV.NR-CDSTK-479BEFF   00023546
+023547         AND NS_DBSTK_479BEFF   = :DCLDZBEFFTV.NS-DBSTK-479BEFF   00023547
+023548       QUERYNO 271                                                00023548
+023549     END-EXEC                                                     00023549
+023550*                                                                 00023550
+023551     EVALUATE SQLCODE                                             00023551
+023552     WHEN 0                                                       00023552
+023553          CONTINUE                                                00023553
+023554     WHEN 100                                                     00023554
+023555          DISPLAY 'NO DATA FOUND FOR SELECT DZBEFFTV'             00023555
+023556          DISPLAY 'CT-RKTPROD-479BEFF :' CT-RKTPROD-479BEFF       00023556
+023557                                        OF DCLDZBEFFTV            00023557
+023558                  'NR-IDSTOCK-479BEFF :' NR-IDSTOCK-479BEFF       00023558
+023559                                        OF DCLDZBEFFTV            00023559
+023560                  'NR-CDSTK-479BEFF   :' NR-CDSTK-479BEFF         00023560
+023561                                        OF DCLDZBEFFTV            00023561
+023562                  'NS-DBSTK-479BEFF   :' NS-DBSTK-479BEFF         00023562
+023563                                        OF DCLDZBEFFTV            00023563
+023564          PERFORM SQLERROR                                        00023564
+023565     WHEN OTHER                                                   00023565
+023566          DISPLAY 'CT-RKTPROD-479BEFF :' CT-RKTPROD-479BEFF       00023566
+023567                                        OF DCLDZBEFFTV            00023567
+023568                  'NR-IDSTOCK-479BEFF :' NR-IDSTOCK-479BEFF       00023568
+023569                                        OF DCLDZBEFFTV            00023569
+023570                  'NR-CDSTK-479BEFF   :' NR-CDSTK-479BEFF         00023570
+023571                                        OF DCLDZBEFFTV            00023571
+023572                  'NS-DBSTK-479BEFF   :' NS-DBSTK-479BEFF         00023572
+023573                                        OF DCLDZBEFFTV            00023573
+023574          PERFORM SQLERROR                                        00023574
+023575     END-EVALUATE                                                 00023575
+023576     .                                                            00023576
+023577     MOVE 2100 TO SQL-LOCATION.                                   00023577
+023578     MOVE '1002'                     TO CT-RKTPROD-479BEFF        00023578
+023579                                   OF DCLDZEVEFTV.                00023579
+023580     MOVE WS-IN-NR-TIT-BC            TO HELP-NR-ID-STOCK-CD.      00023580
+023581     MOVE HELP-NR-ID-STOCK-CD-112POS TO NR-IDSTOCK-479BEFF        00023581
+023582                                   OF DCLDZEVEFTV.                00023582
+023583     MOVE HELP-NR-ID-STOCK-CD-13POS  TO NR-CDSTK-479BEFF          00023583
+023584                                   OF DCLDZEVEFTV.                00023584
+023585     MOVE WS-NR-SUITE                TO NS-DBSTK-479BEFF          00023585
+023586                                   OF DCLDZEVEFTV.                00023586
+023587     MOVE '0092'                     TO CT-RKTEVPR-479EVEF        00023587
+023588                                   OF DCLDZEVEFTV.                00023588
+023589     EXEC SQL                                                     00023589
+023590       SELECT NR_IDGOOD_479EVEF,                                  00023590
+023591              NR_CI1POS_479EVEF,                                  00023591
+023592              NR_CI26POS_479EVEF,                                 00023592
+023593              DA_CREVTPD_479EVEF                                  00023593
+023594         INTO :DCLDZEVEFTV.NR-IDGOOD-479EVEF,                     00023594
+023595              :DCLDZEVEFTV.NR-CI1POS-479EVEF,                     00023595
+023596              :DCLDZEVEFTV.NR-CI26POS-479EVEF,                    00023596
+023597              :DCLDZEVEFTV.DA-CREVTPD-479EVEF                     00023597
+023598         FROM DZEVEFTV                                            00023598
+023599       WHERE CT_RKTPROD_479BEFF = :DCLDZEVEFTV.CT-RKTPROD-479BEFF 00023599
+023600         AND NR_IDSTOCK_479BEFF = :DCLDZEVEFTV.NR-IDSTOCK-479BEFF 00023600
+023601         AND NS_DBSTK_479BEFF   = :DCLDZEVEFTV.NS-DBSTK-479BEFF   00023601
+023602         AND NR_CDSTK_479BEFF   = :DCLDZEVEFTV.NR-CDSTK-479BEFF   00023602
+023603         AND CT_RKTEVPR_479EVEF = :DCLDZEVEFTV.CT-RKTEVPR-479EVEF 00023603
+023604       ORDER BY NR_ID_479EVEF  DESC                               00023604
+023605       FETCH FIRST ROW ONLY                                       00023605
+023610       QUERYNO 234                                                00023610
+023700     END-EXEC                                                     00023700
+023800                                                                  00023800
+023900     EVALUATE SQLCODE                                             00023900
+024000         WHEN 0                                                   00024000
+024200              CONTINUE                                            00024200
+024300         WHEN 100                                                 00024300
+024400              DISPLAY 'NO DATA FOUND FOR SELECT DZEVEFTV'         00024400
+024500              DISPLAY 'CT-RKTPROD-479BEFF: ' CT-RKTPROD-479BEFF   00024500
+024600                                            OF DCLDZEVEFTV        00024600
+024700              DISPLAY 'NR-IDSTOCK-479BEFF: ' NR-IDSTOCK-479BEFF   00024700
+024800                                            OF DCLDZEVEFTV        00024800
+024900              DISPLAY 'NS-DBSTK-479BEFF  : ' NS-DBSTK-479BEFF     00024900
+025000                                            OF DCLDZEVEFTV        00025000
+025100              DISPLAY 'NR-CDSTK-479BEFF  : ' NR-CDSTK-479BEFF     00025100
+025200                                            OF DCLDZEVEFTV        00025200
+025300              PERFORM SQLERROR                                    00025300
+025400         WHEN OTHER                                               00025400
+025500              DISPLAY 'CT-RKTPROD-479BEFF: ' CT-RKTPROD-479BEFF   00025500
+025600                                            OF DCLDZEVEFTV        00025600
+025700              DISPLAY 'NR-IDSTOCK-479BEFF: ' NR-IDSTOCK-479BEFF   00025700
+025800                                            OF DCLDZEVEFTV        00025800
+025900              DISPLAY 'NS-DBSTK-479BEFF  : ' NS-DBSTK-479BEFF     00025900
+026000                                            OF DCLDZEVEFTV        00026000
+026100              DISPLAY 'NR-CDSTK-479BEFF  : ' NR-CDSTK-479BEFF     00026100
+026200                                            OF DCLDZEVEFTV        00026200
+026300              PERFORM SQLERROR                                    00026300
+026400     END-EVALUATE                                                 00026400
+026500     .                                                            00026500
+026523                                                                  00026523
+026524*----------------------------------------------------------------*00026524
+026525 2200-MOVE-MUTATIES.                                              00026525
+026526*-------------                                                    00026526
+026528     INITIALIZE VMDZ510I                                          00026528
+026529      REPLACING ALPHANUMERIC BY SPACES                            00026529
+026530                     NUMERIC BY ZEROES.                           00026530
+026531      INITIALIZE WS-NR-ID-GOOD                                    00026531
+026532                 WS-NR-ISSUE.                                     00026532
+026533     MOVE NR-IDGOOD-479EVEF   OF DCLDZEVEFTV TO WS-NR-ID-GOOD.    00026533
+026534     MOVE NR-CI1POS-479EVEF   OF DCLDZEVEFTV TO                   00026534
+026535                                   HELP-NR-CIO-FORM-AS-1POS.      00026535
+026536     MOVE NR-CI26POS-479EVEF  OF DCLDZEVEFTV TO                   00026536
+026537                                   HELP-NR-CIO-FORM-AS-26POS.     00026537
+026538     MOVE HELP-NR-CIO-FORM-AS TO NR-CIO-FORM-AS    OF VMDZ510I.   00026538
+026539     MOVE WS-DA-CREA          TO DA-CREA-FORM-AS-R OF VMDZ510I.   00026539
+026540     STRING DA-CR-FORM-AS-Y                        OF VMDZ510I '-'00026540
+026541            DA-CR-FORM-AS-M                        OF VMDZ510I '-'00026541
+026542            DA-CR-FORM-AS-D                        OF VMDZ510I '-'00026542
+026543            '01.01.01.000001'                                     00026543
+026544            DELIMITED BY SIZE                                     00026544
+026545       INTO TS-CREA-OORD                           OF VMDZ510I.   00026545
+026546     MOVE WS-NR-ID                                                00026546
+026547       TO NR-ID-FORM-AS                            OF VMDZ510I.   00026547
+026548     MOVE WS-CT-OPG                                               00026548
+026549       TO CT-OPG-FORM-AS-R                         OF VMDZ510I.   00026549
+026550     MOVE WS-CT-OPD                                               00026550
+026551       TO CT-OPD-FORM-AS-R                         OF VMDZ510I.   00026551
+026552                                                                  00026552
+026553     MOVE NR-IDISSUE-479BEFF OF DCLDZBEFFTV TO WS-NR-ID-ISSUE.    00026553
+026554     MOVE NR-CDISSUE-479BEFF OF DCLDZBEFFTV TO WS-NR-CD-ISSUE.    00026554
+026555     MOVE WS-NR-ISSUE        TO NR-ISSUIN-OORD     OF VMDZ510I.   00026555
+026556     MOVE AM-CNSTK-479BEFF                         OF DCLDZBEFFTV 00026556
+026557       TO AM-CNS-FORM-AS                           OF VMDZ510I.   00026557
+026558     MOVE NR-IDSTOCK-479BEFF                       OF DCLDZBEFFTV 00026558
+026559       TO HELP-NR-ID-STOCK-CD-112POS                              00026559
+026560     MOVE NR-CDSTK-479BEFF                         OF DCLDZBEFFTV 00026560
+026561       TO HELP-NR-ID-STOCK-CD-13POS                               00026561
+026562     MOVE HELP-NR-ID-STOCK-CD TO NR-ST-FORM-AS-R   OF VMDZ510I.   00026562
+026563                                                                  00026563
+026564     MOVE HELP-NR-ID-STOCK-CD TO NR-STIN-OORD      OF VMDZ510I.   00026564
+026565                                                                  00026565
+026566     MOVE NS-DBSTK-479BEFF                         OF DCLDZBEFFTV 00026566
+026567       TO NS-DBST-OORD                             OF VMDZ510I.   00026567
+026568     IF NX-CPCRESK-479BEFF OF DCLDZBEFFTV = 0                     00026568
+026569       MOVE AM-CNDSTK-479BEFF                      OF DCLDZBEFFTV 00026569
+026570         TO AM-CND-FORM-AS                         OF VMDZ510I    00026570
+026571     ELSE                                                         00026571
+026572       MOVE AM-INTERSK-479BEFF                     OF DCLDZBEFFTV 00026572
+026573         TO AM-INTER-FORM-AS                       OF VMDZ510I    00026573
+026574     END-IF.                                                      00026574
+026575     MOVE CO-IDPRKSK-479BEFF                       OF DCLDZBEFFTV 00026575
+026576       TO NR-ID-040SECU                            OF VMDZ510I.   00026576
+026577     MOVE NS-IRMOSTK-479BEFF                       OF DCLDZBEFFTV 00026577
+026578       TO NS-SEQ-040IRMO                           OF VMDZ510I.   00026578
+037503     MOVE DA-UBSECIS-479BEFF OF DCLDZBEFFTV  TO DA-DD-MM-CCYY     00037503
+037603     EVALUATE TRUE                                                00037603
+037703      WHEN DA-DD-MM-CCYY = '01.01.0001'                           00037703
+037803           MOVE ZEROES      TO DA-CCYYMMDD-R                      00037803
+037903      WHEN DA-DD-MM-CCYY = '31.12.9999'                           00037903
+038003           MOVE '99999999'  TO DA-CCYYMMDD-R                      00038003
+038103      WHEN OTHER                                                  00038103
+038203           MOVE CCYY OF DA-DD-MM-CCYY TO CCYY OF DA-CCYYMMDD-R    00038203
+038303           MOVE MM   OF DA-DD-MM-CCYY TO MM   OF DA-CCYYMMDD-R    00038303
+038403           MOVE DD   OF DA-DD-MM-CCYY TO DD   OF DA-CCYYMMDD-R    00038403
+038503     END-EVALUATE                                                 00038503
+038603     MOVE DA-CCYYMMDD-R               TO HELP-DA-UBSECIS-STOCK.   00038603
+038604     MOVE HELP-DA-UBSECIS-STOCK       TO DA-UB-FORM-AS            00038604
+038605                                              OF VMDZ510I.        00038605
+038606     MOVE DA-CREVTPD-479EVEF OF DCLDZEVEFTV  TO DA-DD-MM-CCYY     00038606
+038607     EVALUATE TRUE                                                00038607
+038608      WHEN DA-DD-MM-CCYY = '01.01.0001'                           00038608
+038609           MOVE ZEROES      TO DA-CCYYMMDD-R                      00038609
+038610      WHEN DA-DD-MM-CCYY = '31.12.9999'                           00038610
+038611           MOVE '99999999'  TO DA-CCYYMMDD-R                      00038611
+038612      WHEN OTHER                                                  00038612
+038613           MOVE CCYY OF DA-DD-MM-CCYY TO CCYY OF DA-CCYYMMDD-R    00038613
+038614           MOVE MM   OF DA-DD-MM-CCYY TO MM   OF DA-CCYYMMDD-R    00038614
+038615           MOVE DD   OF DA-DD-MM-CCYY TO DD   OF DA-CCYYMMDD-R    00038615
+038616     END-EVALUATE                                                 00038616
+038617     MOVE DA-CCYYMMDD-R              TO HELP-DA-CR-EVENT-PROD.    00038617
+038618     MOVE HELP-DA-CR-EVENT-PROD      TO DA-COMPTABILISATION-OPER  00038618
+038619                                              OF VMDZ510I.        00038619
+038620     MOVE HELP-DA-CR-EVENT-PROD      TO DA-EXEC-OORD              00038620
+038621                                              OF VMDZ510I.        00038621
+038622     MOVE NX-CPCRESK-479BEFF                  OF DCLDZBEFFTV      00038622
+038623       TO NS-RANK-COUP                        OF VMDZ510I.        00038623
+038624     MOVE NX-CPAIDSK-479BEFF                  OF DCLDZBEFFTV      00038624
+038625       TO NX-CPAID-STOCK                      OF VMDZ510I.        00038625
+038627                                                                  00038627
+038628* EXTRA ZONES OPVULLEN                                            00038628
+038629                                                                  00038629
+038630     EVALUATE WS-CT-OPD                                           00038630
+038631       WHEN 00                                                    00038631
+038632           MOVE 'MU' TO CO-TYPOPER-OORD OF VMDZ510I               00038632
+038633       WHEN OTHER                                                 00038633
+038634           MOVE '??' TO CO-TYPOPER-OORD OF VMDZ510I               00038634
+038635           DISPLAY 'ABEND VERKEERDE CT-OPD = '                    00038635
+038636                    WS-CT-OPD                                     00038636
+038637           DISPLAY  DCLDZBEFFTV                                   00038637
+038638           DISPLAY  DCLDZEVEFTV                                   00038638
+038639           CALL USERABEN                                          00038639
+038640     END-EVALUATE.                                                00038640
+038641* UITGIFTE = SRW DUS '1'                                          00038641
+038642     MOVE '1' TO CO-ISSUIN-OORD         OF VMDZ510I.              00038642
+038643     MOVE 001 TO NB-ST-OORD             OF VMDZ510I.              00038643
+038644* EFFECT = IKB = DEXIA DUS '1'                                    00038644
+038645     MOVE '1' TO CO-STIN-OORD           OF VMDZ510I.              00038645
+038646                                                                  00038646
+038647     ADD 1    TO VOLGNUMMER.                                      00038647
+038648     STRING 'CIR '                                                00038648
+038649            CT-OPD-FORM-AS OF VMDZ510I ' '                        00038649
+038650            VOLGNUMMER                                            00038650
+038651            DELIMITED BY SIZE                                     00038651
+038652       INTO NR-REFORD-OORD OF VMDZ510I.                           00038652
+038653                                                                  00038653
+038654* EXTRA'S ANNIE STEPPE                                            00038654
+038655     STRING 'X'                                                   00038655
+038656            '000000'                                              00038656
+038657            '      '                                              00038657
+038658            DELIMITED BY SIZE                                     00038658
+038659       INTO NR-TRANS-OORD  OF VMDZ510I.                           00038659
+038660* 10=AGENCY 11=ZETEL                                              00038660
+038663       MOVE '10'    TO CO-TYPKAN2-OORD OF VMDZ510I                00038663
+038667       MOVE 'DX'      TO CO-BANK-OORD    OF VMDZ510I.             00038667
+038668                                                                  00038668
+038669       MOVE WS-OLD-CI TO NR-CIINPTR-OORD OF VMDZ510I.             00038669
+038670                                                                  00038670
+038671*----------------------------------------------------------------*00038671
+038672 2300-WRITE-MUTATIES.                                             00038672
+038673*--------------                                                   00038673
+038674       ADD 1        TO WS-COUNT-TREATED                           00038674
+038675       WRITE FO-MUTATIES-REC FROM VMDZ510I                        00038675
+038676     .                                                            00038676
+038677                                                                  00038677
+038678*----------------------------------------------------------------*00038678
+038679 1200-READ-MUTATIES.                                              00038679
+038680*-------------                                                    00038680
+038690     INITIALIZE WS-MUTATIES                                       00038690
+038692     READ FI-MUTATIES   INTO    WS-MUTATIES                       00038692
+038693     AT END                                                       00038693
+038694       SET MUTATIES-EOF TO TRUE                                   00038694
+038695     NOT AT END                                                   00038695
+038696       ADD 1 TO WS-TOTAL-INPUT                                    00038696
+038697       CONTINUE                                                   00038697
+038698     END-READ                                                     00038698
+038699     .                                                            00038699
+038700                                                                  00038700
+038800 1100-GET-TIMESTAMP.                                              00038800
+063302     MOVE FUNCTION CURRENT-DATE            TO TS-SYSTEM.          00063302
+063402     MOVE CC OF TS-SYSTEM                  TO CC OF TS-TIMESTAMP  00063402
+063502     MOVE YY OF TS-SYSTEM                  TO YY OF TS-TIMESTAMP  00063502
+063602     MOVE MM OF TS-SYSTEM                  TO MM OF TS-TIMESTAMP  00063602
+063702     MOVE DD OF TS-SYSTEM                  TO DD OF TS-TIMESTAMP  00063702
+063802     MOVE HH OF TS-SYSTEM                  TO HH OF TS-TIMESTAMP  00063802
+063902     MOVE MI OF TS-SYSTEM                  TO MI OF TS-TIMESTAMP  00063902
+064002     MOVE SS OF TS-SYSTEM                  TO SS OF TS-TIMESTAMP  00064002
+064102     MOVE TT OF TS-SYSTEM                  TO TT OF TS-TIMESTAMP  00064102
+064202     DISPLAY 'TIMESTAMP: ' TS-TIMESTAMP                           00064202
+064302     .                                                            00064302
+064303* SQLERROR ROUTINE.                                               00064303
+064304     EXEC SQL                                                     00064304
+064305          INCLUDE SQLERROR                                        00064305
+064306     END-EXEC.                                                    00064306

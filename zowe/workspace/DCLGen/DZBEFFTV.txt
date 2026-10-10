@@ -1,0 +1,62 @@
+      ******************************************************************
+      * DCLGEN TABLE(DZ.DZBEFFTV)                                      *
+      *        LIBRARY(ES.BDB2.VIEW.COB.TST(DZBEFFTV))                 *
+      *        ACTION(REPLACE)                                         *
+      *        LANGUAGE(COBOL)                                         *
+      *        APOST                                                   *
+      *        DBCSDELIM(NO)                                           *
+      * ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+      ******************************************************************
+           EXEC SQL DECLARE DZBEFFTV TABLE
+           ( CT_RKTPROD_479BEFF             CHAR(4) NOT NULL,
+             NR_IDSTOCK_479BEFF             CHAR(12) NOT NULL,
+             NR_CDSTK_479BEFF               DECIMAL(1, 0) NOT NULL,
+             NS_DBSTK_479BEFF               DECIMAL(2, 0) NOT NULL,
+             CO_IDISSUS_479WCEF             CHAR(4) NOT NULL,
+             NS_IRMOS_479WCEF               DECIMAL(4, 0) NOT NULL,
+             DA_UBSECIS_479WCEF             DATE NOT NULL,
+             AM_CNDSTK_479BEFF              DECIMAL(15, 2) NOT NULL,
+             AM_CNSTK_479BEFF               DECIMAL(15, 2) NOT NULL,
+             CT_RKTPRDX_479BEFF             CHAR(4) NOT NULL,
+             NR_IDISSUE_479BEFF             DECIMAL(7, 0) NOT NULL,
+             NR_CDISSUE_479BEFF             DECIMAL(2, 0) NOT NULL,
+             NX_CPCRESK_479BEFF             DECIMAL(3, 0) NOT NULL,
+             NX_CPAIDSK_479BEFF             DECIMAL(3, 0) NOT NULL,
+             NX_CPFDUSK_479BEFF             DECIMAL(3, 0) NOT NULL,
+             AM_INTERSK_479BEFF             DECIMAL(15, 2) NOT NULL,
+             CO_IDPRKSK_479BEFF             CHAR(4) NOT NULL,
+             NS_IRMOSTK_479BEFF             DECIMAL(4, 0) NOT NULL,
+             DA_UBSECIS_479BEFF             DATE NOT NULL,
+             TS_CREATE_479BEFF              TIMESTAMP NOT NULL,
+             TS_UPDATE_479BEFF              TIMESTAMP NOT NULL,
+             ID_USERID_479BEFF              CHAR(8) NOT NULL
+           ) END-EXEC.
+      ******************************************************************
+      * COBOL DECLARATION FOR TABLE DZ.DZBEFFTV                        *
+      ******************************************************************
+       01  DCLDZBEFFTV.
+           10 CT-RKTPROD-479BEFF   PIC X(4).
+           10 NR-IDSTOCK-479BEFF   PIC X(12).
+           10 NR-CDSTK-479BEFF     PIC S9(1)V USAGE COMP-3.
+           10 NS-DBSTK-479BEFF     PIC S9(2)V USAGE COMP-3.
+           10 CO-IDISSUS-479WCEF   PIC X(4).
+           10 NS-IRMOS-479WCEF     PIC S9(4)V USAGE COMP-3.
+           10 DA-UBSECIS-479WCEF   PIC X(10).
+           10 AM-CNDSTK-479BEFF    PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-CNSTK-479BEFF     PIC S9(13)V9(2) USAGE COMP-3.
+           10 CT-RKTPRDX-479BEFF   PIC X(4).
+           10 NR-IDISSUE-479BEFF   PIC S9(7)V USAGE COMP-3.
+           10 NR-CDISSUE-479BEFF   PIC S9(2)V USAGE COMP-3.
+           10 NX-CPCRESK-479BEFF   PIC S9(3)V USAGE COMP-3.
+           10 NX-CPAIDSK-479BEFF   PIC S9(3)V USAGE COMP-3.
+           10 NX-CPFDUSK-479BEFF   PIC S9(3)V USAGE COMP-3.
+           10 AM-INTERSK-479BEFF   PIC S9(13)V9(2) USAGE COMP-3.
+           10 CO-IDPRKSK-479BEFF   PIC X(4).
+           10 NS-IRMOSTK-479BEFF   PIC S9(4)V USAGE COMP-3.
+           10 DA-UBSECIS-479BEFF   PIC X(10).
+           10 TS-CREATE-479BEFF    PIC X(26).
+           10 TS-UPDATE-479BEFF    PIC X(26).
+           10 ID-USERID-479BEFF    PIC X(8).
+      ******************************************************************
+      * THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 22      *
+      ******************************************************************

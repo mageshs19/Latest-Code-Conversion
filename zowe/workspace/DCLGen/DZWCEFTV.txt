@@ -1,0 +1,28 @@
+      ******************************************************************
+      * DCLGEN TABLE(DZ.DZWCEFTV)                                      *
+      *        LIBRARY(ES.BDB2.VIEW.COB.TST(DZWCEFTV))                 *
+      *        ACTION(REPLACE)                                         *
+      *        LANGUAGE(COBOL)                                         *
+      *        APOST                                                   *
+      *        DBCSDELIM(NO)                                           *
+      * ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+      ******************************************************************
+           EXEC SQL DECLARE DZWCEFTV TABLE
+           ( CO_IDISSUS_479WCEF             CHAR(4) NOT NULL,
+             NS_IRMOS_479WCEF               DECIMAL(4, 0) NOT NULL,
+             DA_UBSECIS_479WCEF             DATE NOT NULL,
+             TS_CREATE_479WCEF              TIMESTAMP NOT NULL,
+             ID_USERID_479WCEF              CHAR(8) NOT NULL
+           ) END-EXEC.
+      ******************************************************************
+      * COBOL DECLARATION FOR TABLE DZ.DZWCEFTV                        *
+      ******************************************************************
+       01  DCLDZWCEFTV.
+           10 CO-IDISSUS-479WCEF   PIC X(4).
+           10 NS-IRMOS-479WCEF     PIC S9(4)V USAGE COMP-3.
+           10 DA-UBSECIS-479WCEF   PIC X(10).
+           10 TS-CREATE-479WCEF    PIC X(26).
+           10 ID-USERID-479WCEF    PIC X(8).
+      ******************************************************************
+      * THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 5       *
+      ******************************************************************

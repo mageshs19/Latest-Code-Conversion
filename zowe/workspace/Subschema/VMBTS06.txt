@@ -1,0 +1,815 @@
+     DEL SUBSCHEMA NAME IS VMBTS06 OF SCHEMA NAME IS VMBTSCH.
+     ADD SUBSCHEMA NAME IS VMBTS06 OF SCHEMA NAME IS VMBTSCH
+         PUBLIC ACCESS IS ALLOWED FOR ALL
+         USAGE IS MIXED
+         LR CURRENCY NO RESET
+         .
+********************************
+*         AREA SECTION         *
+********************************
+     ADD AREA AR-VMBFRM1
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBFRM2
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBFRM3
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBRFFB
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBRFFT
+         DEF USA SHARED UPDATE
+         .
+********************************
+*         RECORD SECTION       *
+********************************
+     ADD REC VMBFAS
+         .
+     ADD REC VMBSIAS
+         .
+     ADD REC VMBFAR
+         .
+     ADD REC VMBSIAR
+         .
+     ADD REC VMBFORM
+         .
+     ADD REC VMBMESS
+         .
+     ADD REC VMBFDN
+         .
+     ADD REC VMBSIDN
+         .
+     ADD REC VMBFRT
+         .
+     ADD REC VMBSIRT
+         .
+     ADD REC VMBFR
+         .
+     ADD REC VMBSIR
+         .
+     ADD REC VMBFTE
+         .
+     ADD REC VMBSITE
+         .
+     ADD REC VMBFTEL
+         .
+     ADD REC VMBFRV
+         .
+     ADD REC VMBSIRV
+         .
+     ADD REC VMBFGD
+         .
+     ADD REC VMBJFGD
+         .
+     ADD REC FFRECAB
+         .
+     ADD REC FFRECBB
+         .
+     ADD REC FFRECAT
+         .
+********************************
+*         SET SECTION          *
+********************************
+     ADD SET VMBSIAS-VMBFAS
+         .
+     ADD SET VMBSIAR-VMBFAR
+         .
+     ADD SET VMBFORM-M1
+         .
+     ADD SET VMBSIDN-VMBFDN
+         .
+     ADD SET VMBSIRT-FRT-DI1
+         .
+     ADD SET VMBSIRT-FRT-DI2
+         .
+     ADD SET VMBSIR-FR-DI1
+         .
+     ADD SET VMBSIR-FR-DI2
+         .
+     ADD SET VMBSITE-VMBFTE
+         .
+     ADD SET VMBFTE-VMBFTEL
+         .
+     ADD SET VMBSIRV-VMBFRV
+         .
+     ADD SET VMBFGD-EXPL
+         .
+     ADD SET VMBFGD-IMPL
+         .
+     ADD SET FFRECAB-FFRECBB
+         .
+*
+****************************************************
+*                                                  *
+*         L O G I C A L  R E C O R D   DESCRIPTION *
+*                                                  *
+****************************************************
+*
+*
+     ADD LOGICAL RECORD VMBTL06-R01
+         ELEMENTS ARE
+             VMBFORM
+             VMBFAS
+             VMBMESS
+             VMBFTE
+             VMBFRT
+             VMBFDN
+             VMBFAR
+             VMBFR
+             VMBFTEL
+             VMBSIAS
+             VMBSIDN
+             VMBSIRT
+             VMBSITE
+             VMBSIAR
+             VMBSIR
+             VMBFRV
+             VMBSIRV
+             VMBFGD
+             VMBJFGD
+         COMMENTS
+             'GEBRUIKT IN FUNCTIE VAN DE A-FORMULIEREN DIE'
+       -     'TERUG KOMEN VAN DE AGENT'
+         .
+*
+****************************************************
+*                                                  *
+*         P A T H  D E S C R I P T I O N S         *
+*                                                  *
+****************************************************
+*
+     ADD PATH-GROUP ERASE VMBTL06-R01
+*    --------------------------------
+         SELECT FOR KEYWORD ERASE-VMBFORM-ALL-MEMBERS
+*        --------------------------------------------
+             FIND CURRENT VMBFORM
+                 ON 0000 NEXT
+             ERASE VMBFORM ALL MEMBERS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ERASE-VMBFAS
+*        -------------------------------
+             FIND CURRENT VMBFAS
+                 ON 0000 NEXT
+             ERASE VMBFAS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ERASE-VMBFAR
+*        -------------------------------
+             FIND CURRENT VMBFAR
+                 ON 0000 NEXT
+             ERASE VMBFAR
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ERASE-VMBFRV
+*        -------------------------------
+             FIND CURRENT VMBFRV
+                 ON 0000 NEXT
+             ERASE VMBFRV
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ERASE-VMBFRV-VMBFORM
+*        ---------------------------------------
+             FIND CURRENT VMBFRV
+                 ON 0000 NEXT
+             ERASE VMBFRV
+                 ON 0000 NEXT
+             FIND CURRENT VMBFORM
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 1601 NEXT
+                 ON 0000 DO
+             ERASE VMBFORM
+                 ON 0000 RETURN VMBFORM-ERASED
+                 END
+         SELECT FOR KEYWORD ERASE-VMBFGD-ALL-MEMBERS
+*        -------------------------------------------
+             FIND FIRST VMBFGD
+                 WHERE CALCKEY EQ KY-VMBFGD OF VMBFGD OF LR
+                 ON 0326 RETURN VMBFGD-NOT-FND
+                 ON 0000 NEXT
+             ERASE VMBFGD ALL MEMBERS
+                 ON 0000 NEXT
+         .
+     ADD PATH-GROUP MODIFY VMBTL06-R01
+*    ---------------------------------
+         SELECT FOR KEYWORD MODIFY-VMBFAS
+*        --------------------------------
+             FIND CURRENT VMBFAS
+                 ON 0000 NEXT
+             MODIFY VMBFAS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFORM
+*        ---------------------------------
+             FIND CURRENT VMBFORM
+                 ON 0000 NEXT
+             MODIFY VMBFORM
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFTE
+*        --------------------------------
+             FIND CURRENT VMBFTE
+                 ON 0000 NEXT
+             MODIFY VMBFTE
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFDN
+*        --------------------------------
+             FIND CURRENT VMBFDN
+                 ON 0000 NEXT
+             MODIFY VMBFDN
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFRT
+*        --------------------------------
+             FIND CURRENT VMBFRT
+                 ON 0000 NEXT
+             MODIFY VMBFRT
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFAR
+*        --------------------------------
+             FIND CURRENT VMBFAR
+                 ON 0000 NEXT
+             MODIFY VMBFAR
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFR
+*        -------------------------------
+             FIND CURRENT VMBFR
+                 ON 0000 NEXT
+             MODIFY VMBFR
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFTEL
+*        ---------------------------------
+             FIND CURRENT VMBFTEL
+                 ON 0000 NEXT
+             MODIFY VMBFTEL
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MODIFY-VMBFRV
+*        --------------------------------
+             FIND CURRENT VMBFRV
+                 ON 0000 NEXT
+             MODIFY VMBFRV
+                 ON 0000 NEXT
+         .
+     ADD PATH-GROUP OBTAIN VMBTL06-R01
+*    ---------------------------------
+         SELECT FOR KEYWORD SWEEP-VMBFORM-VMBMESS
+*        ----------------------------------------
+             OBTAIN EACH VMBFORM WITHIN AR-VMBFRM3
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFORM
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBMESS-FND
+                 ON 1601 NEXT
+             OBTAIN EACH VMBMESS WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBMESS
+         SELECT FOR KEYWORD ALL-VMBMESS-VMBFORM
+*        --------------------------------------
+             OBTAIN FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBMESS-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBMESS WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBMESS
+                 END
+         SELECT FOR KEYWORD OB-VMBFAS
+*        ----------------------------
+             OBTAIN FIRST VMBFAS
+                 WHERE CALCKEY EQ KY-VMBFAS OF VMBFAS OF LR
+                 ON 0326 RETURN VMBFAS-NOT-FND
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD OB-DUP-VMBFAS
+*        --------------------------------
+             OBTAIN EACH VMBFAS
+                 WHERE CALCKEY EQ KY-VMBFAS OF VMBFAS OF LR
+                 ON 0326 RETURN VMBFAS-NOT-FND
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ALL-VMBFDN-VMBFORM
+*        -------------------------------------
+             OBTAIN FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFDN-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFDN WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFDN
+                 END
+         SELECT FOR KEYWORD ALL-VMBFRT-VMBFORM
+*        -------------------------------------
+             OBTAIN FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFRT-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFRT WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFRT
+                 END
+         SELECT FOR KEYWORD ALL-VMBFTE-VMBFORM
+*        -------------------------------------
+             OBTAIN FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFTE-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFTE WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFTE
+                 END
+         SELECT FOR KEYWORD ALL-VMBFRV-VMBFORM
+*        -------------------------------------
+             OBTAIN FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFRV-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFRV WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFRV
+                 END
+         SELECT FOR KEYWORD OB-VMBFAR
+*        ----------------------------
+             OBTAIN FIRST VMBFAR
+                 WHERE CALCKEY EQ KY-VMBFAR OF VMBFAR OF LR
+                 ON 0326 RETURN VMBFAR-NOT-FND
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ALL-VMBFR-VMBFORM
+*        ------------------------------------
+             OBTAIN FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFR-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFR WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFR
+                 END
+         SELECT FOR KEYWORD ALL-VMBFTEL-VMBFORM
+*        --------------------------------------
+             OBTAIN FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFORM-M1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFTE-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFTE WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFTE
+                 END
+             IF VMBFTE-VMBFTEL IS EMPTY
+                 ON 0000 RETURN NO-VMBFTEL-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFTEL WITHIN VMBFTE-VMBFTEL
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFTEL
+                 END
+         SELECT FOR KEYWORD VMBFAS-BY-VMBSIAS
+*        ------------------------------------
+             FIND FIRST VMBSIAS
+                 WHERE CALCKEY EQ KY-SIFORM OF VMBSIAS OF LR
+                 ON 0326 RETURN VMBSIAS-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIAS-VMBFAS IS EMPTY
+                 ON 0000 RETURN NO-VMBFAS-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFAS WITHIN VMBSIAS-VMBFAS
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFAS
+                 END
+         SELECT FOR KEYWORD ONE-VMBSITE
+*        ------------------------------
+             FIND FIRST VMBSITE
+                 WHERE CALCKEY EQ KY-SIGIFTE OF VMBSITE OF LR
+                 ON 0326 RETURN VMBSITE-NOT-FND
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ALL-VMBFTEL-BY-VMBSITE
+*        -----------------------------------------
+             FIND FIRST VMBSITE
+                 WHERE CALCKEY EQ KY-SIGIFTE OF VMBSITE OF LR
+                 ON 0326 RETURN VMBSITE-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSITE-VMBFTE IS EMPTY
+                 ON 0000 RETURN NO-VMBFTE-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFTE WITHIN VMBSITE-VMBFTE
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFTE
+                 END
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 END
+             FIND CURRENT VMBFTE
+                 ON 0000 NEXT
+             IF VMBFTE-VMBFTEL IS EMPTY
+                 ON 0000 RETURN NO-VMBFTEL-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFTEL WITHIN VMBFTE-VMBFTEL
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFTEL
+                 END
+         SELECT FOR KEYWORD ALL-VMBFRT-BY-VMBSIRT
+*        ----------------------------------------
+             FIND FIRST VMBSIRT
+                 WHERE CALCKEY EQ KY-SIGIFRT OF VMBSIRT OF LR
+                 ON 0326 RETURN VMBSIRT-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIRT-FRT-DI1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFRT-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFRT WITHIN VMBSIRT-FRT-DI1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFRT
+                 END
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 END
+         SELECT FOR KEYWORD ALL-VMBFRT-BY-VMBSIRT-2
+*        ------------------------------------------
+             FIND FIRST VMBSIRT
+                 WHERE CALCKEY EQ KY-SIGIFRT OF VMBSIRT OF LR
+                 ON 0326 RETURN VMBSIRT-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIRT-FRT-DI1 IS EMPTY
+                 ON 0000 NEXT
+                 ON 1601 DO
+             OBTAIN EACH VMBFRT WITHIN VMBSIRT-FRT-DI1
+                 ON 0307 RETURN NO-MORE-VMBFRT
+                 ON 0000 DO
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 RETURN VMBFRT-D1
+                 END
+                 END
+                 END
+             IF VMBSIRT-FRT-DI2 IS EMPTY
+                 ON 0000 RETURN NO-VMBFRT-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFRT WITHIN VMBSIRT-FRT-DI2
+                 ON 0307 RETURN NO-MORE-VMBFRT
+                 ON 0000 DO
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 RETURN VMBFRT-D2
+                 END
+                 END
+                 END
+         SELECT FOR KEYWORD ALL-FRT-BY-SIRT-2
+*        ------------------------------------
+             FIND FIRST VMBSIRT
+                 WHERE CALCKEY EQ KY-SIGIFRT OF VMBSIRT OF LR
+                 ON 0326 RETURN VMBSIRT-NOT-FND
+                 ON 0000 NEXT
+             OBTAIN EACH VMBFRT WITHIN VMBSIRT-FRT-DI1
+                 ON 0000 DO
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND-DI1
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 END
+                 END
+                 ON 0307 DO
+             FIND FIRST VMBSIRT
+                 WHERE CALCKEY EQ KY-SIGIFRT OF VMBSIRT OF LR
+                 ON 0000 DO
+             OBTAIN EACH VMBFRT WITHIN VMBSIRT-FRT-DI2
+                 ON 0307 RETURN NO-MORE-VMBFRT
+                 ON 0000 NEXT
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND-DI2
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 END
+                 END
+                 ON 0326 ITERATE
+                 END
+         SELECT FOR KEYWORD ALL-VMBFDN-BY-VMBSIDN
+*        ----------------------------------------
+             FIND FIRST VMBSIDN
+                 WHERE CALCKEY EQ KY-SIGIFDN OF VMBSIDN OF LR
+                 ON 0326 RETURN VMBSIDN-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIDN-VMBFDN IS EMPTY
+                 ON 0000 RETURN NO-VMBFDN-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFDN WITHIN VMBSIDN-VMBFDN
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFDN
+                 END
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 END
+         SELECT FOR KEYWORD ALL-VMBFAR-BY-VMBSIAR
+*        ----------------------------------------
+             FIND FIRST VMBSIAR
+                 WHERE CALCKEY EQ KY-SIGIFAR OF VMBSIAR OF LR
+                 ON 0326 RETURN VMBSIAR-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIAR-VMBFAR IS EMPTY
+                 ON 0000 RETURN NO-VMBFAR-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFAR WITHIN VMBSIAR-VMBFAR
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFAR
+                 END
+         SELECT FOR KEYWORD ALL-VMBFR-BY-VMBSIR
+*        --------------------------------------
+             FIND FIRST VMBSIR
+                 WHERE CALCKEY EQ KY-SIGIFR OF VMBSIR OF LR
+                 ON 0326 RETURN VMBSIR-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIR-FR-DI1 IS EMPTY
+                 ON 0000 RETURN NO-VMBFR-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFR WITHIN VMBSIR-FR-DI1
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFR
+                 END
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 END
+         SELECT FOR KEYWORD ALL-VMBFR-BY-VMBSIR-2
+*        ----------------------------------------
+             FIND FIRST VMBSIR
+                 WHERE CALCKEY EQ KY-SIGIFR OF VMBSIR OF LR
+                 ON 0326 RETURN VMBSIR-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIR-FR-DI1 IS EMPTY
+                 ON 0000 NEXT
+                 ON 1601 DO
+             OBTAIN EACH VMBFR WITHIN VMBSIR-FR-DI1
+                 ON 0307 RETURN NO-MORE-VMBFR
+                 ON 0000 DO
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 RETURN VMBFR-D1
+                 END
+                 END
+                 END
+             IF VMBSIR-FR-DI2 IS EMPTY
+                 ON 0000 RETURN NO-VMBFR-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFR WITHIN VMBSIR-FR-DI2
+                 ON 0307 RETURN NO-MORE-VMBFR
+                 ON 0000 DO
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 RETURN VMBFR-D2
+                 END
+                 END
+                 END
+         SELECT FOR KEYWORD ALL-VMBFRV-BY-VMBSIRV
+*        ----------------------------------------
+             FIND FIRST VMBSIRV
+                 WHERE CALCKEY EQ KY-SIGIFRV OF VMBSIRV OF LR
+                 ON 0326 RETURN VMBSIRV-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIRV-VMBFRV IS EMPTY
+                 ON 0000 RETURN NO-VMBFRV-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFRV WITHIN VMBSIRV-VMBFRV
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFRV
+                 END
+             IF VMBFORM-M1 MEMBER
+                 ON 1601 RETURN NO-OWNER-FND
+                 ON 0000 DO
+             OBTAIN OWNER WITHIN VMBFORM-M1
+                 ON 0000 NEXT
+                 END
+         SELECT FOR KEYWORD ALL-VMBJFGD-BY-VMBFGD-EXPL
+*        ---------------------------------------------
+             FIND FIRST VMBFGD
+                 WHERE CALCKEY EQ KY-VMBFGD OF VMBFGD OF LR
+                 ON 0326 RETURN VMBFGD-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFGD-EXPL IS EMPTY
+                 ON 0000 RETURN NO-VMBJFGD-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBJFGD WITHIN VMBFGD-EXPL
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBJFGD
+                 END
+         SELECT FOR KEYWORD ALL-VMBJFGD-BY-VMBFGD-IMPL
+*        ---------------------------------------------
+             FIND FIRST VMBFGD
+                 WHERE CALCKEY EQ KY-VMBFGD OF VMBFGD OF LR
+                 ON 0326 RETURN VMBFGD-NOT-FND
+                 ON 0000 NEXT
+             IF VMBFGD-IMPL IS EMPTY
+                 ON 0000 RETURN NO-VMBJFGD-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBJFGD WITHIN VMBFGD-IMPL
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBJFGD
+                 END
+         .
+     ADD PATH-GROUP STORE VMBTL06-R01
+*    --------------------------------
+         SELECT FOR KEYWORD CREATE-VMBFORM
+*        ---------------------------------
+             STORE VMBFORM
+                 ON 1205 RETURN VMBFORM-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFAS-FOR-VMBSIAS
+*        --------------------------------------------
+             FIND FIRST VMBSIAS
+                 WHERE CALCKEY EQ KY-SIFORM OF VMBSIAS OF LR
+                 ON 0326 RETURN VMBSIAS-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBFAS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFDN-FOR-VMBFORM
+*        --------------------------------------------
+             FIND FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             FIND FIRST VMBSIDN
+                 WHERE CALCKEY EQ KY-SIGIFDN OF VMBSIDN OF LR
+                 ON 0326 RETURN VMBSIDN-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBFDN
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFRT-FOR-VMBFORM
+*        --------------------------------------------
+             FIND FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             FIND FIRST VMBSIRT
+                 WHERE CALCKEY EQ KY-SIGIFRT OF VMBSIRT OF LR
+                 ON 0326 RETURN VMBSIRT-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBFRT
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CONNECT-VMBFRT-TO-VMBSIRT-DI2
+*        ------------------------------------------------
+             FIND FIRST VMBSIRT
+                 WHERE CALCKEY EQ KY-SIGIFRT OF VMBSIRT OF LR
+                 ON 0326 RETURN VMBSIRT-NOT-FND
+                 ON 0000 NEXT
+             FIND CURRENT VMBFRT
+                 ON 0000 NEXT
+             CONNECT VMBFRT TO VMBSIRT-FRT-DI2
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFAR-FOR-VMBSIAR
+*        --------------------------------------------
+             FIND FIRST VMBSIAR
+                 WHERE CALCKEY EQ KY-SIGIFAR OF VMBSIAR OF LR
+                 ON 0326 RETURN VMBSIAR-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBFAR
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFR-FOR-VMBFORM
+*        -------------------------------------------
+             FIND FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             FIND FIRST VMBSIR
+                 WHERE CALCKEY EQ KY-SIGIFR OF VMBSIR OF LR
+                 ON 0326 RETURN VMBSIR-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBFR
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CONNECT-VMBFR-TO-VMBSIR-DI2
+*        ----------------------------------------------
+             FIND FIRST VMBSIR
+                 WHERE CALCKEY EQ KY-SIGIFR OF VMBSIR OF LR
+                 ON 0326 RETURN VMBSIR-NOT-FND
+                 ON 0000 NEXT
+             FIND CURRENT VMBFR
+                 ON 0000 NEXT
+             CONNECT VMBFR TO VMBSIR-FR-DI2
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBMESS-FOR-VMBFORM
+*        ---------------------------------------------
+             FIND FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBMESS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFTE-FOR-VMBFORM
+*        --------------------------------------------
+             FIND FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             FIND FIRST VMBSITE
+                 WHERE CALCKEY EQ KY-SIGIFTE OF VMBSITE OF LR
+                 ON 0326 RETURN VMBSITE-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBFTE
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFTEL-FOR-VMBFTE
+*        --------------------------------------------
+             FIND CURRENT VMBFTE
+                 ON 0000 NEXT
+             STORE VMBFTEL
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFRV-FOR-VMBFORM
+*        --------------------------------------------
+             FIND FIRST VMBFORM
+                 WHERE CALCKEY EQ KY-VMBFORM OF VMBFORM OF LR
+                 ON 0326 RETURN VMBFORM-NOT-FND
+                 ON 0000 NEXT
+             FIND FIRST VMBSIRV
+                 WHERE CALCKEY EQ KY-SIGIFRV OF VMBSIRV OF LR
+                 ON 0326 RETURN VMBSIRV-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBFRV
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBSIAS
+*        ---------------------------------
+             STORE VMBSIAS
+                 ON 1205 RETURN VMBSIAS-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBSIDN
+*        ---------------------------------
+             STORE VMBSIDN
+                 ON 1205 RETURN VMBSIDN-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBSIRT
+*        ---------------------------------
+             STORE VMBSIRT
+                 ON 1205 RETURN VMBSIRT-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBSITE
+*        ---------------------------------
+             STORE VMBSITE
+                 ON 1205 RETURN VMBSITE-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBSIRV
+*        ---------------------------------
+             STORE VMBSIRV
+                 ON 1205 RETURN VMBSIRV-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBSIR
+*        --------------------------------
+             STORE VMBSIR
+                 ON 1205 RETURN VMBSIR-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBSIAR
+*        ---------------------------------
+             STORE VMBSIAR
+                 ON 1205 RETURN VMBSIAR-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFGD-VMBJFGD
+*        ----------------------------------------
+             STORE VMBFGD
+                 ON 1205 RETURN VMBFGD-EXISTS
+                 ON 0000 NEXT
+             STORE VMBJFGD
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CREATE-VMBFGD
+*        --------------------------------
+             STORE VMBFGD
+                 ON 1205 RETURN VMBFGD-EXISTS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD CONNECT-VMBJFGD-IMPL
+*        ---------------------------------------
+             FIND FIRST VMBFGD
+                 WHERE CALCKEY EQ KY-VMBFGD OF VMBFGD OF LR
+                 ON 0326 RETURN VMBFGD-NOT-FND
+                 ON 0000 NEXT
+             FIND CURRENT VMBJFGD
+                 ON 0000 NEXT
+             CONNECT VMBJFGD TO VMBFGD-IMPL
+                 ON 0000 NEXT
+         .
+     GENERATE.

@@ -1,0 +1,191 @@
+     DEL SUBSCHEMA NAME IS VMBTS07 OF SCHEMA NAME IS VMBTSCH.
+     ADD SUBSCHEMA NAME IS VMBTS07 OF SCHEMA NAME IS VMBTSCH
+         PUBLIC ACCESS IS ALLOWED FOR ALL
+         USAGE IS MIXED
+         LR CURRENCY NO RESET
+         .
+********************************
+*         AREA SECTION         *
+********************************
+     ADD AREA AR-VMBEFF1
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBFRM1
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBRFFB
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBRFFT
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBWCEF
+         DEF USA SHARED UPDATE
+         .
+********************************
+*         RECORD SECTION       *
+********************************
+     ADD REC VMBWCEF
+         .
+     ADD REC VMBEFF
+         .
+     ADD REC VMBEVEF
+         .
+     ADD REC VMBFAS
+         .
+     ADD REC VMBSIAS
+         .
+     ADD REC FFRECAB
+         .
+     ADD REC FFRECBB
+         .
+     ADD REC FFRECAT
+         .
+********************************
+*         SET SECTION          *
+********************************
+     ADD SET VMBWCEF-VMBEFF
+         .
+     ADD SET VMBEFF-VMBEVEF
+         .
+     ADD SET VMBSIAS-VMBFAS
+         .
+     ADD SET FFRECAB-FFRECBB
+         .
+*
+****************************************************
+*                                                  *
+*         L O G I C A L  R E C O R D   DESCRIPTION *
+*                                                  *
+****************************************************
+*
+*
+     ADD LOGICAL RECORD VMBTL07-R01
+         ELEMENTS ARE
+             VMBSIAS
+             VMBFAS
+             VMBWCEF
+             VMBEFF
+             VMBEVEF
+         .
+*
+****************************************************
+*                                                  *
+*         P A T H  D E S C R I P T I O N S         *
+*                                                  *
+****************************************************
+*
+     ADD PATH-GROUP ERASE VMBTL07-R01
+*    --------------------------------
+         SELECT FOR KEYWORD ER-VMBWCEF
+*        -----------------------------
+             OBTAIN FIRST VMBWCEF
+                 WHERE CALCKEY EQ KY-IDISSU-STOCK OF VMBWCEF OF LR
+                 ON 0000 NEXT
+                 ON 0326 RETURN VMBWCEF-NOT-FND
+             ERASE VMBWCEF ALL MEMBERS
+                 ON 0000 NEXT
+         .
+     ADD PATH-GROUP MODIFY VMBTL07-R01
+*    ---------------------------------
+         SELECT FOR KEYWORD MO-VMBEFF
+*        ----------------------------
+             FIND CURRENT VMBEFF
+                 ON 0000 NEXT
+             MODIFY VMBEFF
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD MO-VMBEVEF
+*        -----------------------------
+             FIND CURRENT VMBEVEF
+                 ON 0000 NEXT
+             MODIFY VMBEVEF
+                 ON 0000 NEXT
+         .
+     ADD PATH-GROUP OBTAIN VMBTL07-R01
+*    ---------------------------------
+         SELECT FOR KEYWORD OB-VMBFAS
+*        ----------------------------
+             OBTAIN FIRST VMBFAS
+                 WHERE CALCKEY EQ KY-VMBFAS OF VMBFAS OF LR
+                 ON 0326 RETURN VMBFAS-NOT-FND
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD OB-DUP-VMBFAS
+*        --------------------------------
+             OBTAIN EACH VMBFAS
+                 WHERE CALCKEY EQ KY-VMBFAS OF VMBFAS OF LR
+                 ON 0326 RETURN VMBFAS-NOT-FND
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD OB-VMBEFF
+*        ----------------------------
+             OBTAIN FIRST VMBEFF
+                 WHERE CALCKEY EQ KY-EFFECT OF VMBEFF OF LR
+                 ON 0326 RETURN VMBEFF-NOT-FND
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ALL-VMBEVEF-BY-VMBEFF
+*        ----------------------------------------
+             OBTAIN FIRST VMBEFF
+                 WHERE CALCKEY EQ KY-EFFECT OF VMBEFF OF LR
+                 ON 0326 RETURN VMBEFF-NOT-FND
+                 ON 0000 NEXT
+             IF VMBEFF-VMBEVEF IS EMPTY
+                 ON 0000 RETURN NO-VMBEVEF-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBEVEF WITHIN VMBEFF-VMBEVEF
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBEVEF
+                 END
+         SELECT FOR KEYWORD ALL-VMBEVEF-BY-VMBWCEF
+*        -----------------------------------------
+             OBTAIN FIRST VMBWCEF
+                 WHERE CALCKEY EQ KY-IDISSU-STOCK OF VMBWCEF OF LR
+                 ON 0326 RETURN VMBWCEF-NOT-FND
+                 ON 0000 NEXT
+             IF VMBWCEF-VMBEFF IS EMPTY
+                 ON 0000 RETURN NO-VMBEFF-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBEFF WITHIN VMBWCEF-VMBEFF
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBEFF
+                 END
+             IF VMBEFF-VMBEVEF IS EMPTY
+                 ON 0000 RETURN NO-VMBEVEF-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBEVEF WITHIN VMBEFF-VMBEVEF
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBEVEF
+                 END
+         SELECT FOR KEYWORD SWEEP-VMBEFF-VMBEVEF
+*        ---------------------------------------
+             OBTAIN EACH VMBEFF WITHIN AR-VMBEFF1
+                 ON 0307 RETURN VMBEFF-EOA
+                 ON 0000 NEXT
+             OBTAIN EACH VMBEVEF WITHIN VMBEFF-VMBEVEF
+                 ON 0307 RETURN VMBEVEF-EOS
+                 ON 0000 NEXT
+         .
+     ADD PATH-GROUP STORE VMBTL07-R01
+*    --------------------------------
+         SELECT FOR KEYWORD ST-VMBWCEF-TO-VMBEVEF
+*        ----------------------------------------
+             OBTAIN FIRST VMBWCEF
+                 WHERE CALCKEY EQ KY-IDISSU-STOCK OF VMBWCEF OF LR
+                 ON 0000 NEXT
+                 ON 0326 DO
+             STORE VMBWCEF
+                 ON 0000 NEXT
+                 END
+             STORE VMBEFF
+                 ON 1205 RETURN VMBEFF-EXISTS
+                 ON 0000 NEXT
+             STORE VMBEVEF
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ST-VMBEVEF
+*        -----------------------------
+             OBTAIN FIRST VMBEFF
+                 WHERE CALCKEY EQ KY-EFFECT OF VMBEFF OF LR
+                 ON 0326 RETURN VMBEFF-NOT-FND
+                 ON 0000 NEXT
+             STORE VMBEVEF
+                 ON 0000 NEXT
+         .
+     GENERATE.

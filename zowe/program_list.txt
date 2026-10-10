@@ -1,0 +1,18 @@
+# One IDMS program per line. Blank lines and # comments ignored.
+# Only these programs are fetched, converted, reviewed and written back.
+#VM4BD420
+VM1BD567
+VM7BD200
+VM4BD310
+VM4BD302
+VM1BD526
+
+
+
+#1 - VM4BD420  - Retrieval
+#2 - VM1BD567  - Update 
+#3 - VM7BD200  - LR Retrieval
+#4 - VM4BD310 -  Retrieval with LRF
+#5 - VM4BD302  - Retrieval without LRF
+#6 - VM1BD526  - Update with LRF
+#change

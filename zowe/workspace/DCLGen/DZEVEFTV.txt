@@ -1,0 +1,50 @@
+      ******************************************************************
+      * DCLGEN TABLE(DZ.DZEVEFTV)                                      *
+      *        LIBRARY(ES.BDB2.VIEW.COB.TST(DZEVEFTV))                 *
+      *        ACTION(REPLACE)                                         *
+      *        LANGUAGE(COBOL)                                         *
+      *        APOST                                                   *
+      *        DBCSDELIM(NO)                                           *
+      * ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+      ******************************************************************
+           EXEC SQL DECLARE DZEVEFTV TABLE
+           ( NR_ID_479EVEF                  DECIMAL(20, 0) NOT NULL,
+             CT_RKTPROD_479BEFF             CHAR(4) NOT NULL,
+             NR_IDSTOCK_479BEFF             CHAR(12) NOT NULL,
+             NR_CDSTK_479BEFF               DECIMAL(1, 0) NOT NULL,
+             NS_DBSTK_479BEFF               DECIMAL(2, 0) NOT NULL,
+             DA_CREVTPD_479EVEF             DATE NOT NULL,
+             CT_RKTEVPR_479EVEF             CHAR(4) NOT NULL,
+             CT_RKTGDSV_479EVEF             CHAR(4) NOT NULL,
+             NR_IDGOOD_479EVEF              CHAR(28) NOT NULL,
+             NR_CI1POS_479EVEF              CHAR(1) NOT NULL,
+             NR_CI26POS_479EVEF             CHAR(5) NOT NULL,
+             CO_STEVPRN_479EVEF             CHAR(1) NOT NULL,
+             TS_CREATE_479EVEF              TIMESTAMP NOT NULL,
+             TS_UPDATE_479EVEF              TIMESTAMP NOT NULL,
+             ID_USERID_479EVEF              CHAR(8) NOT NULL,
+             NS_IDMSKEY_479EVEF             INTEGER NOT NULL
+           ) END-EXEC.
+      ******************************************************************
+      * COBOL DECLARATION FOR TABLE DZ.DZEVEFTV                        *
+      ******************************************************************
+       01  DCLDZEVEFTV.
+           10 NR-ID-479EVEF        PIC S9(20)V USAGE COMP-3.
+           10 CT-RKTPROD-479BEFF   PIC X(4).
+           10 NR-IDSTOCK-479BEFF   PIC X(12).
+           10 NR-CDSTK-479BEFF     PIC S9(1)V USAGE COMP-3.
+           10 NS-DBSTK-479BEFF     PIC S9(2)V USAGE COMP-3.
+           10 DA-CREVTPD-479EVEF   PIC X(10).
+           10 CT-RKTEVPR-479EVEF   PIC X(4).
+           10 CT-RKTGDSV-479EVEF   PIC X(4).
+           10 NR-IDGOOD-479EVEF    PIC X(28).
+           10 NR-CI1POS-479EVEF    PIC X(1).
+           10 NR-CI26POS-479EVEF   PIC X(5).
+           10 CO-STEVPRN-479EVEF   PIC X(1).
+           10 TS-CREATE-479EVEF    PIC X(26).
+           10 TS-UPDATE-479EVEF    PIC X(26).
+           10 ID-USERID-479EVEF    PIC X(8).
+           10 NS-IDMSKEY-479EVEF   PIC S9(9) USAGE COMP-5.
+      ******************************************************************
+      * THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 16      *
+      ******************************************************************

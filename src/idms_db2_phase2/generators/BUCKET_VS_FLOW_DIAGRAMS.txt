@@ -1,0 +1,456 @@
+"""
+BUCKET vs FLOW - VISUAL COMPARISON
+
+Shows the difference between organizing by TYPE (Buckets)
+vs organizing by SEQUENCE (Flows).
+"""
+
+# ============================================================================
+# DIAGRAM 1: BUCKET ORGANIZATION (By Type)
+# ============================================================================
+
+"""
+BUCKET APPROACH - Organize by CODE TYPE
+════════════════════════════════════════════════════════════════════════════
+
+Working Storage Declarations:
+
+  ┌────────────────────────────────────────────────────────────┐
+  │ CONTROL FIELDS BUCKET                                      │
+  ├────────────────────────────────────────────────────────────┤
+  │  10  CS-PROGRAM  PIC X(8)  VALUE 'VMDZ4420'.             │
+  │  10  CS-VERSION  PIC X(5)  VALUE '1.0'.                  │
+  └────────────────────────────────────────────────────────────┘
+           ↓ combine
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ COUNTER FIELDS BUCKET                                      │
+  ├────────────────────────────────────────────────────────────┤
+  │  01  WS-RECORD-COUNT  PIC 9(9)  VALUE 0.                 │
+  │  01  WS-ERROR-COUNT  PIC 9(9)  VALUE 0.                  │
+  └────────────────────────────────────────────────────────────┘
+           ↓ combine
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ TIMESTAMP FIELDS BUCKET                                    │
+  ├────────────────────────────────────────────────────────────┤
+  │  01  WS-TIMESTAMP-FIELDS.                                 │
+  │      05 TS-SYSTEM  PIC 9(8).                              │
+  └────────────────────────────────────────────────────────────┘
+           ↓ combine
+  
+  RESULT: All declarations organized by PURPOSE
+  - Control fields together
+  - Audit/counter fields together
+  - Time fields together
+  
+  Perfect for: WORKING-STORAGE SECTION organization
+"""
+
+
+# ============================================================================
+# DIAGRAM 2: FLOW ORGANIZATION (By Sequence)
+# ============================================================================
+
+"""
+FLOW APPROACH - Organize by EXECUTION SEQUENCE
+════════════════════════════════════════════════════════════════════════════
+
+Procedure Division Logic:
+
+  ┌────────────────────────────────────────────────────────────┐
+  │ PHASE 1: INITIALIZE                                        │
+  ├────────────────────────────────────────────────────────────┤
+  │  INITIALIZE OUTPUT-RECORD.                                │
+  │  INITIALIZE WORK-AREAS.                                   │
+  │  MOVE 'VMDZ4420' TO CS-PROGRAM.                           │
+  └────────────────────────────────────────────────────────────┘
+           ↓ (must complete first)
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ PHASE 2: LOAD INPUT                                        │
+  ├────────────────────────────────────────────────────────────┤
+  │  READ INPUT-FILE INTO INPUT-RECORD.                       │
+  │  EXEC SQL FETCH CURSOR INTO :HOST-GROUP END-EXEC.        │
+  └────────────────────────────────────────────────────────────┘
+           ↓ (can't validate until loaded)
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ PHASE 3: VALIDATION                                        │
+  ├────────────────────────────────────────────────────────────┤
+  │  PERFORM VALIDATE-INPUT-RECORD.                           │
+  │  IF RECORD-VALID THEN ...                                 │
+  └────────────────────────────────────────────────────────────┘
+           ↓ (can't transform until validated)
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ PHASE 4: MOVE TO OUTPUT                                    │
+  ├────────────────────────────────────────────────────────────┤
+  │  MOVE FIELD-1 TO OUT-FIELD-1.                             │
+  │  MOVE FIELD-2 TO OUT-FIELD-2.                             │
+  │  PERFORM CALCULATE-TOTALS.                                │
+  └────────────────────────────────────────────────────────────┘
+           ↓ (can't write until transformed)
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ PHASE 5: WRITE                                             │
+  ├────────────────────────────────────────────────────────────┤
+  │  WRITE OUTPUT-RECORD.                                     │
+  │  PERFORM LOG-RESULTS.                                     │
+  └────────────────────────────────────────────────────────────┘
+           ↓ (can't cleanup until written)
+  
+  ┌────────────────────────────────────────────────────────────┐
+  │ PHASE 6: CLEANUP                                           │
+  ├────────────────────────────────────────────────────────────┤
+  │  CLOSE ALL-FILES.                                         │
+  │  PERFORM FINAL-LOGGING.                                   │
+  └────────────────────────────────────────────────────────────┘
+  
+  Perfect for: PROCEDURE DIVISION logic with dependencies
+"""
+
+
+# ============================================================================
+# DIAGRAM 3: BEFORE (SCATTERED CODE)
+# ============================================================================
+
+"""
+BEFORE - Code scattered everywhere (HARD TO FOLLOW)
+════════════════════════════════════════════════════════════════════════════
+
+WORKING-STORAGE SECTION.
+  01  CS-PROGRAM  PIC X(8)  VALUE 'VMDZ4420'.
+  01  WS-OUTPUT-REC.
+      05  OUT-FIELD-1  PIC X(10).
+      05  OUT-FIELD-2  PIC X(20).
+  01  WS-TEMP  PIC X(100).
+  01  WS-TIMESTAMP  PIC 9(8).
+  01  WS-COUNT  PIC 9(9).
+
+PROCEDURE DIVISION.
+  MOVE INPUT-FIELD-1 TO WS-TEMP.         ← First move
+  MOVE INPUT-FIELD-2 TO OUT-FIELD-1.     ← Second move (scattered)
+  INITIALIZE WS-OUTPUT-REC.               ← Initialize in middle
+  PERFORM VALIDATE-RECORD.                ← Logic in middle
+  MOVE VALIDATED-FIELD TO OUT-FIELD-2.   ← More moves
+  WRITE OUTPUT-RECORD.                    ← Write at end
+  MOVE 'END' TO WS-STATUS.                ← Misc moves at end
+
+Problems:
+  ✗ Moves are scattered
+  ✗ Initialize is in wrong place
+  ✗ Hard to follow execution flow
+  ✗ Mixed concerns everywhere
+"""
+
+
+# ============================================================================
+# DIAGRAM 4: AFTER (ORGANIZED WITH BUCKETS + FLOWS)
+# ============================================================================
+
+"""
+AFTER - Code organized by TYPE + SEQUENCE (EASY TO FOLLOW)
+════════════════════════════════════════════════════════════════════════════
+
+WORKING-STORAGE SECTION.
+  
+  *---- CONTROL FIELDS ----*
+  01  CS-PROGRAM  PIC X(8)  VALUE 'VMDZ4420'.
+  
+  *---- COUNTER FIELDS ----*
+  01  WS-COUNT  PIC 9(9).
+  
+  *---- TIMESTAMP FIELDS ----*
+  01  WS-TIMESTAMP  PIC 9(8).
+  
+  *---- WORK FIELDS ----*
+  01  WS-TEMP  PIC X(100).
+  01  WS-OUTPUT-REC.
+      05  OUT-FIELD-1  PIC X(10).
+      05  OUT-FIELD-2  PIC X(20).
+
+PROCEDURE DIVISION.
+
+  *---- INITIALIZE PHASE ----*
+  INITIALIZE WS-OUTPUT-REC.
+  MOVE 'VMDZ4420' TO CS-PROGRAM.
+  
+  *---- LOAD INPUT PHASE ----*
+  MOVE INPUT-FIELD-1 TO WS-TEMP.
+  MOVE INPUT-FIELD-2 TO WS-INPUT-DATA.
+  
+  *---- VALIDATION PHASE ----*
+  PERFORM VALIDATE-RECORD.
+  
+  *---- MOVE TO OUTPUT PHASE ----*
+  MOVE WS-TEMP TO OUT-FIELD-1.
+  MOVE VALIDATED-FIELD TO OUT-FIELD-2.
+  
+  *---- WRITE PHASE ----*
+  WRITE OUTPUT-RECORD.
+  
+  *---- CLEANUP PHASE ----*
+  MOVE 'COMPLETE' TO WS-STATUS.
+  CLOSE ALL-FILES.
+
+Benefits:
+  ✓ Clear organization
+  ✓ Easy to follow flow
+  ✓ Proper sequencing
+  ✓ No mixed concerns
+  ✓ Professional appearance
+  ✓ Easy to debug
+  ✓ Easy to modify
+"""
+
+
+# ============================================================================
+# DIAGRAM 5: BUCKET ORGANIZATION IN DETAIL
+# ============================================================================
+
+"""
+BUCKET FLOW: Type-Based Organization
+════════════════════════════════════════════════════════════════════════════
+
+Generator (1)          Generator (2)        Generator (3)
+Timestamp Gen      Working Storage Org    Cursor Gen
+    ↓                    ↓                     ↓
+    
+Add to buckets:
+  - CONTROL_FIELDS        - COUNTER_FIELDS     - FETCH_LOGIC
+  - TIMESTAMP_FIELDS      - STATUS_FLAGS       - FIELD_MOVES
+  - INITIALIZE_STATEMENTS - WORK_FIELDS        - WRITE_STATEMENTS
+
+                    ↓
+          CodeBucketManager
+                    ↓
+          Combine in order:
+          1. CONTROL_FIELDS
+          2. COUNTER_FIELDS
+          3. TIMESTAMP_FIELDS
+          4. STATUS_FLAGS
+          5. WORK_FIELDS
+          6. INITIALIZE_STATEMENTS
+          7. FIELD_MOVES
+          8. WRITE_STATEMENTS
+          9. FETCH_LOGIC
+          ...
+                    ↓
+          ORGANIZED OUTPUT
+          (all by type)
+"""
+
+
+# ============================================================================
+# DIAGRAM 6: FLOW ORGANIZATION IN DETAIL
+# ============================================================================
+
+"""
+FLOW STRUCTURE: Sequence-Based Organization
+════════════════════════════════════════════════════════════════════════════
+
+Generator Code:
+    
+    flow = CodeFlowOrchestrator()
+    
+    flow.add_step(PHASE_INITIALIZE, [initialize_lines])
+         ↓
+    flow.add_step(PHASE_LOAD_INPUT, [fetch_lines])
+         ↓
+    flow.add_step(PHASE_VALIDATION, [validate_lines])
+         ↓
+    flow.add_step(PHASE_MOVE_TO_OUTPUT, [move_lines])
+         ↓
+    flow.add_step(PHASE_WRITE, [write_lines])
+         ↓
+    flow.add_step(PHASE_CLEANUP, [cleanup_lines])
+    
+                    ↓
+          CodeFlowOrchestrator
+                    ↓
+        Combine in PHASE ORDER:
+        Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6
+                    ↓
+        ORGANIZED OUTPUT
+        (all by sequence, dependencies clear)
+"""
+
+
+# ============================================================================
+# DIAGRAM 7: HYBRID APPROACH
+# ============================================================================
+
+"""
+HYBRID: Best of Both Worlds
+════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        COMPLETE PROGRAM                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│            WORKING-STORAGE SECTION (Use CodeBucketManager)             │
+│            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━            │
+│                                                                         │
+│  Bucket 1: CONTROL_FIELDS (organized by type)                         │
+│    - CS-PROGRAM                                                        │
+│                                                                         │
+│  Bucket 2: TIMESTAMP_FIELDS (organized by type)                       │
+│    - WS-TIMESTAMP-FIELDS                                              │
+│    - TS-SYSTEM                                                         │
+│                                                                         │
+│  Bucket 3: WORK_FIELDS (organized by type)                            │
+│    - WS-TEMP, WS-STATUS, etc.                                         │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                            ↓
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│            PROCEDURE DIVISION (Use CodeFlowOrchestrator)               │
+│            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                  │
+│                                                                         │
+│  Phase 1: INITIALIZE (organized by sequence)                          │
+│    - INITIALIZE all records                                            │
+│    → Next phase depends on this completing                             │
+│                                                                         │
+│  Phase 2: LOAD INPUT (organized by sequence)                          │
+│    - FETCH from database                                               │
+│    → Next phase depends on this completing                             │
+│                                                                         │
+│  Phase 3: VALIDATION (organized by sequence)                          │
+│    - VALIDATE data                                                     │
+│    → Next phase depends on this completing                             │
+│                                                                         │
+│  Phase 4: MOVE TO OUTPUT (organized by sequence)                      │
+│    - MOVE all fields                                                   │
+│    → Next phase depends on this completing                             │
+│                                                                         │
+│  Phase 5: WRITE (organized by sequence)                               │
+│    - WRITE records                                                     │
+│    → Next phase depends on this completing                             │
+│                                                                         │
+│  Phase 6: CLEANUP (organized by sequence)                             │
+│    - Close files, final logging                                        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+RESULT: Professional, organized, easy-to-follow COBOL program
+"""
+
+
+# ============================================================================
+# DIAGRAM 8: DECISION TREE
+# ============================================================================
+
+"""
+WHICH TOOL TO USE?
+════════════════════════════════════════════════════════════════════════════
+
+                        Need to organize code?
+                                 ↓
+                    ┌────────────┴────────────┐
+                    ↓                         ↓
+            Is it WORKING-STORAGE?    Is it PROCEDURE DIVISION?
+                    ↓                         ↓
+                   YES                       YES
+                    ↓                         ↓
+         USE CodeBucketManager      USE CodeFlowOrchestrator
+                    ↓                         ↓
+         Organize by TYPE:          Organize by SEQUENCE:
+         • Control fields           • Initialize phase
+         • Counters                 • Load phase
+         • Timestamps               • Validate phase
+         • Work fields              • Transform phase
+         • Status flags             • Write phase
+                    ↓                         ↓
+        combine() → organized        combine_phases() →
+        WORKING-STORAGE              organized PROCEDURE
+                    ↓                         ↓
+              ┌─────┴─────┐
+              ↓           ↓
+        INSERT INTO PROGRAM
+        
+              ↓
+        PROFESSIONAL COBOL CODE
+"""
+
+
+# ============================================================================
+# DIAGRAM 9: REAL-WORLD EXAMPLE - VMDZ4420
+# ============================================================================
+
+"""
+REAL PROGRAM STRUCTURE: VMDZ4420
+════════════════════════════════════════════════════════════════════════════
+
+IDENTIFIED PHASES:
+
+PHASE 1: INITIALIZE
+  └─ INITIALIZE DCLDZBEFFTV
+  └─ INITIALIZE UIT-RECORD
+  └─ MOVE 'VMDZ4420' TO CS-PROGRAM
+
+PHASE 2: LOAD INPUT
+  └─ FETCH DZBEFFTV data from DB2
+  └─ Check SQLCODE
+
+PHASE 3: VALIDATION
+  └─ Validate DZBEFFTV fields
+  └─ Check required values
+  └─ PERFORM business logic validation
+
+PHASE 4: MOVE TO OUTPUT
+  └─ MOVE AM-CNSTK-479BEFF → UIT-AM-CN-STOCK
+  └─ MOVE AM-CNDSTK-479BEFF → UIT-AM-CND-STOCK
+  └─ MOVE CO-IDPRKSK-479BEFF → UIT-NR-ID
+  └─ MOVE NS-IRMOSTK-479BEFF → UIT-NS-SEQ
+  └─ MOVE DA-UBSECIS-479BEFF → UIT-DA-UBSEC
+  └─ MOVE NR-IDSTOCK-479BEFF → UIT-NR-ST
+
+PHASE 5: WRITE
+  └─ WRITE UITRECORD
+  └─ Check SQLCODE
+  └─ PERFORM error handling
+
+PHASE 6: CLEANUP
+  └─ Close files
+  └─ Log results
+
+RESULT: Clear, logical program structure
+"""
+
+
+# ============================================================================
+# SUMMARY TABLE
+# ============================================================================
+
+"""
+                      BUCKET                FLOW
+                  ════════════          ═════════════
+
+Purpose:      Organize by TYPE        Organize by SEQUENCE
+
+Use Case:     WORKING-STORAGE         PROCEDURE DIVISION
+              declarations            logic
+
+How it works: Groups similar          Orders by execution
+              types together          dependencies
+
+Example:      All MOVE statements     INITIALIZE → LOAD →
+              together,               VALIDATE → WRITE
+              All WRITES together
+
+Output:       Clean, organized        Logical, sequential
+              declarations            code flow
+
+Integration:  CodeBucketManager()     CodeFlowOrchestrator()
+
+Best for:     Field organization      Business logic flow
+
+Result:       Professional            Easy to follow
+              WORKING-STORAGE         PROCEDURE DIVISION
+"""

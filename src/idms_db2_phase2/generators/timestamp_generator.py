@@ -1,0 +1,406 @@
+# LOCATION: src/idms_db2_phase2/generators/timestamp_generator.py
+# ACTION: REPLACE ENTIRE FILE
+
+from __future__ import annotations
+
+import re
+
+from idms_db2_phase2.repositories.mapping_repository import MappingRepository
+from idms_db2_phase2.resolvers.host_variable_resolver import (
+    HostVariableResolver,
+)
+from idms_db2_phase2.resolvers.table_name_resolver import TableNameResolver
+from rules.timestamp_audit_rules import (
+    TIMESTAMP_CS_PROGRAM_TEMPLATE,
+    TIMESTAMP_DEFAULT_PROGRAM_ID,        # <-- add
+    TIMESTAMP_MOVE_ALIGN_COLUMN,
+    TIMESTAMP_MOVE_FIELDS,
+    TIMESTAMP_PARAGRAPH_DISPLAY,
+    TIMESTAMP_PARAGRAPH_FIELD_MOVE_TEMPLATE,
+    TIMESTAMP_PARAGRAPH_HEADER_TEMPLATE,
+    TIMESTAMP_PARAGRAPH_SOURCE_MOVE,
+    TIMESTAMP_PARAGRAPH_TERMINATOR,
+    TIMESTAMP_PROGRAM_ID_LENGTH,         # <-- add
+    TIMESTAMP_WS_LINES,
+    TIMESTAMP_WS_MARKER,
+)
+
+
+class TimestampGenerator:
+    """
+    Generates timestamp and audit support for all programs.
+
+    Includes working storage, timestamp paragraph (600-GET-TIMESTAMP),
+    and audit trail integration for both retrieval and update programs.
+
+    This generator is applied to all converted programs to ensure
+    consistent timestamp capture and audit trail generation.
+
+    This class owns no COBOL layout literals; all timestamp templates live in
+    rules/timestamp_audit_rules.py. Only the program-id is dynamic.
+    """
+
+    WS_MARKER = TIMESTAMP_WS_MARKER
+    PARAGRAPH_NAME = "600-GET-TIMESTAMP"
+    PARAGRAPH_EXIT_NAME = "600-GET-TIMESTAMP-EXIT"
+
+    PROCEDURE_DIVISION_PATTERN = re.compile(
+        r"^\s*(?:\d{6}\s+)?PROCEDURE\s+DIVISION\b.*\.?\s*(?:\d{8})?\s*$",
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+
+    WORKING_STORAGE_PATTERN = re.compile(
+        r"^\s*(?:\d{6}\s+)?WORKING-STORAGE\s+SECTION\.\s*(?:\d{8})?\s*$",
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+
+    LINKAGE_SECTION_PATTERN = re.compile(
+        r"^\s*(?:\d{6}\s+)?LINKAGE\s+SECTION\.\s*(?:\d{8})?\s*$",
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+
+    END_PROGRAM_PATTERN = re.compile(
+        r"^\s*(?:\d{6}\s+)?END\s+PROGRAM\b.*\.?\s*(?:\d{8})?\s*$",
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+
+    STOP_RUN_PATTERN = re.compile(
+        r"^\s*(?:\d{6}\s+)?STOP\s+RUN\.?\s*(?:\d{8})?\s*$",
+        flags=re.IGNORECASE,
+    )
+
+    EXEC_SQL_PATTERN = re.compile(
+        r"^\s*EXEC\s+SQL\b",
+        flags=re.IGNORECASE,
+    )
+
+    END_EXEC_PATTERN = re.compile(
+        r"^\s*END-EXEC\.?\s*$",
+        flags=re.IGNORECASE,
+    )
+
+    DB2_WRITE_OPERATION_PATTERN = re.compile(
+        r"^\s*(INSERT|UPDATE|DELETE)\b",
+        flags=re.IGNORECASE,
+    )
+
+    COBOL_WRITE_OPERATION_PATTERN = re.compile(
+        r"^\s*(STORE|MODIFY|ERASE)\b",
+        flags=re.IGNORECASE,
+    )
+
+    def __init__(
+        self,
+        mapping_repository: MappingRepository,
+        table_name_resolver: TableNameResolver,
+        host_variable_resolver: HostVariableResolver,
+    ) -> None:
+        self.mapping_repository = mapping_repository
+        self.table_name_resolver = table_name_resolver
+        self.host_variable_resolver = host_variable_resolver
+        self.messages: list[str] = []
+
+    def apply(
+        self,
+        cobol_text: str,
+        target_program_id: str = "",
+    ) -> tuple[str, list[str]]:
+        self.messages = []
+
+        if not cobol_text:
+            return "", self.messages
+
+        # Include timestamp for ALL programs (retrieval and update)
+        # Previously: only for programs with DB2 write activity
+        updated_text = cobol_text
+
+        updated_text = self._ensure_timestamp_working_storage(
+            text=updated_text,
+            target_program_id=target_program_id,
+        )
+
+        updated_text = self._ensure_timestamp_paragraph(
+            text=updated_text,
+        )
+
+        updated_text = self._ensure_timestamp_perform(
+            text=updated_text,
+        )
+
+        self.messages.append(
+            "Timestamp generator: timestamp working storage and paragraph "
+            "ensured for all programs."
+        )
+
+        return updated_text.rstrip() + "\n", self.messages
+
+    def _has_db2_write_activity(
+        self,
+        text: str,
+    ) -> bool:
+        in_exec_sql = False
+
+        for line in str(text or "").splitlines():
+            logical = self._logical_line(line)
+
+            if self.EXEC_SQL_PATTERN.match(logical):
+                in_exec_sql = True
+                continue
+
+            if in_exec_sql and self.DB2_WRITE_OPERATION_PATTERN.search(
+                logical
+            ):
+                return True
+
+            if self.END_EXEC_PATTERN.match(logical):
+                in_exec_sql = False
+                continue
+
+            if self.COBOL_WRITE_OPERATION_PATTERN.search(logical):
+                return True
+
+        return False
+
+    def _ensure_timestamp_working_storage(
+        self,
+        text: str,
+        target_program_id: str,
+    ) -> str:
+        if self.WS_MARKER in text:
+            return text
+
+        block = self._timestamp_working_storage_block(
+            target_program_id=target_program_id,
+        )
+
+        lines = text.splitlines()
+        insert_index = self._working_storage_insert_index(lines)
+
+        if insert_index < 0:
+            return block.rstrip() + "\n\n" + text.rstrip() + "\n"
+
+        updated_lines = (
+            lines[:insert_index]
+            + [""]
+            + block.splitlines()
+            + [""]
+            + lines[insert_index:]
+        )
+
+        return "\n".join(updated_lines).rstrip() + "\n"
+
+    def _ensure_timestamp_paragraph(
+        self,
+        text: str,
+    ) -> str:
+        if re.search(
+            rf"^\s*(?:\d{{6}}\s+)?{re.escape(self.PARAGRAPH_NAME)}\.",
+            text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        ):
+            return text
+
+        block = self._timestamp_paragraph_block()
+
+        lines = text.splitlines()
+        insert_index = self._timestamp_paragraph_insert_index(lines)
+
+        if insert_index < 0:
+            return text.rstrip() + "\n\n" + block + "\n"
+
+        updated_lines = (
+            lines[:insert_index]
+            + block.splitlines()
+            + [""]
+            + lines[insert_index:]
+        )
+
+        return "\n".join(updated_lines).rstrip() + "\n"
+
+    def _ensure_timestamp_perform(
+        self,
+        text: str,
+    ) -> str:
+        if re.search(
+            rf"\bPERFORM\s+{re.escape(self.PARAGRAPH_NAME)}\b",
+            text,
+            flags=re.IGNORECASE,
+        ):
+            return text
+
+        lines = text.splitlines()
+        procedure_index = self._find_pattern_index(
+            lines=lines,
+            pattern=self.PROCEDURE_DIVISION_PATTERN,
+        )
+
+        if procedure_index < 0:
+            return text
+
+        insert_index = procedure_index + 1
+
+        while insert_index < len(lines):
+            logical = self._logical_line(lines[insert_index])
+
+            if not logical:
+                insert_index += 1
+                continue
+
+            if logical.startswith("*"):
+                insert_index += 1
+                continue
+
+            break
+
+        updated_lines = (
+            lines[:insert_index]
+            + [f"    PERFORM {self.PARAGRAPH_NAME}."]
+            + lines[insert_index:]
+        )
+
+        return "\n".join(updated_lines).rstrip() + "\n"
+
+    def _timestamp_working_storage_block(
+        self,
+        target_program_id: str,
+    ) -> str:
+        """
+        Build the timestamp working storage from rules/ templates. Only the
+        program-id is dynamic; the fallback program-id and field width come
+        from rules/ so no program name or length literal lives in generator
+        logic.
+        """
+        program_id = self._resolve_program_id(target_program_id)
+
+        lines = [
+            f"* {TIMESTAMP_WS_MARKER}",
+            TIMESTAMP_CS_PROGRAM_TEMPLATE.format(program_id=program_id),
+        ]
+        lines.extend(TIMESTAMP_WS_LINES)
+
+        return "\n".join(lines)
+
+    def _resolve_program_id(
+        self,
+        target_program_id: str,
+    ) -> str:
+        """
+        Resolve the CS-PROGRAM value. Falls back to the configured default
+        program-id (from rules/) only when no target PROGRAM-ID is supplied,
+        and truncates to the configured COBOL field length.
+        """
+        program_id = str(target_program_id or "").strip().upper()
+
+        if not program_id:
+            program_id = TIMESTAMP_DEFAULT_PROGRAM_ID
+
+        if len(program_id) > TIMESTAMP_PROGRAM_ID_LENGTH:
+            program_id = program_id[:TIMESTAMP_PROGRAM_ID_LENGTH]
+
+        return program_id
+    
+    def _timestamp_paragraph_block(
+        self,
+    ) -> str:
+        """
+        Build the timestamp paragraph from rules/ templates. Uses
+        FUNCTION CURRENT-DATE and field-by-field moves (manual standard).
+        """
+        lines = [
+            TIMESTAMP_PARAGRAPH_HEADER_TEMPLATE.format(
+                paragraph_name=self.PARAGRAPH_NAME
+            ),
+            TIMESTAMP_PARAGRAPH_SOURCE_MOVE,
+        ]
+
+        for field in TIMESTAMP_MOVE_FIELDS:
+            lines.append(self._timestamp_field_move_line(field))
+
+        lines.append(TIMESTAMP_PARAGRAPH_DISPLAY)
+        lines.append(TIMESTAMP_PARAGRAPH_TERMINATOR)
+
+        return "\n".join(lines)
+
+    def _timestamp_field_move_line(
+        self,
+        field: str,
+    ) -> str:
+        """
+        Build one aligned MOVE line from the rules/ template. Padding keeps
+        the TO column aligned regardless of field-name length.
+        """
+        source_part = f"     MOVE {field} OF TS-SYSTEM"
+        pad = " " * max(1, TIMESTAMP_MOVE_ALIGN_COLUMN - len(source_part))
+        return TIMESTAMP_PARAGRAPH_FIELD_MOVE_TEMPLATE.format(
+            field=field,
+            pad=pad,
+        )
+
+    def _working_storage_insert_index(
+        self,
+        lines: list[str],
+    ) -> int:
+        linkage_index = self._find_pattern_index(
+            lines=lines,
+            pattern=self.LINKAGE_SECTION_PATTERN,
+        )
+
+        if linkage_index >= 0:
+            return linkage_index
+
+        procedure_index = self._find_pattern_index(
+            lines=lines,
+            pattern=self.PROCEDURE_DIVISION_PATTERN,
+        )
+
+        if procedure_index >= 0:
+            return procedure_index
+
+        working_storage_index = self._find_pattern_index(
+            lines=lines,
+            pattern=self.WORKING_STORAGE_PATTERN,
+        )
+
+        if working_storage_index >= 0:
+            return working_storage_index + 1
+
+        return -1
+
+    def _timestamp_paragraph_insert_index(
+        self,
+        lines: list[str],
+    ) -> int:
+        for index, line in enumerate(lines):
+            logical = self._logical_line(line)
+
+            if self.STOP_RUN_PATTERN.match(logical):
+                return index
+
+            if self.END_PROGRAM_PATTERN.match(logical):
+                return index
+
+        return -1
+
+    def _find_pattern_index(
+        self,
+        lines: list[str],
+        pattern: re.Pattern,
+    ) -> int:
+        for index, line in enumerate(lines):
+            logical = self._logical_line(line)
+
+            if pattern.match(logical):
+                return index
+
+        return -1
+
+    def _logical_line(
+        self,
+        line: str,
+    ) -> str:
+        text = str(line or "").rstrip()
+
+        if len(text) > 6 and text[:6].strip().isdigit():
+            return text[6:].strip()
+
+        return text.strip()

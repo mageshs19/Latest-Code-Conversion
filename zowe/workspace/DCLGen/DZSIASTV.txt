@@ -1,0 +1,26 @@
+      ******************************************************************
+      * DCLGEN TABLE(DZ.DZSIASTV)                                      *
+      *        LIBRARY(ES.BDB2.VIEW.COB.TST(DZSIASTV))                 *
+      *        ACTION(REPLACE)                                         *
+      *        LANGUAGE(COBOL)                                         *
+      *        APOST                                                   *
+      *        DBCSDELIM(NO)                                           *
+      * ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+      ******************************************************************
+           EXEC SQL DECLARE DZSIASTV TABLE
+           ( NR_CIOFMAS_479SIAS             DECIMAL(8, 0) NOT NULL,
+             NR_IDFMAS_479SIAS              DECIMAL(6, 0) NOT NULL,
+             TS_CREATE_479SIAS              TIMESTAMP NOT NULL,
+             NR_USERID_479SIAS              CHAR(8) NOT NULL
+           ) END-EXEC.
+      ******************************************************************
+      * COBOL DECLARATION FOR TABLE DZ.DZSIASTV                        *
+      ******************************************************************
+       01  DCLDZSIASTV.
+           10 NR-CIOFMAS-479SIAS   PIC S9(8)V USAGE COMP-3.
+           10 NR-IDFMAS-479SIAS    PIC S9(6)V USAGE COMP-3.
+           10 TS-CREATE-479SIAS    PIC X(26).
+           10 NR-USERID-479SIAS    PIC X(8).
+      ******************************************************************
+      * THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 4       *
+      ******************************************************************

@@ -1,0 +1,196 @@
+      ******************************************************************
+      * DCLGEN TABLE(DZ.DZBFASTV)                                      *
+      *        LIBRARY(ES.BDB2.VIEW.COB.TST(DZBFASTV))                 *
+      *        ACTION(REPLACE)                                         *
+      *        LANGUAGE(COBOL)                                         *
+      *        APOST                                                   *
+      *        DBCSDELIM(NO)                                           *
+      * ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+      ******************************************************************
+           EXEC SQL DECLARE DZBFASTV TABLE
+           ( CT_RKTGDSV_479BFAS             CHAR(4) NOT NULL,
+             NR_CIOFMAS_479BFAS             DECIMAL(8, 0) NOT NULL,
+             DA_CRFMAS_479BFAS              DATE NOT NULL,
+             NR_IDFMAS_479BFAS              DECIMAL(6, 0) NOT NULL,
+             CT_OPD_479BFAS                 DECIMAL(3, 0) NOT NULL,
+             CT_OPG_479BFAS                 DECIMAL(3, 0) NOT NULL,
+             NR_ID_479BFAS                  DECIMAL(20, 0) NOT NULL,
+             NR_CIWFMAS_479BFAS             CHAR(8) NOT NULL,
+             DA_VAFMAS_479BFAS              DATE NOT NULL,
+             CO_VMFMAS_479BFAS              CHAR(1) NOT NULL,
+             NR_ISFMAS_479BFAS              DECIMAL(9, 0) NOT NULL,
+             RA_RTFMAS_479BFAS              DECIMAL(6, 3) NOT NULL,
+             RA_CPFMAS_479BFAS              DECIMAL(6, 3) NOT NULL,
+             RA_BASFMAS_479BFAS             DECIMAL(6, 3) NOT NULL,
+             DA_UBFMAS_479BFAS              DATE NOT NULL,
+             DA_UEFMAS_479BFAS              DATE NOT NULL,
+             DU_STFMAS_479BFAS              DECIMAL(3, 0) NOT NULL,
+             RA_PSFMAS_479BFAS              DECIMAL(6, 3) NOT NULL,
+             RA_PRFMAS_479BFAS              DECIMAL(6, 3) NOT NULL,
+             AM_CNSFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             AM_PSFMAS_479BFAS              DECIMAL(15, 2) NOT NULL,
+             NB_FIFMAS_479BFAS              DECIMAL(3, 0) NOT NULL,
+             AM_FINFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             CO_RIFMAS_479BFAS              CHAR(1) NOT NULL,
+             NR_IDRFMAS_479BFAS             DECIMAL(6, 0) NOT NULL,
+             DA_UERFMAS_479BFAS             DATE NOT NULL,
+             AM_FBAFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             AM_FBBFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             CO_RMFMAS_479BFAS              CHAR(1) NOT NULL,
+             RA_FBFMAS_479BFAS              DECIMAL(6, 3) NOT NULL,
+             NB_FBFMAS_479BFAS              DECIMAL(2, 0) NOT NULL,
+             AM_FBNFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             RA_TIFMAS_479BFAS              DECIMAL(4, 2) NOT NULL,
+             AM_CNDFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             AM_CNDNFAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             AM_CNSNFAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             NR_CDFMAS_479BFAS              DECIMAL(4, 0) NOT NULL,
+             CT_SLFMAS_479BFAS              CHAR(1) NOT NULL,
+             NR_STFMAS_479BFAS              DECIMAL(13, 0) NOT NULL,
+             CX_TWFMAS_479BFAS              CHAR(1) NOT NULL,
+             NR_DSFMAS_479BFAS              DECIMAL(12, 0) NOT NULL,
+             NR_IDXFMAS_479BFAS             DECIMAL(6, 0) NOT NULL,
+             CO_LAFMAS_479BFAS              CHAR(1) NOT NULL,
+             AM_INTFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             NB_GRPFMAS_479BFAS             DECIMAL(3, 0) NOT NULL,
+             NR_PRGRPFS_479BFAS             DECIMAL(6, 0) NOT NULL,
+             NR_NEGRPFS_479BFAS             DECIMAL(6, 0) NOT NULL,
+             NR_FIGRPFS_479BFAS             DECIMAL(6, 0) NOT NULL,
+             NR_SEGRPFS_479BFAS             DECIMAL(3, 0) NOT NULL,
+             NS_IDCPFS_479BFAS              DECIMAL(3, 0) NOT NULL,
+             AM_CNSSPFS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             RA_CPTOTFS_479BFAS             DECIMAL(6, 3) NOT NULL,
+             CO_CPFMAS_479BFAS              CHAR(1) NOT NULL,
+             CO_PERINFS_479BFAS             CHAR(1) NOT NULL,
+             NS_IDFMAS_479BFAS              DECIMAL(2, 0) NOT NULL,
+             CO_DEVFMAS_479BFAS             CHAR(3) NOT NULL,
+             NB_KRDEVFS_479BFAS             DECIMAL(11, 5) NOT NULL,
+             AM_BSDECFS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             CO_TYPFMAS_479BFAS             CHAR(3) NOT NULL,
+             CO_SUBTPFS_479BFAS             CHAR(3) NOT NULL,
+             CO_CONTFS_479BFAS              CHAR(3) NOT NULL,
+             CO_TPVGLFS_479BFAS             CHAR(2) NOT NULL,
+             AM_VGLFMAS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             NR_PRDFMAS_479BFAS             CHAR(4) NOT NULL,
+             DA_ACTVRFS_479BFAS             DATE NOT NULL,
+             DA_INVTRFS_479BFAS             DATE NOT NULL,
+             RA_QZTTIFS_479BFAS             DECIMAL(6, 3) NOT NULL,
+             RA_DGTTIFS_479BFAS             DECIMAL(6, 3) NOT NULL,
+             NB_DGTTIFS_479BFAS             DECIMAL(2, 0) NOT NULL,
+             AM_DGTTIFS_479BFAS             DECIMAL(15, 2) NOT NULL,
+             ST_DGTTIFS_479BFAS             DECIMAL(1, 0) NOT NULL,
+             ST_PRRWFS_479BFAS              DECIMAL(1, 0) NOT NULL,
+             RA_GIFTFS_479BFAS              DECIMAL(6, 3) NOT NULL,
+             AM_GIFTFS_479BFAS              DECIMAL(15, 2) NOT NULL,
+             ST_VOORHFS_479BFAS             DECIMAL(1, 0) NOT NULL,
+             DA_CPTAFS_479BFAS              DATE NOT NULL,
+             CO_EXTOBFS_479BFAS             CHAR(1) NOT NULL,
+             CO_PLTOBFS_479BFAS             CHAR(1) NOT NULL,
+             RA_TOBFS_479BFAS               DECIMAL(6, 3) NOT NULL,
+             AM_TOBFS_479BFAS               DECIMAL(15, 2) NOT NULL,
+             RA_TARPHFS_479BFAS             DECIMAL(6, 3) NOT NULL,
+             AM_TARPH_479BFAS               DECIMAL(15, 2) NOT NULL,
+             AM_BASEFS_479BFAS              DECIMAL(15, 2) NOT NULL,
+             AM_FLKFS_479BFAS               DECIMAL(5, 2) NOT NULL,
+             TS_CREATE_479BFAS              TIMESTAMP NOT NULL,
+             TS_UPDATE_479BFAS              TIMESTAMP NOT NULL,
+             ID_USERID_479BFAS              CHAR(8) NOT NULL,
+             NR_CIOFMAS_479SIAS             DECIMAL(8, 0) NOT NULL,
+             NR_IDFMAS_479SIAS              DECIMAL(6, 0) NOT NULL
+           ) END-EXEC.
+      ******************************************************************
+      * COBOL DECLARATION FOR TABLE DZ.DZBFASTV                        *
+      ******************************************************************
+       01  DCLDZBFASTV.
+           10 CT-RKTGDSV-479BFAS   PIC X(4).
+           10 NR-CIOFMAS-479BFAS   PIC S9(8)V USAGE COMP-3.
+           10 DA-CRFMAS-479BFAS    PIC X(10).
+           10 NR-IDFMAS-479BFAS    PIC S9(6)V USAGE COMP-3.
+           10 CT-OPD-479BFAS       PIC S9(3)V USAGE COMP-3.
+           10 CT-OPG-479BFAS       PIC S9(3)V USAGE COMP-3.
+           10 NR-ID-479BFAS        PIC S9(20)V USAGE COMP-3.
+           10 NR-CIWFMAS-479BFAS   PIC X(8).
+           10 DA-VAFMAS-479BFAS    PIC X(10).
+           10 CO-VMFMAS-479BFAS    PIC X(1).
+           10 NR-ISFMAS-479BFAS    PIC S9(9)V USAGE COMP-3.
+           10 RA-RTFMAS-479BFAS    PIC S9(3)V9(3) USAGE COMP-3.
+           10 RA-CPFMAS-479BFAS    PIC S9(3)V9(3) USAGE COMP-3.
+           10 RA-BASFMAS-479BFAS   PIC S9(3)V9(3) USAGE COMP-3.
+           10 DA-UBFMAS-479BFAS    PIC X(10).
+           10 DA-UEFMAS-479BFAS    PIC X(10).
+           10 DU-STFMAS-479BFAS    PIC S9(3)V USAGE COMP-3.
+           10 RA-PSFMAS-479BFAS    PIC S9(3)V9(3) USAGE COMP-3.
+           10 RA-PRFMAS-479BFAS    PIC S9(3)V9(3) USAGE COMP-3.
+           10 AM-CNSFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-PSFMAS-479BFAS    PIC S9(13)V9(2) USAGE COMP-3.
+           10 NB-FIFMAS-479BFAS    PIC S9(3)V USAGE COMP-3.
+           10 AM-FINFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 CO-RIFMAS-479BFAS    PIC X(1).
+           10 NR-IDRFMAS-479BFAS   PIC S9(6)V USAGE COMP-3.
+           10 DA-UERFMAS-479BFAS   PIC X(10).
+           10 AM-FBAFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-FBBFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 CO-RMFMAS-479BFAS    PIC X(1).
+           10 RA-FBFMAS-479BFAS    PIC S9(3)V9(3) USAGE COMP-3.
+           10 NB-FBFMAS-479BFAS    PIC S9(2)V USAGE COMP-3.
+           10 AM-FBNFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 RA-TIFMAS-479BFAS    PIC S9(2)V9(2) USAGE COMP-3.
+           10 AM-CNDFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-CNDNFAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-CNSNFAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 NR-CDFMAS-479BFAS    PIC S9(4)V USAGE COMP-3.
+           10 CT-SLFMAS-479BFAS    PIC X(1).
+           10 NR-STFMAS-479BFAS    PIC S9(13)V USAGE COMP-3.
+           10 CX-TWFMAS-479BFAS    PIC X(1).
+           10 NR-DSFMAS-479BFAS    PIC S9(12)V USAGE COMP-3.
+           10 NR-IDXFMAS-479BFAS   PIC S9(6)V USAGE COMP-3.
+           10 CO-LAFMAS-479BFAS    PIC X(1).
+           10 AM-INTFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 NB-GRPFMAS-479BFAS   PIC S9(3)V USAGE COMP-3.
+           10 NR-PRGRPFS-479BFAS   PIC S9(6)V USAGE COMP-3.
+           10 NR-NEGRPFS-479BFAS   PIC S9(6)V USAGE COMP-3.
+           10 NR-FIGRPFS-479BFAS   PIC S9(6)V USAGE COMP-3.
+           10 NR-SEGRPFS-479BFAS   PIC S9(3)V USAGE COMP-3.
+           10 NS-IDCPFS-479BFAS    PIC S9(3)V USAGE COMP-3.
+           10 AM-CNSSPFS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 RA-CPTOTFS-479BFAS   PIC S9(3)V9(3) USAGE COMP-3.
+           10 CO-CPFMAS-479BFAS    PIC X(1).
+           10 CO-PERINFS-479BFAS   PIC X(1).
+           10 NS-IDFMAS-479BFAS    PIC S9(2)V USAGE COMP-3.
+           10 CO-DEVFMAS-479BFAS   PIC X(3).
+           10 NB-KRDEVFS-479BFAS   PIC S9(6)V9(5) USAGE COMP-3.
+           10 AM-BSDECFS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 CO-TYPFMAS-479BFAS   PIC X(3).
+           10 CO-SUBTPFS-479BFAS   PIC X(3).
+           10 CO-CONTFS-479BFAS    PIC X(3).
+           10 CO-TPVGLFS-479BFAS   PIC X(2).
+           10 AM-VGLFMAS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 NR-PRDFMAS-479BFAS   PIC X(4).
+           10 DA-ACTVRFS-479BFAS   PIC X(10).
+           10 DA-INVTRFS-479BFAS   PIC X(10).
+           10 RA-QZTTIFS-479BFAS   PIC S9(3)V9(3) USAGE COMP-3.
+           10 RA-DGTTIFS-479BFAS   PIC S9(3)V9(3) USAGE COMP-3.
+           10 NB-DGTTIFS-479BFAS   PIC S9(2)V USAGE COMP-3.
+           10 AM-DGTTIFS-479BFAS   PIC S9(13)V9(2) USAGE COMP-3.
+           10 ST-DGTTIFS-479BFAS   PIC S9(1)V USAGE COMP-3.
+           10 ST-PRRWFS-479BFAS    PIC S9(1)V USAGE COMP-3.
+           10 RA-GIFTFS-479BFAS    PIC S9(3)V9(3) USAGE COMP-3.
+           10 AM-GIFTFS-479BFAS    PIC S9(13)V9(2) USAGE COMP-3.
+           10 ST-VOORHFS-479BFAS   PIC S9(1)V USAGE COMP-3.
+           10 DA-CPTAFS-479BFAS    PIC X(10).
+           10 CO-EXTOBFS-479BFAS   PIC X(1).
+           10 CO-PLTOBFS-479BFAS   PIC X(1).
+           10 RA-TOBFS-479BFAS     PIC S9(3)V9(3) USAGE COMP-3.
+           10 AM-TOBFS-479BFAS     PIC S9(13)V9(2) USAGE COMP-3.
+           10 RA-TARPHFS-479BFAS   PIC S9(3)V9(3) USAGE COMP-3.
+           10 AM-TARPH-479BFAS     PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-BASEFS-479BFAS    PIC S9(13)V9(2) USAGE COMP-3.
+           10 AM-FLKFS-479BFAS     PIC S9(3)V9(2) USAGE COMP-3.
+           10 TS-CREATE-479BFAS    PIC X(26).
+           10 TS-UPDATE-479BFAS    PIC X(26).
+           10 ID-USERID-479BFAS    PIC X(8).
+           10 NR-CIOFMAS-479SIAS   PIC S9(8)V USAGE COMP-3.
+           10 NR-IDFMAS-479SIAS    PIC S9(6)V USAGE COMP-3.
+      ******************************************************************
+      * THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 89      *
+      ******************************************************************

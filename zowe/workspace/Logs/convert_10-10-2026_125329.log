@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\testing\run_retrieval.py", line 26, in <module>
+    from idms_db2_phase2.testing.retrieval.retrieval_program_converter import (  # noqa: E402
+    ...<2 lines>...
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\testing\retrieval\retrieval_program_converter.py", line 39, in <module>
+    from idms_db2_phase2.orchestration.conversion_service import ConversionService
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\orchestration\conversion_service.py", line 4, in <module>
+    from idms_db2_phase2.orchestration.conversion.conversion_component_factory import (
+        ConversionComponentFactory,
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\orchestration\conversion\conversion_component_factory.py", line 63, in <module>
+    from idms_db2_phase2.transformers.cobol_transformer import CobolTransformer
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\transformers\cobol_transformer.py", line 73, in <module>
+    from patterns.cobol_patterns import DIVISION_PATTERN
+ImportError: cannot import name 'DIVISION_PATTERN' from 'patterns.cobol_patterns' (C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\patterns\cobol_patterns.py)

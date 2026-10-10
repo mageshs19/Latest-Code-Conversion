@@ -1,0 +1,112 @@
+     DEL SUBSCHEMA NAME IS VMBTS03 OF SCHEMA NAME IS VMBTSCH.
+     ADD SUBSCHEMA NAME IS VMBTS03 OF SCHEMA NAME IS VMBTSCH
+         PUBLIC ACCESS IS ALLOWED FOR ALL
+         USAGE IS MIXED
+         LR CURRENCY NO RESET
+         .
+********************************
+*         AREA SECTION         *
+********************************
+     ADD AREA AR-VMBFRM1
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBRFFB
+         DEF USA SHARED UPDATE
+         .
+     ADD AREA AR-VMBRFFT
+         DEF USA SHARED UPDATE
+         .
+********************************
+*         RECORD SECTION       *
+********************************
+     ADD REC VMBFAS
+         .
+     ADD REC VMBSIAS
+         .
+     ADD REC FFRECAB
+         .
+     ADD REC FFRECBB
+         .
+     ADD REC FFRECAT
+         .
+********************************
+*         SET SECTION          *
+********************************
+     ADD SET VMBSIAS-VMBFAS
+         .
+     ADD SET FFRECAB-FFRECBB
+         .
+*
+****************************************************
+*                                                  *
+*         L O G I C A L  R E C O R D   DESCRIPTION *
+*                                                  *
+****************************************************
+*
+*
+     ADD LOGICAL RECORD VMBTL03-R01
+         ELEMENTS ARE
+             VMBSIAS
+             VMBFAS
+         COMMENTS
+             'GEBRUIKT IN FUNCTIE VAN DE A-FORMULIEREN DIE'
+       -     'TERUG KOMEN VAN DE AGENT'
+         .
+*
+****************************************************
+*                                                  *
+*         P A T H  D E S C R I P T I O N S         *
+*                                                  *
+****************************************************
+*
+     ADD PATH-GROUP ERASE VMBTL03-R01
+*    --------------------------------
+         SELECT FOR KEYWORD ERASE-VMBSIAS
+*        --------------------------------
+             FIND CURRENT VMBSIAS
+                 ON 0000 NEXT
+             ERASE VMBSIAS
+                 ON 0230 RETURN SET-NOT-EMPTY
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ERASE-EACH-VMBSIAS
+*        -------------------------------------
+             FIND EACH VMBSIAS WITHIN AR-VMBFRM1
+                 ON 0307 RETURN VMBSIAS-EOA
+                 ON 0000 NEXT
+             IF VMBSIAS-VMBFAS IS EMPTY
+                 ON 0000 NEXT
+                 ON 1601 ITERATE
+             ERASE VMBSIAS
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD ERASE-VMBFAS
+*        -------------------------------
+             ERASE VMBFAS
+                 ON 0000 NEXT
+         .
+     ADD PATH-GROUP OBTAIN VMBTL03-R01
+*    ---------------------------------
+         SELECT FOR KEYWORD SWEEP-VMBFAS
+*        -------------------------------
+             OBTAIN EACH VMBFAS WITHIN AR-VMBFRM1
+                 ON 0307 RETURN VMBFAS-EOA
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD SWEEP-VMBSIAS
+*        --------------------------------
+             OBTAIN EACH VMBSIAS WITHIN AR-VMBFRM1
+                 ON 0307 RETURN VMBSIAS-EOA
+                 ON 0000 NEXT
+         SELECT FOR KEYWORD VMBFAS-BY-VMBSIAS
+*        ------------------------------------
+             FIND FIRST VMBSIAS
+                 WHERE CALCKEY EQ KY-SIFORM OF VMBSIAS OF LR
+                 ON 0326 RETURN VMBSIAS-NOT-FND
+                 ON 0000 NEXT
+             IF VMBSIAS-VMBFAS IS EMPTY
+                 ON 0000 RETURN NO-VMBFAS-FND
+                 ON 1601 DO
+             OBTAIN EACH VMBFAS WITHIN VMBSIAS-VMBFAS
+                 ON 0000 NEXT
+                 ON 0307 RETURN NO-MORE-VMBFAS
+                 END
+         .
+     GENERATE.

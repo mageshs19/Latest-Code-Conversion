@@ -1,0 +1,38 @@
+Traceback (most recent call last):
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\testing\run_retrieval.py", line 26, in <module>
+    from idms_db2_phase2.testing.retrieval.retrieval_program_converter import (  # noqa: E402
+    ...<2 lines>...
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\testing\retrieval\retrieval_program_converter.py", line 39, in <module>
+    from idms_db2_phase2.orchestration.conversion_service import ConversionService
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\orchestration\conversion_service.py", line 10, in <module>
+    from idms_db2_phase2.orchestration.conversion.conversion_pipeline import (
+        ConversionPipeline,
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\orchestration\conversion\conversion_pipeline.py", line 8, in <module>
+    from idms_db2_phase2.orchestration.conversion.conversion_layout_pipeline import (
+        ConversionLayoutPipeline,
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\orchestration\conversion\conversion_layout_pipeline.py", line 19, in <module>
+    from idms_db2_phase2.orchestration.conversion.conversion_layout_steps import (
+        ConversionLayoutSteps,
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\orchestration\conversion\conversion_layout_steps.py", line 75, in <module>
+    from idms_db2_phase2.composers.counter_declaration_composer import (
+        CounterDeclarationComposer,
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\composers\counter_declaration_composer.py", line 40, in <module>
+    from idms_db2_phase2.composers.counter_declaration_writer import (
+        CounterDeclarationWriter,
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\composers\counter_declaration_writer.py", line 18, in <module>
+    from idms_db2_phase2.composers.counter_declaration import (
+    ...<3 lines>...
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\composers\counter_declaration\__init__.py", line 19, in <module>
+    from idms_db2_phase2.composers.counter_declaration.counter_totals_writer import (
+        CounterTotalsWriter,
+    )
+  File "C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\src\idms_db2_phase2\composers\counter_declaration\counter_totals_writer.py", line 24, in <module>
+    from patterns.cobol_patterns import GOBACK_PATTERN, STOP_RUN_PATTERN
+ImportError: cannot import name 'GOBACK_PATTERN' from 'patterns.cobol_patterns' (C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\patterns\cobol_patterns.py)

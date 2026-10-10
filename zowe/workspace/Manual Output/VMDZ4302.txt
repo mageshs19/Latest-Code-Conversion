@@ -1,0 +1,671 @@
+000100 CBL ARITH(EXTEND)                                                00000100
+000203 IDENTIFICATION DIVISION.                                         00000203
+000303*========================                                         00000303
+000403 PROGRAM-ID.   VMDZ4302.                                          00000403
+000503 AUTHOR.       ANUJA DHURI.                                       00000503
+000603 DATE-WRITTEN. APRIL 2026.                                        00000603
+000703                                                                  00000703
+000803*-----------------------------------------------------------------00000803
+000903*     COLLECTION OF SECURITIES WITH REDEMPTION EVENTS             00000903
+001003*         EVENTS ONE MONTH PRIOR TO MATURITY                      00001003
+001103*-----------------------------------------------------------------00001103
+001403*                                                                 00001403
+001503* THIS PROGRAM IS BEING USED TO EXTRACT THE INPUT KASBONS DATA    00001503
+001603* FROM FOLLOWING (3) KASBONS DB2 TABLES AND CHECK THE VALID       00001603
+001703* DATA AND WRITE THOSE RETRIEVED DATE INTO OUTPUT FILE.           00001703
+001803*                                                                 00001803
+001903* DZWCEFTB(PARENT) ----> DZBEFFTB(PARENT) ----> DZEVEFTB(CHILD)   00001903
+002003*                                                                 00002003
+002103* DZWCEFTB - SELECT                                               00002103
+002203* DZBEFFTB - SELECT                                               00002203
+002303* DZEVEFTB - SELECT                                               00002303
+002403*-----------------------------------------------------------------00002403
+002503 ENVIRONMENT DIVISION.                                            00002503
+002603*-----------------------------------------------------------------00002603
+002703 INPUT-OUTPUT SECTION.                                            00002703
+002803 FILE-CONTROL.                                                    00002803
+002903     SELECT EMISSIONS-I ASSIGN TO UT-S-DD010.                     00002903
+003003     SELECT EFFEKT-O    ASSIGN TO UT-S-DD005.                     00003003
+004003*                                                                 00004003
+005003*-----------------------------------------------------------------00005003
+005103 DATA DIVISION.                                                   00005103
+005203*-----------------------------------------------------------------00005203
+005303 FILE SECTION.                                                    00005303
+005403 FD  EMISSIONS-I                                                  00005403
+005503     BLOCK CONTAINS 0 RECORDS                                     00005503
+005603     RECORD CONTAINS 40 CHARACTERS                                00005603
+005703     RECORDING MODE F                                             00005703
+005803     LABEL RECORDS STANDARD.                                      00005803
+005903 01  EMISSIONS-I-REC PIC X(40).                                   00005903
+006003*                                                                 00006003
+006103 FD  EFFEKT-O                                                     00006103
+006203     BLOCK CONTAINS 0 RECORDS                                     00006203
+006303     RECORD CONTAINS 90 CHARACTERS                                00006303
+006403     RECORDING MODE F                                             00006403
+006503     LABEL RECORDS STANDARD.                                      00006503
+006603 01  REFFEKT-O   PIC X(90).                                       00006603
+006703*                                                                 00006703
+006803*-----------------------------------------------------------------00006803
+006903 WORKING-STORAGE SECTION.                                         00006903
+007003*-----------------------------------------------------------------00007003
+007004 01  USERABEN                     PIC X(8)    VALUE 'USERABEN'.   00007004
+008003 01  CS-VM9BC50T                  PIC X(8)    VALUE 'VM9BC50T'.   00008003
+009003 01  WS-VM9BC50I.                                                 00009003
+009103     COPY VM9BC50I     REPLACING ==:VM9BC50T:== BY ==BC50I==.     00009103
+009203 01  WS-VM9BC50O.                                                 00009203
+009303     COPY VM9BC50O     REPLACING ==:VM9BC50T:== BY ==BC50O==.     00009303
+009403 01  WS-VM9BC50T.                                                 00009403
+009503     05  TE-INTERFACE             PIC  X(001) OCCURS 32000.       00009503
+009603 01  INPUT-RECORD.                                                00009603
+009703     02  I-CO-INTERNE             PIC X(11).                      00009703
+009803     02  I-DA-UB.                                                 00009803
+009903         03  DD                   PIC 99.                         00009903
+010003         03  FILLER               PIC X.                          00010003
+010103         03  MM                   PIC 99.                         00010103
+010203         03  FILLER               PIC X.                          00010203
+010303         03  CCYY                 PIC 9999.                       00010303
+010403     02 I-DA-UE.                                                  00010403
+010503         03  DD                   PIC 99.                         00010503
+010603         03  FILLER               PIC X.                          00010603
+010703         03  MM                   PIC 99.                         00010703
+010803         03  FILLER               PIC X.                          00010803
+010903         03  CCYY                 PIC 9999.                       00010903
+011003     02 FILLER                    PIC X(9).                       00011003
+011103*                                                                 00011103
+011203 01  VARIABLES.                                                   00011203
+011303     03  WS-DA-UE-MIN-1MAAND.                                     00011303
+011403         05 CCYY                  PIC 9(4).                       00011403
+011503         05 MM                    PIC 99.                         00011503
+011603         05 DD                    PIC 99.                         00011603
+011703     03  SW-168                   PIC X       VALUE 'N'.          00011703
+011803     03  LAATSTE-DA-CR-EVENT-PROD PIC 9(8)    VALUE 0.            00011803
+011903     03  LAATSTE-CI               PIC X(6)    VALUE '000000'.     00011903
+012003     03  WS-NB-READ-COUNT         PIC 9(7)    COMP-3 VALUE ZEROES.00012003
+012103     03  WS-NB-BEFF-COUNT         PIC 9(7)    COMP-3 VALUE ZEROES.00012103
+012203     03  WS-NB-OUTPUT-COUNT       PIC 9(7)    COMP-3 VALUE ZEROES.00012203
+012303     03  CS-PROGRAM               PIC X(8)    VALUE 'VMDZ4302'.   00012303
+012403     03  HULP-NR-ID-GOOD.                                         00012403
+012503         05  FILLER               PIC 9(8)    VALUE ZEROES.       00012503
+012603         05  HULP-DA-UB-TRANSF    PIC 9(8)    VALUE ZEROES.       00012603
+012703         05  FILLER               PIC 9(6)    VALUE ZEROES.       00012703
+012803         05  CT-OPD               PIC 9(3)    VALUE ZEROES.       00012803
+012903         05  FILLER               PIC 9(3)    VALUE ZEROES.       00012903
+013003                                                                  00013003
+013103 01  UITREC.                                                      00013103
+013203     03  UIT-NR-CI                PIC 9(06).                      00013203
+013303     03  UIT-AM-CN-STOCK          PIC S9(12)V9(6).                00013303
+013403     03  UIT-CO-DEVISE            PIC X(03).                      00013403
+013503     03  FILLER                   PIC X(22)   VALUE SPACE.        00013503
+013603     03  UIT-CO-INTERNE           PIC X(11).                      00013603
+013703     03  FILLER                   PIC X(12)   VALUE SPACE.        00013703
+013803     03  UIT-NR-ID-STOCK-CD       PIC 9(13).                      00013803
+013903     03  FILLER                   PIC X(05)   VALUE SPACES.       00013903
+014003*                                                                 00014003
+014103 01  HELP-NR-STOCK.                                               00014103
+014203     02  HELP-NR-IDSTOCK          PIC 9(12)   VALUE ZEROES.       00014203
+014303     02  HELP-NR-CDSTOCK          PIC 9(1)    VALUE ZEROES.       00014303
+014403                                                                  00014403
+014503 01  HELP-NR-CIO-FORM.                                            00014503
+014603     02  HELP-NR-CIO-AS-1POS      PIC X(1)    VALUE SPACES.       00014603
+014703     02  HELP-NR-CIO-AS-26POS     PIC X(5)    VALUE SPACES.       00014703
+014803                                                                  00014803
+014903 01  WS-DZBFFSC1-FLAG             PIC X.                          00014903
+015003     88  DZBEFFC1-NOT-EOC         VALUE 'N'.                      00015003
+015103     88  DZBEFFC1-EOC             VALUE 'Y'.                      00015103
+015203                                                                  00015203
+015303 01  WS-DZEVEFC1-FLAG             PIC X.                          00015303
+015403     88  DZEVEFC1-NOT-EOC         VALUE 'N'.                      00015403
+015503     88  DZEVEFC1-EOC             VALUE 'Y'.                      00015503
+015603                                                                  00015603
+015703 01  SW-EMISSIONS                 PIC X.                          00015703
+015803     88 EMISSIONS-NOT-EOF         VALUE 'N'.                      00015803
+015903     88 EMISSIONS-EOF             VALUE 'Y'.                      00015903
+016003                                                                  00016003
+016103 01  WS-TIMESTAMP-FIELDS.                                         00016103
+016203     05 TS-SYSTEM.                                                00016203
+016303        10  DA-SYS.                                               00016303
+016403            15  DA-SYS-CCYY.                                      00016403
+016503                20  CC            PIC X(2).                       00016503
+016603                20  YY            PIC X(2).                       00016603
+016703            15  MM                PIC X(2).                       00016703
+016803            15  DD                PIC X(2).                       00016803
+016903        10  HR-SYS.                                               00016903
+017003            15  HH                PIC X(2).                       00017003
+017103            15  MI                PIC X(2).                       00017103
+017203            15  SS                PIC X(2).                       00017203
+017303            15  TT                PIC X(2).                       00017303
+017403     05 TS-TIMESTAMP.                                             00017403
+017503        10  CC                    PIC X(2).                       00017503
+017603        10  YY                    PIC X(2).                       00017603
+017703        10  TE-MARKER1            PIC X             VALUE '-'.    00017703
+017803        10  MM                    PIC X(2).                       00017803
+017903        10  TE-MARKER2            PIC X             VALUE '-'.    00017903
+018003        10  DD                    PIC X(2).                       00018003
+018103        10  TE-MARKER3            PIC X             VALUE '-'.    00018103
+018203        10  HH                    PIC X(2).                       00018203
+018303        10  TE-MARKER4            PIC X             VALUE '.'.    00018303
+018403        10  MI                    PIC X(2).                       00018403
+018503        10  TE-MARKER5            PIC X             VALUE '.'.    00018503
+018603        10  SS                    PIC X(2).                       00018603
+018703        10  TE-MARKER6            PIC X             VALUE '.'.    00018703
+018803        10  TT                    PIC X(2).                       00018803
+018903        10  NNNN                  PIC 9(04)         VALUE 0.      00018903
+019003                                                                  00019003
+019103 01 WS-DATUMVELDEN.                                               00019103
+019203    03  DA-YYMMDD.                                                00019203
+019303        05  YY                    PIC 99       VALUE ZERO.        00019303
+019403        05  MM                    PIC 99       VALUE ZERO.        00019403
+019503        05  DD                    PIC 99       VALUE ZERO.        00019503
+019603    03  DA-DDMMCCYY.                                              00019603
+019703        05  DD                    PIC 99       VALUE ZERO.        00019703
+019803        05  MM                    PIC 99       VALUE ZERO.        00019803
+019903        05  CC                    PIC 99       VALUE ZERO.        00019903
+020003        05  YY                    PIC 99       VALUE ZERO.        00020003
+020103    03  DA-CCYYMMDD.                                              00020103
+020203        05  CC                    PIC 99       VALUE ZERO.        00020203
+020303        05  YY                    PIC 99       VALUE ZERO.        00020303
+020403        05  MM                    PIC 99       VALUE ZERO.        00020403
+020503        05  DD                    PIC 99       VALUE ZERO.        00020503
+020603    03  DA-CCYYMMDD-R REDEFINES DA-CCYYMMDD.                      00020603
+020703        05  CCYY                  PIC 9999.                       00020703
+020803        05  MM                    PIC 99.                         00020803
+020903        05  DD                    PIC 99.                         00020903
+021003    03  DA-DD-MM-CCYY.                                            00021003
+021103        05  DD                    PIC 9(02).                      00021103
+021203        05  TE-MARKER5            PIC X        VALUE '.'.         00021203
+021303        05  MM                    PIC 9(02).                      00021303
+021403        05  TE-MARKER6            PIC X        VALUE '.'.         00021403
+021503        05  CCYY                  PIC 9(04).                      00021503
+021603    02  HELP-DA-CREVTPD-479EVEF   PIC 9(8).                       00021603
+021703                                                                  00021703
+021803 01  ZONE-DATONLY.                                                00021803
+021903     02  WS-DA-YMD.                                               00021903
+022003         03  YY                   PIC 99.                         00022003
+022103         03  MM                   PIC 99.                         00022103
+022203         03  DD                   PIC 99.                         00022203
+022303*                                                                 00022303
+022403     02  WS-DA-DMY.                                               00022403
+022503         03  DD                   PIC 99.                         00022503
+022603         03  MM                   PIC 99.                         00022603
+022703         03  YY                   PIC 99.                         00022703
+022803*                                                                 00022803
+022903     02  WS-DA-CYMD-N             PIC 9(8).                       00022903
+023003     02  WS-DA-CYMD REDEFINES WS-DA-CYMD-N.                       00023003
+023103         03  CCYY                 PIC 9999.                       00023103
+023203         03  MM                   PIC 99.                         00023203
+023303         03  DD                   PIC 99.                         00023303
+023403*                                                                 00023403
+023503     02  WS-DA-UE.                                                00023503
+023603         03  CCYY                 PIC 9999.                       00023603
+023703         03  MM                   PIC 99.                         00023703
+023803         03  DD                   PIC 99.                         00023803
+023903*                                                                 00023903
+023904*---- INCLUDE FOR DB2 ------------------------------------------* 00023904
+023905     EXEC SQL INCLUDE SQLERRWS END-EXEC.                          00023905
+023906     EXEC SQL INCLUDE SQLCA    END-EXEC.                          00023906
+023907                                                                  00023907
+023908*---- INCLUDE VIEWS --------------------------------------------* 00023908
+023909     EXEC SQL INCLUDE DZWCEFTV END-EXEC.                          00023909
+023910     EXEC SQL INCLUDE DZBEFFTV END-EXEC.                          00023910
+023920     EXEC SQL INCLUDE DZEVEFTV END-EXEC.                          00023920
+023940*                                                                 00023940
+023950* DECLARE CURSOR FOR BEFF TABLE                                   00023950
+023960* ------------------------------                                  00023960
+023970*                                                                 00023970
+023980     EXEC SQL DECLARE DZBEFFC1 CURSOR WITH HOLD FOR               00023980
+023990       SELECT AM_CNSTK_479BEFF                                    00023990
+024000            , CT_RKTPROD_479BEFF                                  00024000
+024001            , NR_IDSTOCK_479BEFF                                  00024001
+024002            , NR_CDSTK_479BEFF                                    00024002
+024003            , NS_DBSTK_479BEFF                                    00024003
+024004       FROM DZBEFFTV                                              00024004
+024005      WHERE CO_IDISSUS_479WCEF = :DCLDZWCEFTV.CO-IDISSUS-479WCEF  00024005
+024006        AND NS_IRMOS_479WCEF   = :DCLDZWCEFTV.NS-IRMOS-479WCEF    00024006
+024007        AND DA_UBSECIS_479WCEF = :DCLDZWCEFTV.DA-UBSECIS-479WCEF  00024007
+024008       FOR READ ONLY                                              00024008
+024009              QUERYNO 238                                         00024009
+024010     END-EXEC                                                     00024010
+024011*                                                                 00024011
+024012* DECLARE CURSOR FOR EVEF TABLE                                   00024012
+024013* ------------------------------                                  00024013
+024014*                                                                 00024014
+024015     EXEC SQL DECLARE DZEVEFC1 CURSOR WITH HOLD FOR               00024015
+024016       SELECT NR_CI1POS_479EVEF                                   00024016
+024017            , NR_CI26POS_479EVEF                                  00024017
+024018            , CT_RKTEVPR_479EVEF                                  00024018
+024019            , DA_CREVTPD_479EVEF                                  00024019
+024020            , NR_IDGOOD_479EVEF                                   00024020
+024021            , NR_ID_479EVEF                                       00024021
+024022       FROM DZEVEFTV                                              00024022
+024023      WHERE CT_RKTPROD_479BEFF = :DCLDZBEFFTV.CT-RKTPROD-479BEFF  00024023
+024024        AND NR_IDSTOCK_479BEFF = :DCLDZBEFFTV.NR-IDSTOCK-479BEFF  00024024
+024025        AND NR_CDSTK_479BEFF   = :DCLDZBEFFTV.NR-CDSTK-479BEFF    00024025
+024026        AND NS_DBSTK_479BEFF   = :DCLDZBEFFTV.NS-DBSTK-479BEFF    00024026
+024027      ORDER BY NR_ID_479EVEF DESC                                 00024027
+024028      FOR READ ONLY                                               00024028
+024029              QUERYNO 258                                         00024029
+024030     END-EXEC.                                                    00024030
+024031                                                                  00024031
+024040*-----------------------------------------------------------------00024040
+024103 LINKAGE SECTION.                                                 00024103
+024203*-----------------------------------------------------------------00024203
+024303 01  PARAM-DATONLY.                                               00024303
+024403     03  LS-PARAM                 PIC S9(4) COMP.                 00024403
+024503     03  LS-DATE-IND              PIC X.                          00024503
+024603     03  LS-DA-DMY.                                               00024603
+024703         05  DD                   PIC 99.                         00024703
+024803         05  MM                   PIC 99.                         00024803
+024903         05  YY                   PIC 99.                         00024903
+025003/                                                                 00025003
+029703*-----------------------------------------------------------------00029703
+029803 PROCEDURE DIVISION USING PARAM-DATONLY.                          00029803
+029903*-----------------------------------------------------------------00029903
+030003*                                                                 00030003
+030103* INITIAL PROCESSING                                              00030103
+030203*                                                                 00030203
+030303     IF LS-DATE-IND = '0'                                         00030303
+030403        ACCEPT WS-DA-YMD FROM DATE                                00030403
+030503        MOVE CORR WS-DA-YMD TO WS-DA-DMY                          00030503
+030603     ELSE                                                         00030603
+030703        MOVE LS-DA-DMY TO WS-DA-DMY                               00030703
+030803     END-IF                                                       00030803
+030903     MOVE CORR WS-DA-DMY TO WS-DA-CYMD.                           00030903
+031003     MOVE YY OF WS-DA-DMY TO CCYY OF WS-DA-CYMD.                  00031003
+031103*                                                                 00031103
+031203     IF CCYY OF WS-DA-CYMD LESS 80                                00031203
+031303        ADD 2000 TO CCYY OF WS-DA-CYMD                            00031303
+031403     ELSE                                                         00031403
+031503        ADD 1900 TO CCYY OF WS-DA-CYMD                            00031503
+031603     END-IF                                                       00031603
+031703                                                                  00031703
+031803     MOVE CS-PROGRAM             TO PROGRAM-NAME                  00031803
+031903     PERFORM 600-GET-TIMESTAMP                                    00031903
+032003     SET EMISSIONS-NOT-EOF       TO TRUE                          00032003
+033003                                                                  00033003
+034003     OPEN INPUT  EMISSIONS-I                                      00034003
+035003          OUTPUT EFFEKT-O.                                        00035003
+035103                                                                  00035103
+035203     PERFORM READ-INPUT.                                          00035203
+035303                                                                  00035303
+035403     PERFORM VERWERK-EMISSIONS UNTIL EMISSIONS-EOF                00035403
+035503                                                                  00035503
+035603     CLOSE EMISSIONS-I                                            00035603
+035703           EFFEKT-O.                                              00035703
+035803                                                                  00035803
+035903     DISPLAY 'TOTAL INPUT RECORDS  : ' WS-NB-READ-COUNT           00035903
+036003     DISPLAY 'TOTAL DZBEFF RECORDS : ' WS-NB-BEFF-COUNT           00036003
+037003     DISPLAY 'TOTAL OUTPUT RECORDS : ' WS-NB-OUTPUT-COUNT         00037003
+037103     STOP RUN.                                                    00037103
+037203/                                                                 00037203
+037303*-----------------------------------------------------------------00037303
+037403 READ-INPUT.                                                      00037403
+037503*-----------------------------------------------------------------00037503
+037603     INITIALIZE INPUT-RECORD                                      00037603
+037703                                                                  00037703
+037803     READ EMISSIONS-I INTO INPUT-RECORD                           00037803
+037903        AT END SET EMISSIONS-EOF TO TRUE                          00037903
+038003     END-READ.                                                    00038003
+038103                                                                  00038103
+038203     IF EMISSIONS-NOT-EOF                                         00038203
+038303        ADD +1                   TO WS-NB-READ-COUNT              00038303
+038403     END-IF                                                       00038403
+038503     .                                                            00038503
+038603*-----------------------------------------------------------------00038603
+038703 VERWERK-EMISSIONS.                                               00038703
+038803*-----------------------------------------------------------------00038803
+038903     MOVE CORR I-DA-UE TO WS-DA-UE                                00038903
+039003*                                                                 00039003
+039103     INITIALIZE DCLDZWCEFTV                                       00039103
+039104                                                                  00039104
+039203     PERFORM CALL-VM9BC50T                                        00039203
+039204                                                                  00039204
+039303     MOVE BC50O-NR-ID-SECU    TO CO-IDISSUS-479WCEF OF DCLDZWCEFTV00039303
+039403     MOVE BC50O-NS-SEQ-IRMO   TO NS-IRMOS-479WCEF   OF DCLDZWCEFTV00039403
+039404     MOVE ZEROES              TO DA-CCYYMMDD                      00039404
+039503     MOVE BC50O-DA-UBSEC-ISSU TO DA-CCYYMMDD                      00039503
+039603     IF DA-CCYYMMDD = ZERO OR DA-CCYYMMDD = SPACES                00039603
+039703        MOVE 00010101         TO DA-CCYYMMDD                      00039703
+039803     END-IF                                                       00039803
+039903     MOVE CORR DA-CCYYMMDD-R  TO DA-DD-MM-CCYY                    00039903
+040003     MOVE DA-DD-MM-CCYY       TO DA-UBSECIS-479WCEF OF DCLDZWCEFTV00040003
+040103*                                                                 00040103
+040203     PERFORM 700-SELECT-DZWCEFTV                                  00040203
+040204                                                                  00040204
+040205     PERFORM READ-INPUT                                           00040205
+040206     .                                                            00040206
+040703/                                                                 00040703
+040803*-----------------------------------------------------------------00040803
+040903 200-PROCESS-DZBEFFC1.                                            00040903
+041003*-----------------------------------------------------------------00041003
+042003     INITIALIZE DCLDZBEFFTV                                       00042003
+042004                                                                  00042004
+042103**** READ PARENT TABLE BEFF                                       00042103
+042203     PERFORM 710-OPEN-DZBEFFC1                                    00042203
+042303     PERFORM 720-FETCH-DZBEFFC1 UNTIL DZBEFFC1-EOC                00042303
+042403     PERFORM 730-CLOSE-DZBEFFC1                                   00042403
+042503     .                                                            00042503
+042603*-----------------------------------------------------------------00042603
+042703 200-CHECK-CHILD-EVEF.                                            00042703
+042803*-----------------------------------------------------------------00042803
+042903     MOVE 0                 TO LAATSTE-DA-CR-EVENT-PROD.          00042903
+043103     MOVE '000000'          TO LAATSTE-CI.                        00043103
+043203     MOVE 0                 TO SW-168                             00043203
+043303                                                                  00043303
+043403     INITIALIZE DCLDZEVEFTV                                       00043403
+043503                UITREC                                            00043503
+043603                                                                  00043603
+043703**** READ CHILD TABLE EVEF                                        00043703
+043803     PERFORM 810-OPEN-DZEVEFC1                                    00043803
+043903                                                                  00043903
+044003     PERFORM 820-FETCH-DZEVEFC1 UNTIL DZEVEFC1-EOC                00044003
+045003                                                                  00045003
+045103     PERFORM 830-CLOSE-DZEVEFC1                                   00045103
+045203                                                                  00045203
+045303**** WRITE THE VALID RECORDS INTO OUTPUT FILE                     00045303
+045403     IF SW-168 = 1                                                00045403
+045503        MOVE LAATSTE-CI         TO UIT-NR-CI                      00045503
+045603        MOVE AM-CNSTK-479BEFF OF DCLDZBEFFTV   TO UIT-AM-CN-STOCK 00045603
+045703        MOVE I-CO-INTERNE       TO UIT-CO-INTERNE                 00045703
+045803        MOVE ZEROES             TO HELP-NR-STOCK                  00045803
+045903        MOVE NR-IDSTOCK-479BEFF OF DCLDZBEFFTV TO HELP-NR-IDSTOCK 00045903
+046003        MOVE NR-CDSTK-479BEFF OF DCLDZBEFFTV   TO HELP-NR-CDSTOCK 00046003
+046103        MOVE HELP-NR-STOCK      TO UIT-NR-ID-STOCK-CD             00046103
+046203        MOVE BC50O-CO-CURR-SECU TO UIT-CO-DEVISE                  00046203
+046303        WRITE REFFEKT-O     FROM UITREC                           00046303
+046403        ADD 1 TO WS-NB-OUTPUT-COUNT                               00046403
+046503     END-IF.                                                      00046503
+046603*                                                                 00046603
+046703*-----------------------------------------------------------------00046703
+046803 NEXT-EVEF.                                                       00046803
+046903*-----------------------------------------------------------------00046903
+047003**** SELECT THE NR-CI OF THE VALID CHILD RECORD.                  00047003
+047103     INITIALIZE HULP-NR-ID-GOOD                                   00047103
+047203     MOVE NR-IDGOOD-479EVEF TO HULP-NR-ID-GOOD                    00047203
+047303     MOVE ZEROES            TO DA-DD-MM-CCYY                      00047303
+047403                               DA-CCYYMMDD                        00047403
+047503                               HELP-DA-CREVTPD-479EVEF            00047503
+047603     MOVE DA-CREVTPD-479EVEF OF DCLDZEVEFTV  TO DA-DD-MM-CCYY     00047603
+047703     EVALUATE TRUE                                                00047703
+047803      WHEN DA-DD-MM-CCYY = '01.01.0001'                           00047803
+047903           MOVE ZEROES                TO DA-CCYYMMDD-R            00047903
+048003      WHEN DA-DD-MM-CCYY = '31.12.9999'                           00048003
+048103           MOVE '99999999'            TO DA-CCYYMMDD-R            00048103
+048203      WHEN OTHER                                                  00048203
+048303           MOVE CCYY OF DA-DD-MM-CCYY TO CCYY OF DA-CCYYMMDD-R    00048303
+048403           MOVE MM   OF DA-DD-MM-CCYY TO MM   OF DA-CCYYMMDD-R    00048403
+048503           MOVE DD   OF DA-DD-MM-CCYY TO DD   OF DA-CCYYMMDD-R    00048503
+048603     END-EVALUATE                                                 00048603
+048703     MOVE DA-CCYYMMDD-R               TO HELP-DA-CREVTPD-479EVEF  00048703
+048803                                                                  00048803
+048903     IF HULP-DA-UB-TRANSF = 00010101                              00048903
+049003        MOVE ZEROES TO HULP-DA-UB-TRANSF                          00049003
+049103     END-IF                                                       00049103
+049203                                                                  00049203
+049403     IF CT-RKTEVPR-479EVEF OF DCLDZEVEFTV = '0168' AND            00049403
+049503        CT-OPD = 91 AND                                           00049503
+049603        HELP-DA-CREVTPD-479EVEF < WS-DA-CYMD                      00049603
+049703                                                                  00049703
+049803        MOVE WS-DA-UE TO WS-DA-UE-MIN-1MAAND                      00049803
+049903        IF MM OF WS-DA-UE-MIN-1MAAND < 2                          00049903
+050003           MOVE 12      TO MM   OF WS-DA-UE-MIN-1MAAND            00050003
+050103           SUBTRACT 1 FROM CCYY OF WS-DA-UE-MIN-1MAAND            00050103
+050203        ELSE                                                      00050203
+050303           SUBTRACT 1 FROM MM   OF WS-DA-UE-MIN-1MAAND            00050303
+050403        END-IF                                                    00050403
+050503                                                                  00050503
+050603        IF WS-DA-UE-MIN-1MAAND NOT > HELP-DA-CREVTPD-479EVEF      00050603
+050703           MOVE 1 TO SW-168                                       00050703
+050803        END-IF                                                    00050803
+050903     END-IF.                                                      00050903
+051003*                                                                 00051003
+051103     IF CT-RKTEVPR-479EVEF OF DCLDZEVEFTV = '0060' AND            00051103
+051203        HELP-DA-CREVTPD-479EVEF NOT < WS-DA-CYMD                  00051203
+051303        CONTINUE                                                  00051303
+051403     ELSE                                                         00051403
+051503        IF CT-RKTEVPR-479EVEF OF DCLDZEVEFTV = '0060' AND         00051503
+051603           LAATSTE-DA-CR-EVENT-PROD = 0                           00051603
+051703           MOVE 1                 TO LAATSTE-DA-CR-EVENT-PROD     00051703
+051803           MOVE SPACES  TO HELP-NR-CIO-FORM                       00051803
+051903           MOVE NR-CI1POS-479EVEF OF DCLDZEVEFTV                  00051903
+052003             TO HELP-NR-CIO-AS-1POS                               00052003
+052103           MOVE NR-CI26POS-479EVEF OF DCLDZEVEFTV                 00052103
+052203             TO HELP-NR-CIO-AS-26POS                              00052203
+052303           MOVE HELP-NR-CIO-FORM TO LAATSTE-CI                    00052303
+052403        ELSE                                                      00052403
+052503           IF CT-RKTEVPR-479EVEF OF DCLDZEVEFTV = '0092' AND      00052503
+052603              HULP-DA-UB-TRANSF > LAATSTE-DA-CR-EVENT-PROD AND    00052603
+052703              HULP-DA-UB-TRANSF < WS-DA-CYMD-N                    00052703
+052803              MOVE HULP-DA-UB-TRANSF TO LAATSTE-DA-CR-EVENT-PROD  00052803
+052903              MOVE SPACES  TO HELP-NR-CIO-FORM                    00052903
+053003              MOVE NR-CI1POS-479EVEF  OF DCLDZEVEFTV              00053003
+053103                TO HELP-NR-CIO-AS-1POS                            00053103
+053203              MOVE NR-CI26POS-479EVEF OF DCLDZEVEFTV              00053203
+053303                TO HELP-NR-CIO-AS-26POS                           00053303
+053403              MOVE HELP-NR-CIO-FORM  TO LAATSTE-CI                00053403
+053503           END-IF                                                 00053503
+053603        END-IF                                                    00053603
+053703     END-IF                                                       00053703
+053704     .                                                            00053704
+053803*                                                                 00053803
+053903*-----------------------------------------------------------------00053903
+054003 CALL-VM9BC50T.                                                   00054003
+054103*-----------------------------------------------------------------00054103
+054203     INITIALIZE WS-VM9BC50I.                                      00054203
+054303     INITIALIZE WS-VM9BC50O.                                      00054303
+054403     MOVE CS-PROGRAM       TO BC50I-NM-CALLER                     00054403
+054503     MOVE 'VM9BC50T'       TO BC50I-NM-BB                         00054503
+054603     MOVE 'P'              TO BC50I-CO-TRANSMISSION               00054603
+054703     MOVE 'QUERY001'       TO BC50I-NM-FUNCTION                   00054703
+054803     MOVE '2'              TO BC50I-CO-CLE                        00054803
+054903     MOVE I-CO-INTERNE     TO BC50I-NR-CLE-NO-INTERNE             00054903
+055003     MOVE 'Y'              TO BC50I-CO-DONNEES-FIXES.             00055003
+055103     MOVE 'Y'              TO BC50I-CO-CONDITIONS-EMISSION.       00055103
+055203     MOVE 'Y'              TO BC50I-CO-CONDITIONS-VENTE.          00055203
+055303     MOVE WS-DA-CYMD       TO BC50I-DA-DEMANDE.                   00055303
+055403     MOVE WS-VM9BC50I      TO WS-VM9BC50T.                        00055403
+055503     CALL CS-VM9BC50T USING WS-VM9BC50T.                          00055503
+055603     MOVE WS-VM9BC50T      TO WS-VM9BC50O                         00055603
+055703     .                                                            00055703
+055704                                                                  00055704
+055920*-----------------------------------------------------------------00055920
+055930 600-GET-TIMESTAMP.                                               00055930
+055940*-----------------------------------------------------------------00055940
+056003D    DISPLAY '600-GET-TIMESTAMP.'                                 00056003
+057003     MOVE FUNCTION CURRENT-DATE            TO TS-SYSTEM.          00057003
+058003     MOVE CC OF TS-SYSTEM                  TO CC OF TS-TIMESTAMP  00058003
+059003     MOVE YY OF TS-SYSTEM                  TO YY OF TS-TIMESTAMP  00059003
+060003     MOVE MM OF TS-SYSTEM                  TO MM OF TS-TIMESTAMP  00060003
+070003     MOVE DD OF TS-SYSTEM                  TO DD OF TS-TIMESTAMP  00070003
+080003     MOVE HH OF TS-SYSTEM                  TO HH OF TS-TIMESTAMP  00080003
+090003     MOVE MI OF TS-SYSTEM                  TO MI OF TS-TIMESTAMP  00090003
+100003     MOVE SS OF TS-SYSTEM                  TO SS OF TS-TIMESTAMP  00100003
+110003     MOVE TT OF TS-SYSTEM                  TO TT OF TS-TIMESTAMP  00110003
+120003     DISPLAY 'TIMESTAMP: ' TS-TIMESTAMP                           00120003
+130003     .                                                            00130003
+130004*---------------------------------------------------------------* 00130004
+130005*    SELECT DZWCEFTV                                              00130005
+130006*---------------------------------------------------------------* 00130006
+130007 700-SELECT-DZWCEFTV.                                             00130007
+130008D    DISPLAY '700-SELECT-DZWCEFTV.'                               00130008
+130009     MOVE 700    TO SQL-LOCATION                                  00130009
+130010                                                                  00130010
+130020     EXEC SQL                                                     00130020
+130030      SELECT CO_IDISSUS_479WCEF                                   00130030
+130040       INTO :DCLDZWCEFTV.CO-IDISSUS-479WCEF                       00130040
+130041       FROM DZWCEFTV                                              00130041
+130050      WHERE CO_IDISSUS_479WCEF = :DCLDZWCEFTV.CO-IDISSUS-479WCEF  00130050
+130060        AND NS_IRMOS_479WCEF   = :DCLDZWCEFTV.NS-IRMOS-479WCEF    00130060
+130070        AND DA_UBSECIS_479WCEF = :DCLDZWCEFTV.DA-UBSECIS-479WCEF  00130070
+130071      QUERYNO 495                                                 00130071
+130080     END-EXEC                                                     00130080
+130090                                                                  00130090
+130100     EVALUATE SQLCODE                                             00130100
+130200       WHEN ZERO                                                  00130200
+130300            PERFORM 200-PROCESS-DZBEFFC1                          00130300
+130400       WHEN 100                                                   00130400
+130500            DISPLAY 'NO DATA FOUND FOR SELECT DZWCEFTV'           00130500
+130600            DISPLAY 'CO-IDISSUS  = ' CO-IDISSUS-479WCEF           00130600
+130700                                     OF DCLDZWCEFTV               00130700
+130800            DISPLAY 'NR-IRMOS    = ' NS-IRMOS-479WCEF             00130800
+130900                                     OF DCLDZWCEFTV               00130900
+131000            DISPLAY 'DA-UBSECIS  = ' DA-UBSECIS-479WCEF           00131000
+131100                                     OF DCLDZWCEFTV               00131100
+131200       WHEN OTHER                                                 00131200
+131300            DISPLAY 'ERROR WHILE SELECTING DZWCEFTV'              00131300
+131400            DISPLAY 'CO-IDISSUS  = ' CO-IDISSUS-479WCEF           00131400
+131500                                     OF DCLDZWCEFTV               00131500
+131600            DISPLAY 'NR-IRMOS    = ' NS-IRMOS-479WCEF             00131600
+131700                                     OF DCLDZWCEFTV               00131700
+131800            DISPLAY 'DA-UBSECIS  = ' DA-UBSECIS-479WCEF           00131800
+131900                                     OF DCLDZWCEFTV               00131900
+132000            PERFORM SQLERROR                                      00132000
+132100     END-EVALUATE                                                 00132100
+132200     .                                                            00132200
+140003*---------------------------------------------------------------* 00140003
+150003*    OPEN CURSOR                                                  00150003
+160003*---------------------------------------------------------------* 00160003
+170003 710-OPEN-DZBEFFC1.                                               00170003
+180003D    DISPLAY '71O-OPEN-DZBEFFC1.'                                 00180003
+190003     MOVE 710    TO SQL-LOCATION                                  00190003
+200003                                                                  00200003
+210003     EXEC SQL                                                     00210003
+220003       OPEN DZBEFFC1                                              00220003
+230003     END-EXEC                                                     00230003
+240003                                                                  00240003
+250003     EVALUATE SQLCODE                                             00250003
+260003       WHEN ZERO                                                  00260003
+270003            SET DZBEFFC1-NOT-EOC TO TRUE                          00270003
+280003       WHEN OTHER                                                 00280003
+290003            DISPLAY 'ERROR WHILE OPENING CURSOR DZBEFFC1'         00290003
+300003            PERFORM SQLERROR                                      00300003
+310003     END-EVALUATE                                                 00310003
+320003     .                                                            00320003
+330003*---------------------------------------------------------------* 00330003
+340003*    FETCH CURSOR                                                 00340003
+350003*---------------------------------------------------------------* 00350003
+360003 720-FETCH-DZBEFFC1.                                              00360003
+370003D    DISPLAY '720-FETCH-DZBEFFC1.'                                00370003
+380003     MOVE 720    TO SQL-LOCATION                                  00380003
+390003                                                                  00390003
+400003     EXEC SQL                                                     00400003
+410003       FETCH DZBEFFC1                                             00410003
+420003        INTO :DCLDZBEFFTV.AM-CNSTK-479BEFF                        00420003
+430003           , :DCLDZBEFFTV.CT-RKTPROD-479BEFF                      00430003
+440003           , :DCLDZBEFFTV.NR-IDSTOCK-479BEFF                      00440003
+450003           , :DCLDZBEFFTV.NR-CDSTK-479BEFF                        00450003
+460003           , :DCLDZBEFFTV.NS-DBSTK-479BEFF                        00460003
+470003     END-EXEC                                                     00470003
+480003                                                                  00480003
+490003     EVALUATE SQLCODE                                             00490003
+500003       WHEN ZERO                                                  00500003
+510003            ADD 1 TO WS-NB-BEFF-COUNT                             00510003
+520003            PERFORM 200-CHECK-CHILD-EVEF                          00520003
+530003       WHEN 100                                                   00530003
+540003            SET DZBEFFC1-EOC TO TRUE                              00540003
+550003       WHEN OTHER                                                 00550003
+560003            DISPLAY 'ERROR WHILE FETCHING CURSOR DZBEFFC1'        00560003
+560004            DISPLAY 'CO-IDISSUS  = ' CO-IDISSUS-479WCEF           00560004
+560005                                     OF DCLDZWCEFTV               00560005
+560006            DISPLAY 'NR-IRMOS    = ' NS-IRMOS-479WCEF             00560006
+560007                                     OF DCLDZWCEFTV               00560007
+560008            DISPLAY 'DA-UBSECIS  = ' DA-UBSECIS-479WCEF           00560008
+560009                                     OF DCLDZWCEFTV               00560009
+570003            PERFORM SQLERROR                                      00570003
+580003     END-EVALUATE                                                 00580003
+590003     .                                                            00590003
+600003*---------------------------------------------------------------* 00600003
+610003*    CLOSE CURSOR                                                 00610003
+620003*---------------------------------------------------------------* 00620003
+630003 730-CLOSE-DZBEFFC1.                                              00630003
+640003D    DISPLAY '730-CLOSE-DZBEFFC1.'                                00640003
+650003     MOVE 730    TO SQL-LOCATION                                  00650003
+660003                                                                  00660003
+670003     EXEC SQL                                                     00670003
+680003       CLOSE DZBEFFC1                                             00680003
+690003     END-EXEC                                                     00690003
+700003                                                                  00700003
+710003     EVALUATE SQLCODE                                             00710003
+720003       WHEN ZERO                                                  00720003
+730003            CONTINUE                                              00730003
+740003       WHEN OTHER                                                 00740003
+750003            DISPLAY 'ERROR WHILE CLOSING CURSOR DZBEFFC1'         00750003
+760003            PERFORM SQLERROR                                      00760003
+770003     END-EVALUATE                                                 00770003
+780003     .                                                            00780003
+790003*---------------------------------------------------------------* 00790003
+800003*    OPEN CURSOR                                                  00800003
+810003*---------------------------------------------------------------* 00810003
+820003 810-OPEN-DZEVEFC1.                                               00820003
+830003D    DISPLAY '81O-OPEN-DZEVEFC1.'                                 00830003
+840003     MOVE 810    TO SQL-LOCATION                                  00840003
+850003                                                                  00850003
+860003     EXEC SQL                                                     00860003
+870003       OPEN DZEVEFC1                                              00870003
+880003     END-EXEC                                                     00880003
+890003                                                                  00890003
+900003     EVALUATE SQLCODE                                             00900003
+910003       WHEN ZERO                                                  00910003
+920003            SET DZEVEFC1-NOT-EOC TO TRUE                          00920003
+930003       WHEN OTHER                                                 00930003
+940003            DISPLAY 'ERROR WHILE OPENING CURSOR DZEVEFC1'         00940003
+950003            PERFORM SQLERROR                                      00950003
+960003     END-EVALUATE                                                 00960003
+970003     .                                                            00970003
+980003*---------------------------------------------------------------* 00980003
+990003*    FETCH CURSOR                                                 00990003
+000003*---------------------------------------------------------------* 01000003
+010003 820-FETCH-DZEVEFC1.                                              01010003
+020003D    DISPLAY '820-FETCH-DZEVEFC1.'                                01020003
+030003     MOVE 820    TO SQL-LOCATION                                  01030003
+040003                                                                  01040003
+050003     EXEC SQL                                                     01050003
+060003       FETCH DZEVEFC1                                             01060003
+070003        INTO :DCLDZEVEFTV.NR-CI1POS-479EVEF                       01070003
+080003           , :DCLDZEVEFTV.NR-CI26POS-479EVEF                      01080003
+100003           , :DCLDZEVEFTV.CT-RKTEVPR-479EVEF                      01100003
+110003           , :DCLDZEVEFTV.DA-CREVTPD-479EVEF                      01110003
+120003           , :DCLDZEVEFTV.NR-IDGOOD-479EVEF                       01120003
+130003           , :DCLDZEVEFTV.NR-ID-479EVEF                           01130003
+140003     END-EXEC                                                     01140003
+141003                                                                  01141003
+150003     EVALUATE SQLCODE                                             01150003
+160003       WHEN ZERO                                                  01160003
+170003            PERFORM NEXT-EVEF                                     01170003
+180003       WHEN 100                                                   01180003
+190003            SET DZEVEFC1-EOC TO TRUE                              01190003
+200003       WHEN OTHER                                                 01200003
+210003            DISPLAY 'ERROR WHILE FETCHING CURSOR DZEVEFC1'        01210003
+220003            DISPLAY 'CT-RKT-PROD = ' CT-RKTPROD-479BEFF           01220003
+230003                                     OF DCLDZBEFFTV               01230003
+240003            DISPLAY 'NR-ID-STOCK = ' NR-IDSTOCK-479BEFF           01240003
+250003                                     OF DCLDZBEFFTV               01250003
+260003            DISPLAY 'NR-CD-STOCK = ' NR-CDSTK-479BEFF             01260003
+270003                                     OF DCLDZBEFFTV               01270003
+280003            DISPLAY 'NR-DB-STOCK = ' NS-DBSTK-479BEFF             01280003
+290003                                     OF DCLDZBEFFTV               01290003
+300003            PERFORM SQLERROR                                      01300003
+310003     END-EVALUATE                                                 01310003
+320003     .                                                            01320003
+330003*---------------------------------------------------------------* 01330003
+340003*    CLOSE CURSOR                                                 01340003
+350003*---------------------------------------------------------------* 01350003
+360003 830-CLOSE-DZEVEFC1.                                              01360003
+370003D    DISPLAY '830-CLOSE-DZEVEFC1.'                                01370003
+380003     MOVE 830    TO SQL-LOCATION                                  01380003
+390003                                                                  01390003
+400003     EXEC SQL                                                     01400003
+410003       CLOSE DZEVEFC1                                             01410003
+420003     END-EXEC                                                     01420003
+421003                                                                  01421003
+430003     EVALUATE SQLCODE                                             01430003
+440003       WHEN ZERO                                                  01440003
+450003            CONTINUE                                              01450003
+460003       WHEN OTHER                                                 01460003
+470003            DISPLAY 'ERROR WHILE CLOSING CURSOR DZEVEFC1'         01470003
+480003            PERFORM SQLERROR                                      01480003
+490003     END-EVALUATE                                                 01490003
+500003     .                                                            01500003
+510003* SQLERROR ROUTINE.                                               01510003
+520003     EXEC SQL                                                     01520003
+530003          INCLUDE SQLERROR                                        01530003
+540003     END-EXEC.                                                    01540003

@@ -1,0 +1,627 @@
+000100 CBL ARITH(EXTEND)                                                00000100
+000200 IDENTIFICATION DIVISION.                                         00000200
+000300*------------------------                                         00000300
+000400 PROGRAM-ID.    VMDZ1526.                                         00000400
+000500 AUTHOR.        GANESHKUMAR JAIN (JAINRG)                         00000500
+000600 DATE-WRITTEN.  05-01-26.                                         00000600
+000700 DATE-COMPILED.                                                   00000700
+000800                                                                  00000800
+000900*************************************************************     00000900
+001000*                                                           *     00001000
+001100* THIS PROGRAM IS BEING USED TO INSERT & UPDATE THE INPUT   *     00001100
+001200* KASBONS DATA IN THE FOLLOWING KASBONS DB2 TABLE:          *     00001200
+001300* DZEVEFTB - BOTH INSERT & UPDATE                           *     00001300
+001400* AND ALSO UPDATE THE DATA (BOTH INSERT & UPDATE) IN THE    *     00001400
+001500* KASBONS DB2 RESTART TABLE: DZ01RSTB                       *     00001500
+001600*                                                           *     00001600
+001700*                                                           *     00001700
+001800*************************************************************     00001800
+001900                                                                  00001900
+002000 ENVIRONMENT DIVISION.                                            00002000
+002100*---------------------                                            00002100
+002200 CONFIGURATION SECTION.                                           00002200
+002300 SOURCE-COMPUTER. IBM-370.                                        00002300
+002400 OBJECT-COMPUTER. IBM-370.                                        00002400
+002500                                                                  00002500
+002600 INPUT-OUTPUT SECTION.                                            00002600
+002700 FILE-CONTROL.                                                    00002700
+002800     SELECT INFIL ASSIGN TO UT-S-DD020.                           00002800
+002900                                                                  00002900
+003000                                                                  00003000
+003100 DATA DIVISION.                                                   00003100
+003200*--------------                                                   00003200
+003300 FILE SECTION.                                                    00003300
+003400 FD  INFIL                                                        00003400
+003500     BLOCK CONTAINS 0 RECORDS                                     00003500
+003600     LABEL RECORD IS STANDARD                                     00003600
+003700     RECORDING MODE F                                             00003700
+003800     DATA RECORD IS VMDZ205I.                                     00003800
+003900                                                                  00003900
+004000* COPYBOOK                                                        00004000
+004100     COPY VMDZ205I.                                               00004100
+004200                                                                  00004200
+004300                                                                  00004300
+004400 WORKING-STORAGE SECTION.                                         00004400
+004500                                                                  00004500
+004600 01  WS-HULPVELDEN.                                               00004600
+004700     02  SW-VMDZ205I                            PIC X.            00004700
+004800         88  VMDZ205I-NOT-EOF VALUE 'N'.                          00004800
+004900         88  VMDZ205I-EOF     VALUE 'Y'.                          00004900
+005000     02  SW-DZEVEFC1                            PIC X.            00005000
+005100         88  NOF-DZEVEFC1     VALUE 'N'.                          00005100
+005200         88  EOF-DZEVEFC1     VALUE 'Y'.                          00005200
+005300 01 HELP-VAR.                                                     00005300
+005400     02  TELLER               VALUE +0          PIC S9(5) COMP-3. 00005400
+005500     02  USERABEN             VALUE 'USERABEN'  PIC X(8).         00005500
+005600     02  WS-NB-INPUT-UPD-I    VALUE +0          PIC S9(5) COMP-3. 00005600
+005700     02  WS-INSERT-EVEF       VALUE 0           PIC S9(5) COMP-3. 00005700
+005800     02  WS-UPD-EVEF          VALUE 0           PIC S9(5) COMP-3. 00005800
+005900     02  CS-PROGRAM           VALUE 'VMDZ1526'  PIC X(8).         00005900
+006000     02  WS-RESTART-REC.                                          00006000
+006100         03 NB-READ                             PIC 9(15).        00006100
+006200         03 KY-RESTART                          PIC X(1200).      00006200
+006300     02  WS-INPUT-KASBONS                       PIC X(1200).      00006300
+006400     02  WS-NS-DB-TEMP        VALUE 0           PIC 9(2).         00006400
+006500     02  MAX-TS-TIMESTAMP                       PIC X(26)         00006500
+006600                              VALUE  '9999-12-31-23.59.59.999999'.00006600
+006700                                                                  00006700
+006800 01  HULP-NR-ID-GOOD.                                             00006800
+006900     03  HULP-NR-CIO                            PIC 9(8).         00006900
+007000     03  HULP-DA-CREA                           PIC 9(8).         00007000
+007100     03  HULP-NR-ID                             PIC 9(6).         00007100
+007200     03  HULP-CT-OPD                            PIC 999.          00007200
+007300     03  HULP-CT-OPG                            PIC 999.          00007300
+007400 01  HELP-NR-CIO-FORM-AS.                                         00007400
+007500     03  HELP-NR-CIO-FORM-AS-P6 VALUE 0         PIC 9(6).         00007500
+007600     03  HELP-NR-CIO-FORM-AS-P6-R REDEFINES                       00007600
+007700                                      HELP-NR-CIO-FORM-AS-P6.     00007700
+007800         05  HELP-NR-CIO-FORM-AS-1POS           PIC X(1).         00007800
+007900         05  HELP-NR-CIO-FORM-AS-26POS          PIC X(5).         00007900
+       01 HELP-NR-ID-STOCK-CD.                                          00007910
+           03  HELP-NR-ID-STOCK-CD-P13 VALUE 0        PIC 9(13).        00007920
+           03  HELP-NR-ID-STOCK-CD-P13-R REDEFINES                      00007930
+                                        HELP-NR-ID-STOCK-CD-P13.        00007940
+               05  HELP-NR-ID-STOCK-CD-112POS         PIC X(12).        00007950
+               05  HELP-NR-ID-STOCK-CD-113POS         PIC 9(1).         00007960
+008000 01  STOP-DATONLY.                                                00008000
+008100     02  DATE-YMD.                                                00008100
+008200         03  D-YEAR                             PIC 99.           00008200
+008300         03  D-MONTH                            PIC 99.           00008300
+008400         03  D-DAY                              PIC 99.           00008400
+008500     02  DATE-DMY.                                                00008500
+008600         03  D-DAY                              PIC 99.           00008600
+008700         03  D-MONTH                            PIC 99.           00008700
+008800         03  D-YEAR                             PIC 99.           00008800
+008900     02  DATE-YMD8.                                               00008900
+009000         03  D-CENT                             PIC 99.           00009000
+009100         03  D-YEAR                             PIC 99.           00009100
+009200         03  D-MONTH                            PIC 99.           00009200
+009300         03  D-DAY                              PIC 99.           00009300
+009400     02  DATE-DMY8.                                               00009400
+009500         03  D-DAY                              PIC 99.           00009500
+009600         03  D-MONTH                            PIC 99.           00009600
+009700         03  D-CENT                             PIC 99.           00009700
+009800         03  D-YEAR                             PIC 99.           00009800
+009900                                                                  00009900
+010000 01  WS-DATUMVELDEN.                                              00010000
+010100     03  DA-CCYYMMDD.                                             00010100
+010200         05  CC                     PIC 99           VALUE ZERO.  00010200
+010300         05  YY                     PIC 99           VALUE ZERO.  00010300
+010400         05  MM                     PIC 99           VALUE ZERO.  00010400
+010500         05  DD                     PIC 99           VALUE ZERO.  00010500
+010600     03  DA-CCYYMMDD-R REDEFINES DA-CCYYMMDD.                     00010600
+010700         05  CCYY                   PIC 9999.                     00010700
+010800         05  MM                     PIC 99.                       00010800
+010900         05  DD                     PIC 99.                       00010900
+011000     02  DA-DD-MM-CCYY.                                           00011000
+011100         03  DD                     PIC 9(02).                    00011100
+011200         03  TE-MARKER5             PIC X VALUE '.'.              00011200
+011300         03  MM                     PIC 9(02).                    00011300
+011400         03  TE-MARKER6             PIC X VALUE '.'.              00011400
+011500         03  CCYY                   PIC 9(04).                    00011500
+011600                                                                  00011600
+011700* -----------------------------                                   00011700
+011800 01  WS-TIMESTAMP-FIELDS.                                         00011800
+011900     05 TS-SYSTEM.                                                00011900
+012000        10  DA-SYS.                                               00012000
+012100            15  DA-SYS-CCYY.                                      00012100
+012200                20  CC              PIC X(2).                     00012200
+012300                20  YY              PIC X(2).                     00012300
+012400            15  MM                  PIC X(2).                     00012400
+012500            15  DD                  PIC X(2).                     00012500
+012600        10  HR-SYS.                                               00012600
+012700            15  HH                  PIC X(2).                     00012700
+012800            15  MI                  PIC X(2).                     00012800
+012900            15  SS                  PIC X(2).                     00012900
+013000            15  TT                  PIC X(2).                     00013000
+013100     05 TS-TIMESTAMP.                                             00013100
+013200        10  CC                      PIC X(2).                     00013200
+013300        10  YY                      PIC X(2).                     00013300
+013400        10  TE-MARKER1              PIC X     VALUE '-'.          00013400
+013500        10  MM                      PIC X(2).                     00013500
+013600        10  TE-MARKER2              PIC X     VALUE '-'.          00013600
+013700        10  DD                      PIC X(2).                     00013700
+013800        10  TE-MARKER3              PIC X     VALUE '-'.          00013800
+013900        10  HH                      PIC X(2).                     00013900
+014000        10  TE-MARKER4              PIC X     VALUE '.'.          00014000
+014100        10  MI                      PIC X(2).                     00014100
+014200        10  TE-MARKER5              PIC X     VALUE '.'.          00014200
+014300        10  SS                      PIC X(2).                     00014300
+014400        10  TE-MARKER6              PIC X     VALUE '.'.          00014400
+014500        10  TT                      PIC X(2).                     00014500
+014600        10  NNNN                    PIC 9(04) VALUE 0.            00014600
+014700*                                                                 00014700
+014800*----- INCLUDE FOR DB2 ------------------------------------------*00014800
+014900     EXEC SQL INCLUDE SQLERRWS END-EXEC.                          00014900
+015000     EXEC SQL INCLUDE SQLCA    END-EXEC.                          00015000
+015100                                                                  00015100
+015200*----- INCLUDE VIEWS --------------------------------------------*00015200
+015300     EXEC SQL INCLUDE DZBEFFTV END-EXEC.                          00015300
+015400     EXEC SQL INCLUDE DZEVEFTV END-EXEC.                          00015400
+015500     EXEC SQL INCLUDE DZ01RSTV END-EXEC.                          00015500
+015600*                                                                 00015600
+015700*----- DECLARE CURSOR -------------------------------------------*00015700
+015800*                                                                 00015800
+015900 LINKAGE SECTION.                                                 00015900
+016000 01  PARAM-DATONLY.                                               00016000
+016100     03 L-PARAM                     PIC S9(4)  COMP.              00016100
+016200     03 DATUMLS.                                                  00016200
+016300        05 DAT-IND                  PIC X.                        00016300
+016400        05 DATE8-LS                 PIC X(8).                     00016400
+016500                                                                  00016500
+016600 PROCEDURE DIVISION USING PARAM-DATONLY.                          00016600
+016700*---------------------------------------                          00016700
+016800                                                                  00016800
+016900 000-STUUR.                                                       00016900
+017000     PERFORM 100-INITIALISATIE.                                   00017000
+017100     PERFORM 200-VERWERK-INFIL UNTIL VMDZ205I-EOF.                00017100
+017200     PERFORM 830-PROCESS-COMMIT.                                  00017200
+017300     CLOSE INFIL.                                                 00017300
+017400     DISPLAY 'TOTAL INPUT RECORDS:          ' WS-NB-INPUT-UPD-I.  00017400
+017500     DISPLAY 'TOTAL INSERTED INTO DZEVEFTV: ' WS-INSERT-EVEF.     00017500
+017600     DISPLAY 'TOTAL UPDATED  IN   DZEVEFTV: ' WS-UPD-EVEF.        00017600
+017700     STOP RUN.                                                    00017700
+017800                                                                  00017800
+017900 100-INITIALISATIE.                                               00017900
+017910     INITIALIZE STOP-DATONLY.                                     00017910
+018000     PERFORM 840-GET-TIMESTAMP.                                   00018000
+018100                                                                  00018100
+018200     MOVE DATE8-LS                         TO DATE-DMY8.          00018200
+018300     MOVE CORR DATE-DMY8                   TO DATE-DMY.           00018300
+018400     MOVE CORR DATE-DMY8                   TO DATE-YMD.           00018400
+018500     MOVE CORR DATE-DMY8                   TO DATE-YMD8.          00018500
+018600                                                                  00018600
+018700     MOVE ZEROES                           TO DA-CCYYMMDD.        00018700
+018800     MOVE DATE-YMD8                        TO DA-CCYYMMDD.        00018800
+018900     MOVE CORR DA-CCYYMMDD-R               TO DA-DD-MM-CCYY.      00018900
+019000                                                                  00019000
+019100     MOVE 'VMDZ1526'                       TO PROGRAM-NAME.       00019100
+019200     OPEN INPUT INFIL.                                            00019200
+019300     PERFORM 800-RESTART-CONTROL.                                 00019300
+019400                                                                  00019400
+019500     MOVE +0 TO TELLER.                                           00019500
+019600     SET VMDZ205I-NOT-EOF                  TO TRUE.               00019600
+019700     PERFORM 900-LEES-INFIL.                                      00019700
+019800     MOVE VMDZ205I                         TO WS-INPUT-KASBONS.   00019800
+019900                                                                  00019900
+020000 110-POSITIONEREN-INFIL.                                          00020000
+020100     ADD +1 TO TELLER.                                            00020100
+020200     PERFORM 900-LEES-INFIL.                                      00020200
+020300     MOVE VMDZ205I TO WS-INPUT-KASBONS.                           00020300
+020400     IF VMDZ205I-EOF                                              00020400
+020500          PERFORM 120-STOP01                                      00020500
+020600     END-IF.                                                      00020600
+020700                                                                  00020700
+020800 200-VERWERK-INFIL.                                               00020800
+020810     ADD +1 TO TELLER.                                            00020810
+020900     IF CO-STCIRC-OORD = '1'                                      00020900
+021000     THEN PERFORM 210-INSERT-EVFF                                 00021000
+021100     ELSE PERFORM 220-UPD-EVEF                                    00021100
+021200     END-IF.                                                      00021200
+021300     IF TELLER NOT < +100                                         00021300
+021400          PERFORM 830-PROCESS-COMMIT                              00021400
+021500     END-IF.                                                      00021500
+021600     PERFORM 900-LEES-INFIL.                                      00021600
+021700     MOVE VMDZ205I       TO WS-INPUT-KASBONS.                     00021700
+021800                                                                  00021800
+021900 210-INSERT-EVFF.                                                 00021900
+022000     INITIALIZE DCLDZBEFFTV                                       00022000
+022100                DCLDZEVEFTV.                                      00022100
+           INITIALIZE HELP-NR-ID-STOCK-CD.                              00022110
+022200     MOVE '1002'                    TO CT-RKTPROD-479BEFF         00022200
+022300                                     OF DCLDZBEFFTV.              00022300
+022400     MOVE NR-ST-FORM-AS OF VMDZ205I TO HELP-NR-ID-STOCK-CD.       00022400
+           MOVE HELP-NR-ID-STOCK-CD-112POS TO NR-IDSTOCK-479BEFF        00022501
+022500                                     OF DCLDZBEFFTV.              00022502
+           MOVE HELP-NR-ID-STOCK-CD-113POS TO NR-CDSTK-479BEFF          00022503
+022500                                     OF DCLDZBEFFTV.              00022504
+022510     MOVE ZEROES                    TO WS-NS-DB-TEMP.             00022510
+022600     MOVE NS-DB-STOCK-FORM-AS       TO WS-NS-DB-TEMP.             00022600
+022700     MOVE WS-NS-DB-TEMP             TO NS-DBSTK-479BEFF           00022700
+022800                                     OF DCLDZBEFFTV.              00022800
+022900     MOVE DA-DD-MM-CCYY             TO DA-CREVTPD-479EVEF         00022900
+023000                                     OF DCLDZEVEFTV.              00023000
+023100     MOVE '0168'                    TO CT-RKTEVPR-479EVEF         00023100
+023200                                     OF DCLDZEVEFTV.              00023200
+023300     MOVE '0219'                    TO CT-RKTGDSV-479EVEF         00023300
+023400                                     OF DCLDZEVEFTV.              00023400
+023500     MOVE NR-CIO-FORM-AS-R          TO HULP-NR-CIO.               00023500
+023600     MOVE DA-CREA-FORM-AS-R         TO HULP-DA-CREA.              00023600
+023700     MOVE NR-ID-FORM-AS OF VMDZ205I TO HULP-NR-ID.                00023700
+023800     MOVE CT-OPD-FORM-AS-R          TO HULP-CT-OPD.               00023800
+023900     MOVE CT-OPG-FORM-AS-R          TO HULP-CT-OPG.               00023900
+024000     MOVE HULP-NR-ID-GOOD           TO NR-IDGOOD-479EVEF          00024000
+024100                                     OF DCLDZEVEFTV.              00024100
+024200     MOVE NR-CIO-FORM-AS OF VMDZ205I TO HELP-NR-CIO-FORM-AS.      00024200
+024300     MOVE HELP-NR-CIO-FORM-AS-1POS  TO NR-CI1POS-479EVEF          00024300
+024400                                     OF DCLDZEVEFTV.              00024400
+024500     MOVE HELP-NR-CIO-FORM-AS-26POS TO NR-CI26POS-479EVEF         00024500
+024600                                     OF DCLDZEVEFTV.              00024600
+           INITIALIZE HELP-NR-ID-STOCK-CD.                              00024610
+024700     MOVE '1002'                    TO CT-RKTPROD-479BEFF         00024700
+024800                                     OF DCLDZEVEFTV.              00024800
+024900*    MOVE NR-ST-FORM-AS             TO NR-IDSTOCK-479BEFF         00024900
+025000*                                    OF DCLDZEVEFTV.              00025000
+022400     MOVE NR-ST-FORM-AS OF VMDZ205I TO HELP-NR-ID-STOCK-CD.       00025001
+           MOVE HELP-NR-ID-STOCK-CD-112POS TO NR-IDSTOCK-479BEFF        00025002
+022500                                     OF DCLDZEVEFTV.              00025003
+           MOVE HELP-NR-ID-STOCK-CD-113POS TO NR-CDSTK-479BEFF          00025004
+022500                                     OF DCLDZEVEFTV.              00025005
+025010     MOVE ZEROES                    TO WS-NS-DB-TEMP.             00025010
+025100     MOVE NS-DB-STOCK-FORM-AS       TO WS-NS-DB-TEMP.             00025100
+025200     MOVE WS-NS-DB-TEMP             TO NS-DBSTK-479BEFF           00025200
+025300                                     OF DCLDZEVEFTV.              00025300
+025400     MOVE TS-TIMESTAMP              TO TS-CREATE-479EVEF          00025400
+025500                                     OF DCLDZEVEFTV.              00025500
+025600     MOVE MAX-TS-TIMESTAMP          TO TS-UPDATE-479EVEF          00025600
+025700                                     OF DCLDZEVEFTV.              00025700
+025800     MOVE CS-PROGRAM                TO ID-USERID-479EVEF          00025800
+025900                                     OF DCLDZEVEFTV.              00025900
+026000     PERFORM 211-SELECT-EFF.                                      00026000
+026100                                                                  00026100
+026200                                                                  00026200
+026300 220-UPD-EVEF.                                                    00026300
+026400     INITIALIZE DCLDZEVEFTV.                                      00026400
+           INITIALIZE HELP-NR-ID-STOCK-CD.                              00026410
+026500*                                                                 00026500
+026600     MOVE '1002'                           TO CT-RKTPROD-479BEFF  00026600
+026700                                              OF DCLDZEVEFTV.     00026700
+026800     MOVE NR-ST-FORM-AS       OF VMDZ205I  TO HELP-NR-ID-STOCK-CD 00026800
+026800     MOVE HELP-NR-ID-STOCK-CD-112POS       TO NR-IDSTOCK-479BEFF  00026810
+026900                                              OF DCLDZEVEFTV.     00026900
+026800     MOVE HELP-NR-ID-STOCK-CD-113POS       TO NR-CDSTK-479BEFF    00026901
+026900                                              OF DCLDZEVEFTV.     00026902
+026910     MOVE ZEROES                           TO WS-NS-DB-TEMP.      00026910
+027000     MOVE NS-DB-STOCK-FORM-AS              TO WS-NS-DB-TEMP.      00027000
+027100     MOVE WS-NS-DB-TEMP                    TO NS-DBSTK-479BEFF    00027100
+027200                                              OF DCLDZEVEFTV.     00027200
+027300     MOVE '0168'                           TO CT-RKTEVPR-479EVEF  00027300
+027400                                              OF DCLDZEVEFTV.     00027400
+027500     MOVE '0219'                           TO CT-RKTGDSV-479EVEF  00027500
+027600                                              OF DCLDZEVEFTV.     00027600
+028400     MOVE NR-CIO-FORM-AS-R                 TO HULP-NR-CIO.        00028400
+028500     MOVE DA-CREA-FORM-AS-R                TO HULP-DA-CREA.       00028500
+028600     MOVE NR-ID-FORM-AS OF VMDZ205I        TO HULP-NR-ID.         00028600
+028700     MOVE CT-OPD-FORM-AS-R                 TO HULP-CT-OPD.        00028700
+028800     MOVE CT-OPG-FORM-AS-R                 TO HULP-CT-OPG.        00028800
+028900     MOVE HULP-NR-ID-GOOD                  TO NR-IDGOOD-479EVEF   00028900
+029000                                              OF DCLDZEVEFTV.     00029000
+029100     MOVE TS-TIMESTAMP                     TO TS-UPDATE-479EVEF   00029100
+029200                                              OF DCLDZEVEFTV.     00029200
+029300     MOVE CS-PROGRAM                       TO ID-USERID-479EVEF   00029300
+029400                                              OF DCLDZEVEFTV.     00029400
+029500     PERFORM 221-SELECT-EVEF.                                     00029500
+029700                                                                  00029700
+029800                                                                  00029800
+029900 900-LEES-INFIL.                                                  00029900
+030000     READ INFIL                                                   00030000
+030100          AT END SET VMDZ205I-EOF TO TRUE.                        00030100
+030200                                                                  00030200
+030300     IF VMDZ205I-NOT-EOF                                          00030300
+030400     THEN                                                         00030400
+030500          ADD +1 TO WS-NB-INPUT-UPD-I                             00030500
+030600     END-IF.                                                      00030600
+030700 800-RESTART-CONTROL.                                             00030700
+030800     MOVE CS-PROGRAM      TO NM-ID-RS-PROGRAM OF DCLDZ01RSTV.     00030800
+030900     MOVE DA-DD-MM-CCYY   TO DA-CR-RS         OF DCLDZ01RSTV.     00030900
+031000     MOVE 1               TO NB-ID-RS-PHASE   OF DCLDZ01RSTV.     00031000
+031100                                                                  00031100
+031200     PERFORM 700-SELECT-DZ01RSTV.                                 00031200
+031300                                                                  00031300
+031400     EVALUATE SQLCODE                                             00031400
+031500         WHEN 0     PERFORM 810-JOB-IS-RESTART                    00031500
+031600         WHEN 100   PERFORM 820-WRITE-RESTART-REC                 00031600
+031700         WHEN OTHER PERFORM SQLERROR                              00031700
+031800     END-EVALUATE.                                                00031800
+031900                                                                  00031900
+032000 810-JOB-IS-RESTART.                                              00032000
+032100     MOVE TE-CH-RS-DATA-TEXT TO WS-RESTART-REC.                   00032100
+032200     IF CO-ID-RS IN DCLDZ01RSTV = '1'                             00032200
+032400          PERFORM 850-CALL-USERABEN                               00032400
+032500     ELSE PERFORM NB-READ OF WS-RESTART-REC TIMES                 00032500
+032600          PERFORM 110-POSITIONEREN-INFIL                          00032600
+032700          END-PERFORM                                             00032700
+032800          MOVE NB-READ OF WS-RESTART-REC TO WS-NB-INPUT-UPD-I     00032800
+032900     END-IF.                                                      00032900
+033000                                                                  00033000
+033100 820-WRITE-RESTART-REC.                                           00033100
+033200     MOVE '0'                TO CO-ID-RS           IN DCLDZ01RSTV.00033200
+033300     MOVE 15                 TO NB-DAY-RS          IN DCLDZ01RSTV.00033300
+033400     MOVE 1215               TO TE-CH-RS-DATA-LEN  IN DCLDZ01RSTV.00033400
+033500     MOVE 0                  TO WS-NB-INPUT-UPD-I.                00033500
+033600     MOVE WS-NB-INPUT-UPD-I  TO NB-READ OF WS-RESTART-REC.        00033600
+033700     INITIALIZE  KY-RESTART.                                      00033700
+033800     MOVE WS-RESTART-REC     TO TE-CH-RS-DATA-TEXT IN DCLDZ01RSTV.00033800
+033900     PERFORM 700-INSERT-DZ01RSTV.                                 00033900
+034000                                                                  00034000
+034100 830-PROCESS-COMMIT.                                              00034100
+034300     MOVE 0                  TO TELLER                            00034300
+034400     MOVE WS-NB-INPUT-UPD-I  TO NB-READ                           00034400
+034500     MOVE WS-INPUT-KASBONS   TO KY-RESTART                        00034500
+034600     IF   VMDZ205I-EOF                                            00034600
+034700     THEN MOVE '1'           TO CO-ID-RS  OF DCLDZ01RSTV          00034700
+034800     ELSE MOVE '0'           TO CO-ID-RS  OF DCLDZ01RSTV          00034800
+034900     END-IF                                                       00034900
+035000     MOVE 15                 TO TE-CH-RS-DATA-LEN                 00035000
+035100     MOVE WS-RESTART-REC     TO TE-CH-RS-DATA-TEXT                00035100
+035200                                                                  00035200
+035300     PERFORM 700-UPDATE-DZ01RSTV                                  00035300
+035400                                                                  00035400
+035500     EXEC SQL                                                     00035500
+035600          COMMIT                                                  00035600
+035700     END-EXEC                                                     00035700
+035800     EVALUATE SQLCODE                                             00035800
+035900        WHEN 0                                                    00035900
+036000             CONTINUE                                             00036000
+036100                                                                  00036100
+036200        WHEN OTHER                                                00036200
+036300             PERFORM SQLERROR                                     00036300
+036400     END-EVALUATE                                                 00036400
+036500     .                                                            00036500
+036600                                                                  00036600
+036700 840-GET-TIMESTAMP.                                               00036700
+036800     MOVE FUNCTION CURRENT-DATE  TO TS-SYSTEM.                    00036800
+036900     MOVE CC OF TS-SYSTEM     TO CC OF TS-TIMESTAMP               00036900
+037000     MOVE YY OF TS-SYSTEM     TO YY OF TS-TIMESTAMP               00037000
+037100     MOVE MM OF TS-SYSTEM     TO MM OF TS-TIMESTAMP               00037100
+037200     MOVE DD OF TS-SYSTEM     TO DD OF TS-TIMESTAMP               00037200
+037300     MOVE HH OF TS-SYSTEM     TO HH OF TS-TIMESTAMP               00037300
+037400     MOVE MI OF TS-SYSTEM     TO MI OF TS-TIMESTAMP               00037400
+037500     MOVE SS OF TS-SYSTEM     TO SS OF TS-TIMESTAMP               00037500
+037600     MOVE TT OF TS-SYSTEM     TO TT OF TS-TIMESTAMP               00037600
+037700D    DISPLAY 'TIMESTAMP: ' TS-TIMESTAMP                           00037700
+037800     .                                                            00037800
+037900 850-CALL-USERABEN.                                               00037900
+038000     CALL USERABEN.                                               00038000
+038100                                                                  00038100
+038200 120-STOP01.                                                      00038200
+038300     DISPLAY '##&&VMDZ1526 - STOP01 : TE WEINIG REC OP INFIL'.    00038300
+038400     PERFORM 850-CALL-USERABEN.                                   00038400
+038500                                                                  00038500
+038600 700-SELECT-DZ01RSTV.                                             00038600
+038700     EXEC SQL                                                     00038700
+038800        SELECT  NM_ID_RS_PROGRAM                                  00038800
+038900              , NB_ID_RS_PHASE                                    00038900
+039000              , DA_CR_RS                                          00039000
+039100              , CO_ID_RS                                          00039100
+039200              , NB_DAY_RS                                         00039200
+039300              , TE_CH_RS_DATA                                     00039300
+039400          INTO  :DCLDZ01RSTV.NM-ID-RS-PROGRAM                     00039400
+039500              , :DCLDZ01RSTV.NB-ID-RS-PHASE                       00039500
+039600              , :DCLDZ01RSTV.DA-CR-RS                             00039600
+039700              , :DCLDZ01RSTV.CO-ID-RS                             00039700
+039800              , :DCLDZ01RSTV.NB-DAY-RS                            00039800
+039900              , :DCLDZ01RSTV.TE-CH-RS-DATA                        00039900
+040000        FROM   DZ01RSTV                                           00040000
+040100        WHERE  NM_ID_RS_PROGRAM = :DCLDZ01RSTV.NM-ID-RS-PROGRAM   00040100
+040200          AND  NB_ID_RS_PHASE   = :DCLDZ01RSTV.NB-ID-RS-PHASE     00040200
+040300          AND  DA_CR_RS         = :DCLDZ01RSTV.DA-CR-RS           00040300
+040400        QUERYNO 396                                               00040400
+040500     END-EXEC                                                     00040500
+040600     EVALUATE SQLCODE                                             00040600
+040700        WHEN 0                                                    00040700
+040800        WHEN 100                                                  00040800
+040900             CONTINUE                                             00040900
+041000        WHEN OTHER                                                00041000
+041100             PERFORM SQLERROR                                     00041100
+041200     END-EVALUATE                                                 00041200
+041300     .                                                            00041300
+041400                                                                  00041400
+041500 700-UPDATE-DZ01RSTV.                                             00041500
+041600     EXEC SQL                                                     00041600
+041700          UPDATE DZ01RSTV                                         00041700
+041800             SET TE_CH_RS_DATA    = :DCLDZ01RSTV.TE-CH-RS-DATA    00041800
+041900               , CO_ID_RS         = :DCLDZ01RSTV.CO-ID-RS         00041900
+042000           WHERE NM_ID_RS_PROGRAM = :DCLDZ01RSTV.NM-ID-RS-PROGRAM 00042000
+042100             AND NB_ID_RS_PHASE   = :DCLDZ01RSTV.NB-ID-RS-PHASE   00042100
+042200             AND DA_CR_RS         = :DCLDZ01RSTV.DA-CR-RS         00042200
+042300          QUERYNO 415                                             00042300
+042400     END-EXEC                                                     00042400
+042500                                                                  00042500
+042600     EVALUATE SQLCODE                                             00042600
+042700         WHEN 0                                                   00042700
+042800              CONTINUE                                            00042800
+042900         WHEN OTHER                                               00042900
+043000              PERFORM SQLERROR                                    00043000
+043100     END-EVALUATE                                                 00043100
+043200     .                                                            00043200
+043300                                                                  00043300
+043400 700-INSERT-DZ01RSTV.                                             00043400
+043500     EXEC SQL                                                     00043500
+043600          INSERT INTO DZ01RSTV                                    00043600
+043700                 VALUES (:DCLDZ01RSTV)                            00043700
+043800     END-EXEC                                                     00043800
+043900                                                                  00043900
+044000     EVALUATE SQLCODE                                             00044000
+044100         WHEN 0                                                   00044100
+044200              CONTINUE                                            00044200
+044300         WHEN OTHER                                               00044300
+044400              PERFORM SQLERROR                                    00044400
+044500     END-EVALUATE                                                 00044500
+044600     .                                                            00044600
+044700                                                                  00044700
+044800 211-SELECT-EFF.                                                  00044800
+044900     EXEC SQL                                                     00044900
+045000        SELECT  CT_RKTPROD_479BEFF                                00045000
+045100              , NR_IDSTOCK_479BEFF                                00045100
+045200              , NR_CDSTK_479BEFF                                  00045200
+045300              , NS_DBSTK_479BEFF                                  00045300
+045400              , CO_IDISSUS_479WCEF                                00045400
+045500              , NS_IRMOS_479WCEF                                  00045500
+045600              , DA_UBSECIS_479WCEF                                00045600
+045700              , AM_CNDSTK_479BEFF                                 00045700
+045800              , AM_CNSTK_479BEFF                                  00045800
+045900              , CT_RKTPRDX_479BEFF                                00045900
+046000              , NR_IDISSUE_479BEFF                                00046000
+046100              , NR_CDISSUE_479BEFF                                00046100
+046200              , NX_CPCRESK_479BEFF                                00046200
+046300              , NX_CPAIDSK_479BEFF                                00046300
+046400              , NX_CPFDUSK_479BEFF                                00046400
+046500              , AM_INTERSK_479BEFF                                00046500
+046600              , CO_IDPRKSK_479BEFF                                00046600
+046700              , NS_IRMOSTK_479BEFF                                00046700
+046800              , DA_UBSECIS_479BEFF                                00046800
+046900              , TS_CREATE_479BEFF                                 00046900
+047000              , TS_UPDATE_479BEFF                                 00047000
+047100              , ID_USERID_479BEFF                                 00047100
+047200         INTO   :DCLDZBEFFTV.CT-RKTPROD-479BEFF                   00047200
+047300              , :DCLDZBEFFTV.NR-IDSTOCK-479BEFF                   00047300
+047400              , :DCLDZBEFFTV.NR-CDSTK-479BEFF                     00047400
+047500              , :DCLDZBEFFTV.NS-DBSTK-479BEFF                     00047500
+047600              , :DCLDZBEFFTV.CO-IDISSUS-479WCEF                   00047600
+047700              , :DCLDZBEFFTV.NS-IRMOS-479WCEF                     00047700
+047800              , :DCLDZBEFFTV.DA-UBSECIS-479WCEF                   00047800
+047900              , :DCLDZBEFFTV.AM-CNDSTK-479BEFF                    00047900
+048000              , :DCLDZBEFFTV.AM-CNSTK-479BEFF                     00048000
+048100              , :DCLDZBEFFTV.CT-RKTPRDX-479BEFF                   00048100
+048200              , :DCLDZBEFFTV.NR-IDISSUE-479BEFF                   00048200
+048300              , :DCLDZBEFFTV.NR-CDISSUE-479BEFF                   00048300
+048400              , :DCLDZBEFFTV.NX-CPCRESK-479BEFF                   00048400
+048500              , :DCLDZBEFFTV.NX-CPAIDSK-479BEFF                   00048500
+048600              , :DCLDZBEFFTV.NX-CPFDUSK-479BEFF                   00048600
+048700              , :DCLDZBEFFTV.AM-INTERSK-479BEFF                   00048700
+048800              , :DCLDZBEFFTV.CO-IDPRKSK-479BEFF                   00048800
+048900              , :DCLDZBEFFTV.NS-IRMOSTK-479BEFF                   00048900
+049000              , :DCLDZBEFFTV.DA-UBSECIS-479BEFF                   00049000
+049100              , :DCLDZBEFFTV.TS-CREATE-479BEFF                    00049100
+049200              , :DCLDZBEFFTV.TS-UPDATE-479BEFF                    00049200
+049300              , :DCLDZBEFFTV.ID-USERID-479BEFF                    00049300
+049400        FROM    DZBEFFTV                                          00049400
+049500        WHERE                                                     00049500
+049600              CT_RKTPROD_479BEFF =                                00049600
+049700                               :DCLDZBEFFTV.CT-RKTPROD-479BEFF    00049700
+049800          AND NR_IDSTOCK_479BEFF =                                00049800
+049900                               :DCLDZBEFFTV.NR-IDSTOCK-479BEFF    00049900
+050000          AND NR_CDSTK_479BEFF   =                                00050000
+050100                               :DCLDZBEFFTV.NR-CDSTK-479BEFF      00050100
+050200          AND NS_DBSTK_479BEFF   =                                00050200
+050300                               :DCLDZBEFFTV.NS-DBSTK-479BEFF      00050300
+050400        QUERYNO 496                                               00050400
+050500     END-EXEC                                                     00050500
+050600     EVALUATE SQLCODE                                             00050600
+050700     WHEN 0                                                       00050700
+050800          PERFORM 260-INSERT-EVEF                                 00050800
+050900     WHEN OTHER                                                   00050900
+051000          DISPLAY 'ERROR AT RECORD NUMBER: ' WS-NB-INPUT-UPD-I    00051000
+051200          PERFORM SQLERROR                                        00051200
+051300     END-EVALUATE                                                 00051300
+051400     .                                                            00051400
+051500                                                                  00051500
+051600 260-INSERT-EVEF.                                                 00051600
+051700     EXEC SQL                                                     00051700
+051800          INSERT INTO DZEVEFTV                                    00051800
+051900                 (NR_ID_479EVEF                                   00051900
+052000                 ,CT_RKTPROD_479BEFF                              00052000
+052100                 ,NR_IDSTOCK_479BEFF                              00052100
+052200                 ,NR_CDSTK_479BEFF                                00052200
+052300                 ,NS_DBSTK_479BEFF                                00052300
+052400                 ,DA_CREVTPD_479EVEF                              00052400
+052500                 ,CT_RKTEVPR_479EVEF                              00052500
+052600                 ,CT_RKTGDSV_479EVEF                              00052600
+052700                 ,NR_IDGOOD_479EVEF                               00052700
+052800                 ,NR_CI1POS_479EVEF                               00052800
+052900                 ,NR_CI26POS_479EVEF                              00052900
+053000                 ,CO_STEVPRN_479EVEF                              00053000
+053100                 ,TS_CREATE_479EVEF                               00053100
+053200                 ,TS_UPDATE_479EVEF                               00053200
+053300                 ,ID_USERID_479EVEF                               00053300
+053400                 ,NS_IDMSKEY_479EVEF)                             00053400
+053500          VALUES ( RIGHT(DIGITS(NEXT VALUE FOR DZEVEFSQ), 20)     00053500
+053600                 , :DCLDZEVEFTV.CT-RKTPROD-479BEFF                00053600
+053700                 , :DCLDZEVEFTV.NR-IDSTOCK-479BEFF                00053700
+053800                 , :DCLDZEVEFTV.NR-CDSTK-479BEFF                  00053800
+053900                 , :DCLDZEVEFTV.NS-DBSTK-479BEFF                  00053900
+054000                 , :DCLDZEVEFTV.DA-CREVTPD-479EVEF                00054000
+054100                 , :DCLDZEVEFTV.CT-RKTEVPR-479EVEF                00054100
+054200                 , :DCLDZEVEFTV.CT-RKTGDSV-479EVEF                00054200
+054300                 , :DCLDZEVEFTV.NR-IDGOOD-479EVEF                 00054300
+054400                 , :DCLDZEVEFTV.NR-CI1POS-479EVEF                 00054400
+054500                 , :DCLDZEVEFTV.NR-CI26POS-479EVEF                00054500
+054600                 , :DCLDZEVEFTV.CO-STEVPRN-479EVEF                00054600
+054700                 , :DCLDZEVEFTV.TS-CREATE-479EVEF                 00054700
+054800                 , :DCLDZEVEFTV.TS-UPDATE-479EVEF                 00054800
+054900                 , :DCLDZEVEFTV.ID-USERID-479EVEF                 00054900
+055000                 , :DCLDZEVEFTV.NS-IDMSKEY-479EVEF)               00055000
+055100     END-EXEC                                                     00055100
+055200     EVALUATE SQLCODE                                             00055200
+055300     WHEN 0                                                       00055300
+055400          ADD 1 TO WS-INSERT-EVEF                                 00055400
+055500          CONTINUE                                                00055500
+055600     WHEN OTHER                                                   00055600
+055700          DISPLAY 'ERROR AT RECORD NUMBER: ' WS-NB-INPUT-UPD-I    00055700
+055900          PERFORM SQLERROR                                        00055900
+056000     END-EVALUATE                                                 00056000
+056100     .                                                            00056100
+056200 221-SELECT-EVEF.                                                 00056200
+056201     EXEC SQL                                                     00056201
+056202        SELECT NR_ID_479EVEF                                      00056202
+056203         INTO  :DCLDZEVEFTV.NR-ID-479EVEF                         00056203
+056204        FROM   DZEVEFTV                                           00056204
+056205        WHERE CT_RKTPROD_479BEFF = :DCLDZEVEFTV.CT-RKTPROD-479BEFF00056205
+056206         AND NR_IDSTOCK_479BEFF = :DCLDZEVEFTV.NR-IDSTOCK-479BEFF 00056206
+056207         AND NS_DBSTK_479BEFF   = :DCLDZEVEFTV.NS-DBSTK-479BEFF   00056207
+056208         AND NR_CDSTK_479BEFF   = :DCLDZEVEFTV.NR-CDSTK-479BEFF   00056208
+056209         AND CT_RKTEVPR_479EVEF = :DCLDZEVEFTV.CT-RKTEVPR-479EVEF 00056209
+056210         AND CT_RKTGDSV_479EVEF = :DCLDZEVEFTV.CT-RKTGDSV-479EVEF 00056210
+056211         ORDER BY NR_ID_479EVEF DESC                              00056211
+056212         FETCH FIRST 1 ROW ONLY                                   00056212
+056213        QUERYNO 567                                               00056213
+056214     END-EXEC                                                     00056214
+056215                                                                  00056215
+056216     EVALUATE SQLCODE                                             00056216
+056217         WHEN 0                                                   00056217
+056218              PERFORM 222-UPDATE-EVEF                             00056218
+056219              CONTINUE                                            00056219
+056220         WHEN 100                                                 00056220
+056221              DISPLAY 'ROW NOT FOUND:          ' WS-NB-INPUT-UPD-I00056221
+056222              PERFORM SQLERROR                                    00056222
+056223         WHEN OTHER                                               00056223
+056224              DISPLAY 'ERROR AT RECORD NUMBER: ' WS-NB-INPUT-UPD-I00056224
+056225              PERFORM SQLERROR                                    00056225
+056226     END-EVALUATE.                                                00056226
+056230 222-UPDATE-EVEF.                                                 00056230
+056300                                                                  00056300
+056400     EXEC SQL                                                     00056400
+056500        UPDATE DZEVEFTV                                           00056500
+056600          SET NR_IDGOOD_479EVEF = :DCLDZEVEFTV.NR-IDGOOD-479EVEF, 00056600
+056700              TS_UPDATE_479EVEF = :DCLDZEVEFTV.TS-UPDATE-479EVEF, 00056700
+056800              ID_USERID_479EVEF = :DCLDZEVEFTV.ID-USERID-479EVEF  00056800
+056900       WHERE NR_ID_479EVEF      = :DCLDZEVEFTV.NR-ID-479EVEF      00056900
+057500        QUERYNO 594                                               00057500
+057600     END-EXEC                                                     00057600
+057700                                                                  00057700
+057800     EVALUATE SQLCODE                                             00057800
+057900         WHEN 0                                                   00057900
+058000              ADD 1 TO WS-UPD-EVEF                                00058000
+058100              CONTINUE                                            00058100
+058200         WHEN OTHER                                               00058200
+058300              DISPLAY 'VMDZ1526 UPDATE CLÉ FORM'                  00058300
+058400              DISPLAY 'NR-ST:' NR-ST-FORM-AS                      00058400
+058500              DISPLAY 'NS-DB:' NS-DB-STOCK-FORM-AS                00058500
+058600              PERFORM SQLERROR                                    00058600
+058700     END-EVALUATE.                                                00058700
+058800                                                                  00058800
+058900* SQLERROR ROUTINE.                                               00058900
+059000     EXEC SQL                                                     00059000
+059100          INCLUDE SQLERROR                                        00059100
+059200     END-EXEC.                                                    00059200
