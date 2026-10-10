@@ -85,3 +85,33 @@ COUNTER_OUTPUT_TOKEN = "OUTPUT"
 # Tokens that identify an existing end-of-run total line.
 TOTALS_DISPLAY_VERB = "DISPLAY"
 TOTALS_LABEL_TOKEN = "TOTAL"
+
+# LOCATION: rules/counter_declaration_rules.py
+# ACTION: APPEND at the end of the file
+
+# ---- Declaration gates -------------------------------------------
+# A name rendered with COUNTER_PICTURE must be counter-shaped. Setting
+# this False lets any data-name be declared PIC 9(7) COMP-3, which is a
+# silent type change on an existing field.
+ENFORCE_COUNTER_NAME_SHAPE = True
+
+# A total line is a promise the field is maintained. The totals pass may
+# only display names that are actually declared. Setting this False
+# restores the defect where WS-NB-EVEF-COUNT was displayed for a table
+# this program does not read, showing zero on every run.
+ENFORCE_TOTALS_SUBSET_OF_DECLARED = True
+
+COUNTER_DECLARATION_MESSAGES.update({
+    "refused_shape": (
+        "Counters: {name} is not {prefix}<token>{suffix}; refused "
+        "rather than declare it as a packed counter."
+    ),
+    "refused_duplicate": (
+        "Counters: {name} is already declared in the DATA DIVISION; "
+        "not declared again."
+    ),
+    "refused_total": (
+        "Counters: {name} is not declared in this program; the "
+        "end-of-run total line was not emitted."
+    ),
+})

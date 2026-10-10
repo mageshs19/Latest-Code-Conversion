@@ -57,6 +57,32 @@ Three outcomes are now reported distinctly:
     candidates > 0, converted 0   a move was seen and declined
     candidates == 0               nothing to convert, with the line count
                                   so a second idempotent pass is obvious
+
+CORRECTION 3 - a blanking MOVE preceded the conversion
+-------------------------------------------------------
+The rendered block carried:
+
+    MOVE ZEROES TO DA-CCYYMMDD
+    MOVE SPACES TO UIT-DA-UBSEC      <- suppressed
+
+Two defects in one line:
+
+  1. the output record is already cleared by INITIALIZE <record> at the
+     top of the generated WRITE paragraph, so the move is dead;
+
+  2. SPACES is not a legal value for a numeric output date. The standard
+     edge values are '00000000' (DB2 minimum 01.01.0001) and '99999999'
+     (DB2 maximum 31.12.9999). A numeric date field holding SPACES is a
+     data exception at runtime or a corrupt record downstream.
+
+Nothing is left unset: the conversion assigns the output field on EVERY
+branch of the EVALUATE.
+
+The test is SHAPE-based and runs on the RENDERED line, not on the
+template. A template may carry the blanking source through a
+placeholder - "MOVE {low_value} TO {target_name}" - which a substring
+test against the template text would miss entirely. The suppression is
+reported; a silent drop reads identically to "there was nothing here".
 """
 
 from converter.composers.cleanup.cleanup_message_collector import (
@@ -75,6 +101,7 @@ from rules.db2_output_date_conversion_rules import (
     DB2_OUTPUT_DATE_HIGH_NUMERIC_LITERAL,
     DB2_OUTPUT_DATE_HIGH_VALUE_LITERAL,
     DB2_OUTPUT_DATE_LOW_VALUE_LITERAL,
+    EMIT_OUTPUT_FIELD_BLANKING_MOVE,
 )
 
 NOT_FOUND = -1
@@ -86,6 +113,11 @@ OUTPUT_DATE_FIELD_PREFIXES = (
     "OUT-DA-",
     "OUT-DT-",
 )
+
+# A blanking MOVE is "MOVE <blank-source> TO <anything>". Shape-matched
+# on the rendered line so a placeholder-delivered source is caught too.
+MOVE_VERB = "MOVE"
+BLANKING_MOVE_SOURCES = ("SPACES", "SPACE", "ALL SPACES")
 
 
 class Db2DateOutputCleanup:
@@ -114,6 +146,7 @@ class Db2DateOutputCleanup:
         output: list[str] = []
         converted = 0
         candidates = 0
+        suppressed = 0
 
         for statement, first, last in self._logical_statements(lines):
             if statement:
@@ -121,12 +154,13 @@ class Db2DateOutputCleanup:
 
                 if match:
                     candidates += 1
-                    block = self._date_conversion_lines(
+                    block, dropped = self._date_conversion_lines(
                         leading=self._leading_spaces(lines[first]),
                         field=match.group("field"),
                         group=match.group("group"),
                         target=match.group("target"),
                     )
+                    suppressed += dropped
 
                     if block:
                         output.extend(block)
@@ -134,6 +168,12 @@ class Db2DateOutputCleanup:
                         continue
 
             output.extend(lines[first : last + 1])
+
+        if suppressed:
+            self.messages.add(
+                "output_blanking_move_suppressed",
+                count=suppressed,
+            )
 
         return self._report(
             text=text,
@@ -242,7 +282,7 @@ class Db2DateOutputCleanup:
     ) -> bool:
         """True only for a DB2 date host moved to an output date field.
 
-        Prevents ZEROES/SPACES date logic being generated for:
+        Prevents ZEROES date logic being generated for:
         - non-date output fields
         - DB2 DCLGEN host variables
         - update host moves
@@ -268,6 +308,31 @@ class Db2DateOutputCleanup:
 
         return True
 
+    @staticmethod
+    def _is_blanking_move(line: str) -> bool:
+        """True for "MOVE SPACES TO ...", on the RENDERED line.
+
+        Rendered, not templated: the blanking source may arrive through
+        a placeholder, which a substring test on the template misses.
+        Shape-matched on the first two words, so a field or literal that
+        merely CONTAINS the word is never mistaken for one.
+        """
+        words = str(line or "").split()
+
+        if len(words) < 2 or words[0].upper() != MOVE_VERB:
+            return False
+
+        source = words[1].upper()
+        if source in BLANKING_MOVE_SOURCES:
+            return True
+
+        # "MOVE ALL SPACES TO ..."
+        if len(words) >= 3:
+            pair = f"{words[1]} {words[2]}".upper()
+            return pair in BLANKING_MOVE_SOURCES
+
+        return False
+
     # ------------------------------------------------------------------
     # Rendering
     # ------------------------------------------------------------------
@@ -277,7 +342,12 @@ class Db2DateOutputCleanup:
         field: str,
         group: str,
         target: str,
-    ) -> list[str]:
+    ) -> tuple[list[str], int]:
+        """Render the block. Returns (lines, suppressed_count).
+
+        The count is returned rather than logged here so the caller
+        reports once per program instead of once per move.
+        """
         field_name = NameNormalizer.to_cobol(field)
         group_name = NameNormalizer.to_cobol(group)
         target_name = NameNormalizer.to_cobol(target)
@@ -286,9 +356,10 @@ class Db2DateOutputCleanup:
             field_name=field_name,
             target_name=target_name,
         ):
-            return []
+            return [], 0
 
         output: list[str] = []
+        suppressed = 0
 
         for template in DB2_OUTPUT_DATE_CONVERSION_LINE_TEMPLATES:
             line = template.format(
@@ -304,9 +375,14 @@ class Db2DateOutputCleanup:
             if not line.strip():
                 continue
 
+            if (not EMIT_OUTPUT_FIELD_BLANKING_MOVE
+                    and self._is_blanking_move(line.strip())):
+                suppressed += 1
+                continue
+
             output.append(line.rstrip())
 
-        return output
+        return output, suppressed
 
 
 __all__ = ["Db2DateOutputCleanup"]

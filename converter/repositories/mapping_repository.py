@@ -172,6 +172,24 @@ class MappingRepository:
                 return True
         return False
 
+# LOCATION: converter/repositories/mapping_repository.py
+# ACTION: APPEND one delegate to class MappingRepository
+
+    def cobol_field_for_column(
+        self,
+        table_name: str = "",
+        column_name: str = "",
+    ) -> str:
+        """DB2 column -> IDMS COBOL field name. "" when unmapped.
+
+        Consumed by the cursor error-branch diagnostic label. Keyword
+        arguments, because JoinKeyLabelResolver probes keyword-first.
+        """
+        return self.query.cobol_field_for_column(
+            table_name=table_name,
+            column_name=column_name,
+        )
+
 
 __all__ = [
     "MappingRepository",

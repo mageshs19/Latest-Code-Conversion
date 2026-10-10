@@ -72,61 +72,54 @@ class CounterDeclarationComposer:
     # =================================================================
     def compose(self, text: str) -> str:
         self.messages = []
-
         if not text or not ENFORCE_COUNTER_DECLARATION:
             return str(text or "")
 
-        lines = (
-            str(text)
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-            .split("\n")
-        )
-
+        lines = str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")
         referenced = self._referenced_counters(lines)
+
         if not referenced:
-            return "\n".join(lines).rstrip() + "\n"
-
-        declared = self._declared_names(lines)
-        missing = [name for name in referenced if name not in declared]
-
-        if missing:
-            lines = self.writer.declare(lines=lines, missing=missing)
-            self.messages.extend(self.writer.messages)
-
-        if EMIT_COUNTER_TOTALS:
-            lines = self.writer.append_totals(
-                lines=lines,
-                counters=referenced,
+            self.messages.append(
+                "Counters: no counter increment found; nothing declared "
+                "and no totals emitted."
             )
-            self.messages.extend(self.writer.messages)
+            return "\n".join(lines)
 
-        return "\n".join(lines).rstrip() + "\n"
+        lines = self.writer.declare(lines, referenced)
+        if EMIT_COUNTER_TOTALS:
+            # SAME list. The totals pass must never widen it.
+            lines = self.writer.totals(lines, referenced)
+        return "\n".join(lines)
 
     # =================================================================
     # Collection
     # =================================================================
     def _referenced_counters(self, lines: list[str]) -> list[str]:
-        """Counter names incremented anywhere in the program, in order."""
-        out: list[str] = []
-        seen: set[str] = set()
+        """Counter names the PROCEDURE DIVISION actually increments.
 
-        for line in lines:
+        The ONLY admissible source. A cursor spec, a table list or a
+        DCLGEN group must never seed this set: each would declare a
+        counter for a table this program does not read.
+        """
+        found: list[str] = []
+        seen: set[str] = set()
+        start = self._procedure_division_index(lines)
+        if start < 0:
+            return found
+
+        for line in lines[start:]:
             if self.fixed_format.is_comment_or_control_line(line):
                 continue
-
             match = COUNTER_INCREMENT_PATTERN.match(
                 self.fixed_format.logical(line)
             )
             if not match:
                 continue
-
             name = match.group("name").upper()
             if name not in seen:
                 seen.add(name)
-                out.append(name)
-
-        return out
+                found.append(name)
+        return found
 
     def _declared_names(self, lines: list[str]) -> set[str]:
         """Every data name declared anywhere in the program."""

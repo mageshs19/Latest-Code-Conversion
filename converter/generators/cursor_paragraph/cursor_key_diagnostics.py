@@ -1,156 +1,188 @@
 # LOCATION: converter/generators/cursor_paragraph/cursor_key_diagnostics.py
-# ACTION: CREATE NEW FILE
-"""DISPLAY lines that identify the failing row in a FETCH error branch.
+# ACTION: REPLACE ENTIRE FILE
+"""The row-identity DISPLAY lines inside a FETCH WHEN OTHER branch.
 
-MANUAL REFERENCE
+    DISPLAY 'CT-RKT-PROD = ' CT-RKTPROD-479BEFF
+                             OF DCLDZBEFFTV
+    DISPLAY 'NR-ID-STOCK = ' NR-IDSTOCK-479BEFF
+                             OF DCLDZBEFFTV
 
-    820-FETCH, the CHILD cursor:
+ONE renderer for both diagnostic paths - the driving key and the
+fetched columns. Two renderers is what let the separator drift to ':'
+in one of them while the other kept '='.
 
-        WHEN OTHER
-             DISPLAY 'ERROR WHILE FETCHING CURSOR DZEVEFC1'
-             DISPLAY 'NR-DB-STOCK = ' NS-DBSTK-479BEFF
-                                      OF DCLDZBEFFTV
+Three properties, all derived, none hard-coded:
 
-    720-FETCH, the PARENT cursor:
+  LABEL       the IDMS COBOL field name from Sheet Mapping, resolved by
+              JoinKeyLabelResolver. Falls back to the host name AND
+              reports the fallback.
+  WIDTH       the widest label in THIS branch, so every host starts at
+              the same column without a constant that can be wrong.
+  ALIGNMENT   "OF <group>" sits under the host, at an offset taken from
+              the length of the rendered prefix on the line above.
 
-        WHEN OTHER
-             DISPLAY 'ERROR WHILE FETCHING CURSOR DZBEFFC1'
-
-    Cursor name only. The parent has no driving key to report - it is
-    the driver.
-
-CORRECTION - the WHERE path emitted an UNQUALIFIED host.
-
-_where_clause_diagnostic_lines() built its own one-line DISPLAY and
-argued that 'CT-RKTPROD-479BEFF OF DCLDZBEFFTV' is too wide, so the
-bare name must be used. Both halves of that are wrong:
-
-  1. A foreign-key column keeps the PARENT's column name, so
-     CT-RKTPROD-479BEFF is declared in BOTH DCLDZBEFFTV and
-     DCLDZEVEFTV. The bare name is NOT UNIQUE and the program does not
-     compile. The manual reference wraps 'OF DCLDZBEFFTV' onto a
-     continuation line for exactly this reason.
-
-  2. "Too wide for one line" is not a reason to drop the qualifier.
-     one_diagnostic() beside it already escalates 1 -> 2 -> 3 lines and
-     skips only when nothing fits.
-
-The WHERE path now routes through one_diagnostic(). There is ONE
-DISPLAY renderer, so the two paths cannot diverge again.
+A qualified reference is MANDATORY. A foreign-key column keeps the
+parent's column name, so the data-name exists in two DCLGEN groups and
+the bare form is a not-unique reference the compiler rejects.
 """
 
 from __future__ import annotations
 
-from converter.generators.cursor_paragraph import cursor_host_reference as hosts
-from converter.generators.cursor_paragraph.cursor_line_geometry import (
-    continuation,
-    fits,
+from converter.generators.cursor_paragraph.join_key_label_resolver import (
+    JoinKeyLabelResolver,
 )
+from converter.services.name_normalizer import NameNormalizer
 from rules.cursor_paragraph_rules import (
-    EMIT_FETCH_KEY_DIAGNOSTICS,
-    FETCH_KEY_DIAGNOSTIC_LIMIT,
-    FETCH_KEY_DISPLAY_TEMPLATE,
-    FETCH_KEY_HOST_TEMPLATE,
-    FETCH_KEY_LABEL_WIDTH,
+    ALIGN_KEY_QUALIFIER,
+    BODY_FIRST_COLUMN,
+    EMIT_KEY_DIAGNOSTICS,
+    HOST_GROUP_SEPARATOR,
+    HOST_REFERENCE_PREFIX,
     IND_WHEN_BODY,
+    KEY_BODY_END_COLUMN,
+    KEY_DIAGNOSTIC_LIMIT,
+    KEY_DISPLAY_TEMPLATE,
+    KEY_LABEL_MIN_WIDTH,
+    KEY_LABEL_SOURCE,
+    KEY_LABEL_SOURCE_MAPPING,
+    KEY_QUALIFIER_TEMPLATE,
+    TOKEN_OF,
 )
 
-OF_TEMPLATE = "OF {group}"
+HOST_OF_SEPARATOR = f" {TOKEN_OF} "
 
 
 class KeyDiagnosticsBuilder:
-    """Renders the row-identity DISPLAY lines of a FETCH error branch."""
+    """Renders the DISPLAY pairs. Owns no label lookup of its own."""
+
+    def __init__(
+        self,
+        label_resolver: JoinKeyLabelResolver | None = None,
+    ) -> None:
+        self.label_resolver = label_resolver or JoinKeyLabelResolver()
+
+    @property
+    def messages(self) -> list[str]:
+        return self.label_resolver.messages
 
     # ------------------------------------------------------------------
-    # Entry points
+    # Public
     # ------------------------------------------------------------------
-    def lines_for_where(self, where_conditions: list[str] | None) -> list[str]:
-        """Report the RUNTIME VALUE of each driving-key host.
+    def lines_for_where(self, conditions: list[str]) -> list[str]:
+        """One DISPLAY pair per join predicate."""
+        return self._render(
+            [self._host_of_condition(c) for c in conditions or []]
+        )
 
-        The predicate text itself is already in the source; what the
-        operator needs is the value the cursor was driven with.
-        """
-        if not EMIT_FETCH_KEY_DIAGNOSTICS or not where_conditions:
-            return []
-
-        references = [
-            hosts.from_where_condition(condition)
-            for condition in where_conditions[:FETCH_KEY_DIAGNOSTIC_LIMIT]
-        ]
-        return self._render(references)
-
-    def lines_for_hosts(self, host_variables: list[str] | None) -> list[str]:
-        """Legacy path: report the leading FETCHED columns."""
-        if not EMIT_FETCH_KEY_DIAGNOSTICS:
-            return []
-
-        references = hosts.qualified_pairs(host_variables)
-        return self._render(references[:FETCH_KEY_DIAGNOSTIC_LIMIT])
+    def lines_for_hosts(self, hosts: list[str]) -> list[str]:
+        """Fallback: display the fetched columns themselves."""
+        return self._render(list(hosts or []))
 
     # ------------------------------------------------------------------
     # Rendering
     # ------------------------------------------------------------------
-    def _render(self, references) -> list[str]:
-        lines: list[str] = []
-        for reference in references:
-            if not reference.is_qualified:
-                # Never guess a group. An unqualified operand is a
-                # not-unique data-name, so the line is dropped.
+    def _render(self, raw_hosts: list[str]) -> list[str]:
+        if not EMIT_KEY_DIAGNOSTICS:
+            return []
+
+        pairs: list[tuple[str, str, str]] = []
+        seen: set[str] = set()
+
+        for raw in raw_hosts:
+            host, group = self._split(raw)
+            if not host or host in seen:
                 continue
-            lines.extend(self.one_diagnostic(reference.field, reference.group))
+            seen.add(host)
+            pairs.append((self._label(host, group), host, group))
+
+            # The manual shows five. An unbounded list buries the
+            # failure in the job log.
+            if 0 < KEY_DIAGNOSTIC_LIMIT <= len(pairs):
+                break
+
+        if not pairs:
+            return []
+
+        width = max(
+            KEY_LABEL_MIN_WIDTH,
+            max(len(label) for label, _, _ in pairs),
+        )
+
+        lines: list[str] = []
+        for label, host, group in pairs:
+            display = KEY_DISPLAY_TEMPLATE.format(
+                label=label.ljust(width),
+                host=host,
+            )
+            lines.append(IND_WHEN_BODY + display)
+
+            if not group:
+                continue
+
+            qualifier = KEY_QUALIFIER_TEMPLATE.format(group=group)
+            lines.append(self._qualifier_line(display, host, qualifier))
+
         return lines
 
     @staticmethod
-    def one_diagnostic(field: str, group: str) -> list[str]:
-        """One DISPLAY, wrapped as many times as the window demands.
+    def _qualifier_line(display: str, host: str, qualifier: str) -> str:
+        """Align the qualifier under the host, without overflowing.
 
-        IND_WHEN_BODY(11) + "DISPLAY '"(9) + label(18) + "' = ' "(5)
-        costs 43 columns, leaving 22 for the operand. A COBOL data-name
-        may be 30 characters, so even the field ALONE can overflow.
-
-        Escalation, in order:
-            1. literal + field + OF group   on one line
-            2. literal + field / OF group   on two lines
-            3. literal / field / OF group   on three lines
-            4. none of the above fits       -> emit nothing
-
-        Step 4 is deliberate. A truncated data-name does not compile;
-        losing one diagnostic line does no harm.
+        The offset is the length of everything rendered before the host
+        on the line above - DERIVED, never arithmetic over a constant.
+        Truncation is never acceptable: a cut data-name does not
+        compile, so an over-long line falls back to the body indent.
         """
-        if not field or not group:
-            return []
+        if not ALIGN_KEY_QUALIFIER:
+            return IND_WHEN_BODY + qualifier
 
-        label = field[:FETCH_KEY_LABEL_WIDTH].ljust(FETCH_KEY_LABEL_WIDTH)
-        qualified = FETCH_KEY_HOST_TEMPLATE.format(field=field, group=group)
+        offset = len(display) - len(host)
+        aligned = IND_WHEN_BODY + " " * offset + qualifier
 
-        single = IND_WHEN_BODY + FETCH_KEY_DISPLAY_TEMPLATE.format(
-            label=label,
-            host=qualified,
+        end_column = BODY_FIRST_COLUMN + len(aligned) - 1
+        if end_column > KEY_BODY_END_COLUMN:
+            return IND_WHEN_BODY + qualifier
+
+        return aligned
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _label(self, host: str, group: str) -> str:
+        if KEY_LABEL_SOURCE != KEY_LABEL_SOURCE_MAPPING:
+            return NameNormalizer.to_cobol(host)
+
+        return self.label_resolver.label_for(
+            table=self.label_resolver.table_of(group),
+            column=NameNormalizer.normalize(host),
+            host=host,
         )
-        if fits(single):
-            return [single]
 
-        of_group = continuation(OF_TEMPLATE.format(group=group))
-        if not of_group:
-            return []
+    @staticmethod
+    def _split(reference: str) -> tuple[str, str]:
+        """Accepts "H OF G", ":G.H" and a bare host. Returns (host, group)."""
+        text = str(reference or "").strip().lstrip(HOST_REFERENCE_PREFIX)
+        if not text:
+            return "", ""
 
-        head = IND_WHEN_BODY + FETCH_KEY_DISPLAY_TEMPLATE.format(
-            label=label,
-            host=field,
-        )
-        if fits(head):
-            return [head, of_group]
+        upper = text.upper()
 
-        literal = (
-            IND_WHEN_BODY
-            + FETCH_KEY_DISPLAY_TEMPLATE.format(label=label, host="").rstrip()
-        )
-        field_line = continuation(field)
+        if HOST_OF_SEPARATOR in upper:
+            host, _sep, group = upper.partition(HOST_OF_SEPARATOR)
+            return host.strip(), group.strip()
 
-        if fits(literal) and field_line:
-            return [literal, field_line, of_group]
+        if HOST_GROUP_SEPARATOR in upper:
+            group, _sep, host = upper.partition(HOST_GROUP_SEPARATOR)
+            return host.strip(), group.strip()
 
-        return []
+        return upper, ""
+
+    @staticmethod
+    def _host_of_condition(condition: str) -> str:
+        """The host operand of a join predicate: right of the '='."""
+        text = str(condition or "")
+        _left, _sep, right = text.partition("=")
+        return (right or text).strip()
 
 
 __all__ = ["KeyDiagnosticsBuilder"]

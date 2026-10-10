@@ -31,15 +31,9 @@ CORRECTION 2 - the refactor DROPPED the fetched-column fallback.
 
 fetch_paragraph() forwarded `where_conditions` and nothing else. A
 cursor with no resolved WHERE therefore reached ErrorBranchBuilder with
-both key lists empty and produced
-
-    WHEN OTHER
-         MOVE 720    TO SQL-LOCATION
-         DISPLAY 'ERROR WHILE FETCHING CURSOR DZBFASC1'
-         PERFORM SQLERROR
-
-an error branch that identifies NO ROW AT ALL. The operator gets a
-cursor name and nothing to look the failure up by.
+both key lists empty and produced an error branch that identifies NO
+ROW AT ALL. The operator gets a cursor name and nothing to look the
+failure up by.
 
 Three cases, decided here and nowhere else:
 
@@ -50,6 +44,28 @@ Three cases, decided here and nowhere else:
                        shape at 820-FETCH.
     CHILD, no WHERE    report the leading FETCHED columns, so the row
                        is still identifiable.
+
+CORRECTION 3 - the diagnostic LABEL was the DCLGEN host name.
+
+    DISPLAY 'CT-RKTPROD-479BEFF : ' CT-RKTPROD-479BEFF
+
+The operator reads the job log against the IDMS record layout, so the
+label must be the IDMS COBOL field name Sheet Mapping pairs with the
+DB2 column. That is a LOOKUP, not a derivation - NS-DBSTK-479BEFF maps
+to NR-DB-STOCK, and no string rule turns NS into NR.
+
+This class was constructed bare - KeyDiagnosticsBuilder() - so the
+renderer had nothing but the host name to print. The mapping repository
+is now accepted and forwarded. It is OPTIONAL: with no repository the
+renderer falls back to the host name and REPORTS every fallback, so an
+unwired build is visible in the conversion log instead of silently
+producing the old output.
+
+MESSAGES
+
+`messages` exposes the label-resolution diagnostics. The generator must
+drain it; an unreported fallback is the exact failure this correction
+exists to end.
 """
 
 from __future__ import annotations
@@ -67,6 +83,9 @@ from converter.generators.cursor_paragraph.cursor_sql_location import (
 )
 from converter.generators.cursor_paragraph.cursor_statement_blocks import (
     StatementBlockBuilder,
+)
+from converter.generators.cursor_paragraph.join_key_label_resolver import (
+    JoinKeyLabelResolver,
 )
 from rules.cursor_paragraph_rules import (
     CLOSE_STATEMENT_TEMPLATE,
@@ -97,14 +116,31 @@ from rules.cursor_paragraph_rules import (
 class CursorParagraphBodyBuilder:
     """Assembles one cursor paragraph from its collaborators."""
 
-    def __init__(self) -> None:
+    def __init__(self, mapping_repository=None) -> None:
         self.sql_location = SqlLocationBuilder()
         self.blocks = StatementBlockBuilder(self.sql_location)
-        self.diagnostics = KeyDiagnosticsBuilder()
+
+        # CORRECTION 3 - constructed bare, so the diagnostic label had
+        # nothing but the DCLGEN host name to print. Sheet Mapping is
+        # the authority for the COBOL field name; DCLGEN is the
+        # authority for the host variable. They are different facts.
+        self.label_resolver = JoinKeyLabelResolver(mapping_repository)
+        self.diagnostics = KeyDiagnosticsBuilder(
+            label_resolver=self.label_resolver,
+        )
         self.error_branch = ErrorBranchBuilder(
             sql_location=self.sql_location,
             diagnostics=self.diagnostics,
         )
+
+    @property
+    def messages(self) -> list[str]:
+        """Label-resolution diagnostics. The generator must drain this."""
+        return self.label_resolver.messages
+
+    def reset(self) -> None:
+        """Clear per-program diagnostics."""
+        self.label_resolver.messages = []
 
     # ------------------------------------------------------------------
     # OPEN

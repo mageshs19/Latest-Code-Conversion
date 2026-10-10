@@ -22,7 +22,7 @@ COUNTER_INCREMENT_PATTERN = re.compile(
 
 # Any COBOL data description entry, used to collect declared names.
 DATA_ENTRY_PATTERN = re.compile(
-    r"^(?P<level>\d{2})\s+(?P<name>[A-Z0-9][A-Z0-9-]*)\b",
+    r"^\s*(?P<level>\d{2})\s+(?P<name>[A-Z][A-Z0-9-]*)\b",
     flags=re.IGNORECASE,
 )
 

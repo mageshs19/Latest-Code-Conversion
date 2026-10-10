@@ -50,3 +50,6 @@ DB2_OUTPUT_DATE_CONVERSION_LINE_TEMPLATES = [
     "{indent}END-EVALUATE",
     "{indent}MOVE DA-CCYYMMDD-R TO {target_name}",
 ]
+
+EMIT_OUTPUT_FIELD_BLANKING_MOVE = False
+OUTPUT_FIELD_BLANKING_LITERAL = ""     # retained, unused, never SPACES
