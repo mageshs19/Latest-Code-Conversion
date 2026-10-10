@@ -77,18 +77,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from converter.composers.counter_declaration_composer import (
-    CounterDeclarationComposer,
-)
+
 from converter.composers.late_db2_date_composer import (
     LateDb2DateComposer,
 )
-from converter.composers.output_write_paragraph_composer import (
-    OutputWriteParagraphComposer,
-)
-from converter.composers.procedure_indent_normalizer import (
-    ProcedureIndentNormalizer,
-)
+
+
 from converter.composers.structural_safety_composer import (
     StructuralSafetyComposer,
 )
@@ -157,12 +151,18 @@ class ConversionLayoutSteps:
         Refuses when the guard condition spans lines: cutting between the
         IF keyword and the end of its condition orphans the condition and
         the program will not compile.
-        """
-        composer = OutputWriteParagraphComposer()
-        converted_cobol = composer.compose(converted_cobol)
-        validation_messages.extend(self._component_messages(composer))
-        return converted_cobol
 
+        MIGRATED - registered as 'extract_output_write_paragraph'.
+        """
+        from converter.pipeline.run import run_stage
+        from converter.pipeline.stage import Document
+
+        doc = run_stage(
+            "extract_output_write_paragraph", Document(cobol=converted_cobol)
+        )
+        validation_messages.extend(doc.messages)
+        return doc.cobol
+    
     # =================================================================
     # 4. Late DB2 date / INITIALIZE re-run
     # =================================================================
@@ -236,12 +236,16 @@ class ConversionLayoutSteps:
 
         Placement is safety-first: a record layout can never gain a field,
         so a dedicated 01 group is created when no work group is safe.
-        """
-        composer = CounterDeclarationComposer()
-        converted_cobol = composer.compose(converted_cobol)
-        validation_messages.extend(self._component_messages(composer))
-        return converted_cobol
 
+        MIGRATED - registered as 'declare_counters'.
+        """
+        from converter.pipeline.run import run_stage
+        from converter.pipeline.stage import Document
+
+        doc = run_stage("declare_counters", Document(cobol=converted_cobol))
+        validation_messages.extend(doc.messages)
+        return doc.cobol
+    
     # =================================================================
     # 6. Unmapped record blocks
     # =================================================================
@@ -301,16 +305,17 @@ class ConversionLayoutSteps:
     ) -> str:
         """Align every PROCEDURE DIVISION statement line to Area B.
 
-        MIGRATED - registered in converter/pipeline/registry.py as
-        'normalise_procedure_indent'.
+        MIGRATED - registered as 'normalise_procedure_indent'.
         """
-        from converter.pipeline.run import run_pipeline
+        from converter.pipeline.run import run_stage
         from converter.pipeline.stage import Document
 
-        doc = run_pipeline(Document(cobol=converted_cobol))
+        doc = run_stage(
+            "normalise_procedure_indent", Document(cobol=converted_cobol)
+        )
         validation_messages.extend(doc.messages)
         return doc.cobol
-    
+        
     # =================================================================
     # 8. Final resequence
     # =================================================================
