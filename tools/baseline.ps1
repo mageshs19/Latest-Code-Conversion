@@ -52,7 +52,7 @@ if (-not $out.Contains("PIPELINE COMPLETED")) {
 }
 
 # ------------------------------------------------- guard 1: silent failure
-foreach ($token in @('[ERROR]', 'ModuleNotFoundError', 'Orchestration Error', 'unknown pipeline stage')) {
+foreach ($token in @('[ERROR]', 'ModuleNotFoundError', 'Orchestration Error', 'Enhancement pipeline FAILED', 'unknown pipeline stage')) {
     if ($out.Contains($token)) {
         Write-Host ("Silent stage failure: '{0}' in conversion output" -f $token) -ForegroundColor Red
         $ok = $false
@@ -105,5 +105,3 @@ if ($ok) {
     Write-Host "BASELINE BROKEN" -ForegroundColor Red
     exit 1
 }
-
-foreach ($token in @('[ERROR]', 'ModuleNotFoundError', 'Enhancement pipeline FAILED', 'unknown pipeline stage')) {
