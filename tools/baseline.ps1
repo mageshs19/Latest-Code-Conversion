@@ -34,3 +34,9 @@ if ($out -notlike "*PIPELINE COMPLETED*") {
 Write-Host ""
 if ($ok) { Write-Host "BASELINE OK"     -ForegroundColor Green; exit 0 }
 else     { Write-Host "BASELINE BROKEN" -ForegroundColor Red;   exit 1 }
+
+# Fail if any stage silently fell out
+if ($out -match '$$ERROR$$' -or $out -match 'Orchestration Error' -or $out -match 'ModuleNotFoundError') {
+    Write-Host "Silent stage failure detected in conversion output" -ForegroundColor Red
+    $ok = $false
+}
