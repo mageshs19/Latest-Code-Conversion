@@ -1,105 +1,97 @@
-# LOCATION: converter/analyzers/program_flow/program_flow_analyzer.py
-# ACTION: CREATE NEW FILE
-"""Generic flow analyzer for diagnostics.
+# LOCATION: converter/analyzers/program_flow/__init__.py
+# ACTION: REPLACE ENTIRE FILE
+"""Program flow analysis package.
 
-This analyzer does not rewrite COBOL. It detects:
+This module DECLARES NOTHING of its own. Every name below is
+re-exported from the module that owns it, never re-declared. A second
+copy of CursorLoop diverges the day one of them gains a field.
 
-    - procedure paragraphs
-    - cursor-like operations from parsed IDMS operations
-    - output write statements, separated from IDMS update verbs
-    - date / timestamp usage hints
+Import order is dependency order, so a circular import fails loudly
+here rather than intermittently at call time:
 
-REFACTOR - one 330-line class became six collaborators:
-
+    flow_models.py                 value objects, no package dependency
     flow_line_reader.py            raw records -> classified lines
     flow_paragraph_scanner.py      paragraph spans, line ownership
     flow_cursor_loop_scanner.py    IDMS operations -> CursorLoop
     flow_write_scanner.py          WRITE vs IDMS update verbs
     flow_date_scanner.py           date / timestamp tokens
     flow_diagnostics.py            the report
+    program_flow_analyzer.py       the facade, imported LAST
 
-The public surface is UNCHANGED: analyze() still returns one
-ProgramFlowAnalysis and ProgramFlowAnalyzer keeps its constructor.
+WHY THIS EXISTS
+
+The package exported nothing, so every caller writing
+
+    from converter.analyzers.program_flow import CursorLoop
+
+failed at import time with
+
+    ImportError: cannot import name 'CursorLoop' from
+    'converter.analyzers.program_flow'
+
+and took the whole conversion pipeline down with it, because
+conversion_service -> conversion_pipeline -> program_flow_analyzer
+all resolve through this one line.
 """
 
 from __future__ import annotations
 
-from converter.analyzers.program_flow.flow_cursor_loop_scanner import (
-    FlowCursorLoopScanner,
+# ---------------------------------------------------------------
+# Value objects
+# ---------------------------------------------------------------
+from converter.analyzers.program_flow.flow_models import (  # noqa: F401
+    CursorLoop,
+    DateUsage,
+    LogicalLine,
+    OutputWrite,
+    ParagraphSpan,
+    ProgramFlowAnalysis,
 )
-from converter.analyzers.program_flow.flow_date_scanner import FlowDateScanner
-from converter.analyzers.program_flow.flow_diagnostics import FlowDiagnostics
-from converter.analyzers.program_flow.flow_line_reader import FlowLineReader
-from converter.analyzers.program_flow.flow_models import ProgramFlowAnalysis
-from converter.analyzers.program_flow.flow_paragraph_scanner import (
+
+# ---------------------------------------------------------------
+# Scanners
+# ---------------------------------------------------------------
+from converter.analyzers.program_flow.flow_line_reader import (  # noqa: F401
+    FlowLineReader,
+)
+from converter.analyzers.program_flow.flow_paragraph_scanner import (  # noqa: F401
     FlowParagraphScanner,
 )
-from converter.analyzers.program_flow.flow_write_scanner import FlowWriteScanner
-from converter.domain.models import DclgenColumn, IdmsOperation, SheetMappingRow
-from converter.resolvers.cursor_name_resolver import CursorNameResolver
-from rules.program_flow_rules import FLOW_MESSAGES
+from converter.analyzers.program_flow.flow_cursor_loop_scanner import (  # noqa: F401
+    FlowCursorLoopScanner,
+)
+from converter.analyzers.program_flow.flow_write_scanner import (  # noqa: F401
+    FlowWriteScanner,
+)
+from converter.analyzers.program_flow.flow_date_scanner import (  # noqa: F401
+    FlowDateScanner,
+)
+from converter.analyzers.program_flow.flow_diagnostics import (  # noqa: F401
+    FlowDiagnostics,
+)
 
+# ---------------------------------------------------------------
+# Facade, imported LAST
+# ---------------------------------------------------------------
+from converter.analyzers.program_flow.program_flow_analyzer import (  # noqa: F401
+    ProgramFlowAnalyzer,
+)
 
-class ProgramFlowAnalyzer:
-    """Read-only program flow analysis."""
-
-    def __init__(
-        self,
-        mapping_rows: list[SheetMappingRow] | None = None,
-        dclgen_columns: list[DclgenColumn] | None = None,
-        table_name_resolver=None,
-    ) -> None:
-        self.mapping_rows = mapping_rows or []
-        self.dclgen_columns = dclgen_columns or []
-
-        self.reader = FlowLineReader()
-        self.paragraphs = FlowParagraphScanner()
-        self.cursors = FlowCursorLoopScanner(
-            cursor_name_resolver=CursorNameResolver(),
-            table_name_resolver=table_name_resolver,
-        )
-        self.writes = FlowWriteScanner()
-        self.dates = FlowDateScanner()
-
-    def analyze(
-        self,
-        cobol_text: str,
-        operations: list[IdmsOperation] | None = None,
-    ) -> ProgramFlowAnalysis:
-        if not str(cobol_text or "").strip():
-            return ProgramFlowAnalysis(
-                diagnostics=[FLOW_MESSAGES["empty_source"]]
-            )
-
-        lines = self.reader.read(cobol_text)
-        paragraphs = self.paragraphs.spans(lines)
-        owner_by_line = self.paragraphs.name_by_line(paragraphs)
-
-        loops = self.cursors.loops(operations)
-        writes, idms_writes = self.writes.scan(lines, owner_by_line)
-        date_usages = self.dates.usages(lines)
-
-        report = FlowDiagnostics()
-        report.counts(
-            mapping_rows=len(self.mapping_rows),
-            dclgen_columns=len(self.dclgen_columns),
-            paragraphs=len(paragraphs),
-            cursor_loops=len(loops),
-            output_writes=len(writes),
-            idms_writes=len(idms_writes),
-            date_usages=len(date_usages),
-        )
-        report.extend(self.cursors.diagnostics)
-        report.loop_samples(loops)
-
-        return ProgramFlowAnalysis(
-            paragraphs=paragraphs,
-            cursor_loops=loops,
-            output_writes=writes,
-            idms_writes=idms_writes,
-            date_usages=date_usages,
-            diagnostics=report.drain(),
-        )
-
-
-__all__ = ["ProgramFlowAnalyzer"]
+__all__ = [
+    # value objects
+    "CursorLoop",
+    "DateUsage",
+    "LogicalLine",
+    "OutputWrite",
+    "ParagraphSpan",
+    "ProgramFlowAnalysis",
+    # scanners
+    "FlowCursorLoopScanner",
+    "FlowDateScanner",
+    "FlowDiagnostics",
+    "FlowLineReader",
+    "FlowParagraphScanner",
+    "FlowWriteScanner",
+    # facade
+    "ProgramFlowAnalyzer",
+]

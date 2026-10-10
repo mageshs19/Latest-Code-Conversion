@@ -412,3 +412,18 @@ def test_parent_join_columns_are_added_from_child_where():
     assert "NR_CDSTK_479BEFF" in parent["select_columns"]
     # The parent FETCH grew to match.
     assert any("CT-RKTPROD-479BEFF" in h for h in parent["host_variables"])
+
+def test_materialised_record_selects_the_full_mapped_record():
+    full = [
+        "DA_CPTAFS_479BFAS",
+        "CT_RKTGDSV_479BFAS",
+        "NR_CIOFMAS_479BFAS",
+    ]
+
+    resolved = _resolver([], full).select_columns_for_record(
+        record_name="VMBFAS",
+        field_usage_analysis=object(),
+        force_full_record=True,
+    )
+
+    assert resolved == full

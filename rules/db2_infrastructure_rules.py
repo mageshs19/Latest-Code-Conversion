@@ -1,7 +1,47 @@
 # LOCATION: rules/db2_infrastructure_rules.py
-# ACTION: ADD at the TOP of the file, directly under the module
-#         docstring and `from __future__ import annotations`.
-#         There must be NO later assignment to these four names.
+# ACTION: REPLACE ENTIRE FILE
+"""DB2 infrastructure block rules.
+
+Constants only. No regex, no runtime logic, no program / record / table /
+cursor / host variable names.
+
+CORRECTION - MISSING_CURSOR_NAME and MISSING_TABLE_TEMPLATE were each
+assigned TWICE.
+
+An append block was pasted where a replacement was intended, so this
+file carried two warning sections with DIFFERENT wording at lines 92 and
+123. Python keeps the LAST assignment, so the second copy was live and
+the first was dead text that still read as authoritative.
+
+THE SHORT WORDING IS THE CORRECT ONE, and the reason is geometry.
+
+These strings are emitted as COBOL COMMENT LINES. A rendered body
+carries the indicator, so a body of length n ends at physical column
+7 + n, and BODY_LAST_COLUMN is 72. The body must be <= 65 characters.
+
+    "* DB2 WARNING: Unable to declare cursor {cursor}; missing DB2
+     table mapping."            -> 76 columns with a real cursor name
+    "* DB2 WARNING: Cursor {cursor} not declared; no DB2 table."
+                                -> 58 columns
+
+The long form was wrapped or truncated by the fixed-format composer, so
+the one line that explains why a cursor is missing became unreadable.
+A diagnostic that cannot be read is no diagnostic. Same defect, and the
+same resolution, as CORRECTION 7 in rules/cursor_declaration_warnings.py.
+
+ANY EDIT TO THESE TWO STRINGS MUST BE RE-MEASURED AGAINST 65 COLUMNS.
+tests/cursor_where/test_declare_clauses.py enforces it.
+
+MISSING_CURSOR_NAME and MISSING_TABLE_TEMPLATE are OWNED HERE. They are
+NOT re-exported from rules/cursor_declaration_rules.py: that module's
+__all__ carries WARNING_PREFIX, NO_TABLE_LABEL and the
+CURSOR_NOT_DECLARED / UNRESOLVED_JOIN_KEY / MISSING_COLUMNS names, and
+neither of these two. Importing them from there raises ImportError.
+
+There must be NO second assignment to any name in this module.
+"""
+
+from __future__ import annotations
 
 # QUERYNO is owned by rules/cursor_declaration_rules.py.
 # RE-EXPORT ONLY - see the QUERYNO note at the end of this file.
@@ -13,9 +53,6 @@ from rules.cursor_declaration_rules import (  # noqa: F401
     QUERYNO_STEP,
     QUERYNO_TEMPLATE,
 )
-# LOCATION: rules/db2_infrastructure_rules.py
-# ACTION: REPLACE the entire appended block with this.
-#         The import moves to the TOP of the file - see FILE 2.
 
 # =====================================================================
 # Area B indentation for generated DB2 blocks
@@ -89,12 +126,13 @@ SQL_LOCATION_DECLARATION_TEMPLATE = "01  {name:<30} {picture}"
 # =====================================================================
 # Warnings emitted INTO the generated COBOL
 # =====================================================================
+# ASSIGNED EXACTLY ONCE. Sized for the 65-column body window - read the
+# geometry note in the module docstring before editing either string.
 MISSING_CURSOR_NAME = (
-    "* DB2 WARNING: Unable to declare cursor; missing cursor name."
+    "* DB2 WARNING: Cursor not declared; no cursor name."
 )
 MISSING_TABLE_TEMPLATE = (
-    "* DB2 WARNING: Unable to declare cursor {cursor}; "
-    "missing DB2 table mapping."
+    "* DB2 WARNING: Cursor {cursor} not declared; no DB2 table."
 )
 
 # =====================================================================
@@ -119,10 +157,7 @@ MISSING_TABLE_TEMPLATE = (
 #
 # Re-exporting above and assigning below would shadow the import and
 # restore the defect, so nothing is assigned here at all.
-
-MISSING_CURSOR_NAME = (
-    "* DB2 WARNING: Cursor not declared; no cursor name."
-)
-MISSING_TABLE_TEMPLATE = (
-    "* DB2 WARNING: Cursor {cursor} not declared; no DB2 table."
-)
+#
+# NO CONSTANT MAY BE ADDED BELOW THIS LINE. An append lands here, and an
+# append is exactly what produced the duplicate warning block that this
+# file just had removed.

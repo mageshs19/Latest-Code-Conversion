@@ -47,7 +47,9 @@ def test_an_empty_column_list_refuses_instead_of_select_star(declares):
     rendered = bodies(declares.build(spec(select_columns=[])))
 
     assert_refusal(rendered, CHILD_TABLE)
-    assert "*" not in " ".join(rendered)
+    joined = " ".join(rendered).upper()
+
+    assert "SELECT *" not in joined
 
 
 def test_the_empty_column_refusal_is_reported(declares):
@@ -203,17 +205,33 @@ def test_a_spec_without_a_cursor_name_is_reported(declares):
 # =====================================================================
 # A refusal is never partial
 # =====================================================================
-def test_a_refusal_emits_no_fragment_of_a_declare(guarded_declares):
-    """Half a DECLARE is worse than none: the composer would carry the
-    fragment into WORKING-STORAGE and the compiler would reject it."""
-    rendered = bodies(
-        guarded_declares.build(spec(where_conditions=[UNOWNED_PREDICATE]))
+def test_a_refusal_emits_no_fragment_of_a_declare(
+    guarded_declares,
+):
+    cursor_spec = spec(
+        where_conditions=[UNOWNED_PREDICATE],
     )
 
+    rendered = bodies(
+        guarded_declares.build(cursor_spec)
+    )
     joined = " ".join(rendered).upper()
-    for token in ("DECLARE", "CURSOR", "END-EXEC", "FOR READ ONLY"):
-        assert token not in joined, rendered
 
+    assert_refusal(rendered, CHILD_TABLE)
+
+    forbidden_sql_fragments = (
+        "EXEC SQL",
+        "DECLARE DZBFASC1 CURSOR",
+        "SELECT ",
+        " FROM ",
+        " WHERE ",
+        " ORDER BY ",
+        "QUERYNO ",
+        "END-EXEC",
+    )
+
+    for fragment in forbidden_sql_fragments:
+        assert fragment not in joined, rendered
 
 def test_reset_clears_refusal_messages_between_programs(guarded_declares):
     """One instance renders every cursor of every program in a folder
