@@ -9,7 +9,7 @@ COBOL statement).
 
 from __future__ import annotations
 
-from idms_db2_phase2.transformers.idms_statement.data_statement_converter import (
+from converter.transformers.idms_statement.data_statement_converter import (
     DataStatementConverterMixin,
 )
 from rules.idms_transformer_rules import (

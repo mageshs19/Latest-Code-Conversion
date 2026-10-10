@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from config.path_settings import DEFAULT_MAPPING_SHEET_DIR
-from idms_db2_phase2.infrastructure.file_loader import FileLoader
-from idms_db2_phase2.infrastructure.local_uploaded_file import LocalUploadedFile
-from idms_db2_phase2.parsers.copybook_parser import CopybookParser
-from idms_db2_phase2.parsers.dclgen_parser import DclgenParser
-from idms_db2_phase2.parsers.sheet_mapping_parser import SheetMappingParser
+from converter.infrastructure.file_loader import FileLoader
+from converter.infrastructure.local_uploaded_file import LocalUploadedFile
+from converter.parsers.copybook_parser import CopybookParser
+from converter.parsers.dclgen_parser import DclgenParser
+from converter.parsers.sheet_mapping_parser import SheetMappingParser
 from rules.retrieval_runner_messages import (
     COPYBOOK_SOURCE_LABEL,
     DCLGEN_SOURCE_LABEL_TEMPLATE,

@@ -3,7 +3,7 @@
 
 """Output write paragraph extraction tests."""
 
-from idms_db2_phase2.composers.output_write_paragraph_composer import (
+from converter.composers.output_write_paragraph_composer import (
     OutputWriteParagraphComposer,
 )
 

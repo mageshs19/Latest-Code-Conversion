@@ -1,7 +1,7 @@
-from idms_db2_phase2.parsers.cobol_parser import CobolParser
-from idms_db2_phase2.parsers.copybook_parser import CopybookParser
-from idms_db2_phase2.parsers.dclgen_parser import DclgenParser
-from idms_db2_phase2.parsers.sheet_mapping_parser import SheetMappingParser
+from converter.parsers.cobol_parser import CobolParser
+from converter.parsers.copybook_parser import CopybookParser
+from converter.parsers.dclgen_parser import DclgenParser
+from converter.parsers.sheet_mapping_parser import SheetMappingParser
 
 
 def test_cobol_parser_detects_program_id():

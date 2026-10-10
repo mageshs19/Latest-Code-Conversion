@@ -1,4 +1,4 @@
-from idms_db2_phase2.services.name_derivation_resolver import (
+from converter.services.name_derivation_resolver import (
     NameDerivationResolver,
 )
 

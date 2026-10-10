@@ -4,11 +4,11 @@
 """Batch execution entry point: convert and code review in one command.
 
     set PYTHONPATH=src
-    python src\\idms_db2_phase2\\testing\\batch_execution.py
-    python src\\idms_db2_phase2\\testing\\batch_execution.py --mode retrieval
-    python src\\idms_db2_phase2\\testing\\batch_execution.py --mode update
-    python src\\idms_db2_phase2\\testing\\batch_execution.py --no-review
-    python src\\idms_db2_phase2\\testing\\batch_execution.py --quiet
+    python src\\converter\\testing\\batch_execution.py
+    python src\\converter\\testing\\batch_execution.py --mode retrieval
+    python src\\converter\\testing\\batch_execution.py --mode update
+    python src\\converter\\testing\\batch_execution.py --no-review
+    python src\\converter\\testing\\batch_execution.py --quiet
 
 Exit codes: 0 all steps passed, 1 a step was rejected, 2 a step errored.
 

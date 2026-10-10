@@ -84,7 +84,7 @@ SQL_LOCATION_PICTURE = "PIC X(40) VALUE SPACES."
 # manual reference program carries no local 01 SQL-LOCATION entry.
 #
 # Consumed by:
-#   src/idms_db2_phase2/generators/db2_infrastructure/
+#   converter/generators/db2_infrastructure/
 #       infrastructure_block_builder.py
 DECLARE_SQL_LOCATION_FIELD = False
 

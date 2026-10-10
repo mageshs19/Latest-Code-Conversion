@@ -1,4 +1,4 @@
-from idms_db2_phase2.composers.update_restart_skip_composer import (
+from converter.composers.update_restart_skip_composer import (
     UpdateRestartSkipComposer,
 )
 
@@ -37,7 +37,7 @@ def test_message_flag_is_opt_in():
 # than a converter defect, and drowns out genuine diagnostics.
 #
 # Consumed by:
-#   src/idms_db2_phase2/composers/update_restart_skip_composer.py
+#   converter/composers/update_restart_skip_composer.py
 #
 # Mirrored onto the composer as a class attribute so callers and tests
 # read it from one place and the two cannot drift apart.

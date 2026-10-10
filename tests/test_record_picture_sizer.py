@@ -14,7 +14,7 @@ F-FORM declares", discarding roughly 400 lines of generated output.
 
 import pytest
 
-from idms_db2_phase2.composers.record_materialisation.record_picture_sizer import (
+from converter.composers.record_materialisation.record_picture_sizer import (
     RecordPictureSizer,
 )
 

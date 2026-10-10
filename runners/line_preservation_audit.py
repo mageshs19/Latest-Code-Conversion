@@ -23,7 +23,7 @@ The audit reports:
     - A pass/fail summary
 
 Usage (from project root, with PYTHONPATH=src):
-    python src\\idms_db2_phase2\\testing\\line_preservation_audit.py ^
+    python src\\converter\\testing\\line_preservation_audit.py ^
         --input  C:\\S\\S-Input\\Update.txt ^
         --output C:\\S\\S-Input\\Output\\Update_<timestamp>.cbl ^
         [--verbose]

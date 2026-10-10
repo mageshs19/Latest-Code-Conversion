@@ -10,7 +10,7 @@ from runners.batch.batch_environment import (
 SRC_DIR, PROJECT_ROOT = bootstrap_sys_path(Path(__file__))
 
 from config.path_settings import DEFAULT_MAPPING_SHEET_DIR, LOGS_DIR  # noqa: E402
-from idms_db2_phase2.infrastructure.logger_factory import (  # noqa: E402
+from converter.infrastructure.logger_factory import (  # noqa: E402
     LoggerFactory,
 )
 from runners.batch.batch_models import (  # noqa: E402

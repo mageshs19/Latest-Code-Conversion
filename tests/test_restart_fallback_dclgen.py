@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from idms_db2_phase2.postprocess.update_restart_fallback_dclgen import (
+from converter.postprocess.update_restart_fallback_dclgen import (
     create_fallback_restart_dclgen_role,
 )
 

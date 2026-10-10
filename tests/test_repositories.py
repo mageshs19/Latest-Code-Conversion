@@ -1,7 +1,7 @@
-from idms_db2_phase2.domain.models import CopybookField, DclgenColumn, SheetMappingRow
-from idms_db2_phase2.repositories.copybook_repository import CopybookRepository
-from idms_db2_phase2.repositories.dclgen_repository import DclgenRepository
-from idms_db2_phase2.repositories.mapping_repository import MappingRepository
+from converter.domain.models import CopybookField, DclgenColumn, SheetMappingRow
+from converter.repositories.copybook_repository import CopybookRepository
+from converter.repositories.dclgen_repository import DclgenRepository
+from converter.repositories.mapping_repository import MappingRepository
 
 
 def test_mapping_repository_returns_records():

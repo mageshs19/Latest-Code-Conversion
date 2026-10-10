@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-from idms_db2_phase2.composers.fixed_format_composer import FixedFormatComposer
-from idms_db2_phase2.composers.procedure_indent_normalizer import (
+from converter.composers.fixed_format_composer import FixedFormatComposer
+from converter.composers.procedure_indent_normalizer import (
     ProcedureIndentNormalizer,
 )
-from idms_db2_phase2.postprocess.update_char_literal_quoter import (
+from converter.postprocess.update_char_literal_quoter import (
     UpdateCharLiteralQuoter,
 )
-from idms_db2_phase2.postprocess.update_date_host_converter import (
+from converter.postprocess.update_date_host_converter import (
     UpdateDateHostConverter,
 )
-from idms_db2_phase2.postprocess.update_final_cleanup import UpdateFinalCleanup
-from idms_db2_phase2.postprocess.update_input_record_renamer import (
+from converter.postprocess.update_final_cleanup import UpdateFinalCleanup
+from converter.postprocess.update_input_record_renamer import (
     UpdateInputRecordRenamer,
 )
-from idms_db2_phase2.postprocess.update_program_enhancer import UpdateProgramEnhancer
-from idms_db2_phase2.services.fixed_format_line_service import FixedFormatLineService
-from idms_db2_phase2.services.name_derivation_resolver import NameDerivationResolver
-from idms_db2_phase2.services.update_audit_move_inserter import (
+from converter.postprocess.update_program_enhancer import UpdateProgramEnhancer
+from converter.services.fixed_format_line_service import FixedFormatLineService
+from converter.services.name_derivation_resolver import NameDerivationResolver
+from converter.services.update_audit_move_inserter import (
     UpdateAuditMoveInserter,
 )
-from idms_db2_phase2.services.update_cobol_final_cleanup_utils import (
+from converter.services.update_cobol_final_cleanup_utils import (
     UpdateCobolFinalCleanupUtils,
 )
 from patterns.batch_runner_patterns import COPY_NAME_PATTERN

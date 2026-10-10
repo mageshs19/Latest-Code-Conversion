@@ -16,13 +16,13 @@ class TestCobolTransformerCompRemoval:
 
     def test_transformer_removes_comp3_from_working_storage(self):
         """CobolTransformer._clean_data_declaration_line should strip COMP-3."""
-        from src.idms_db2_phase2.transformers.cobol_transformer import (
+        from converter.transformers.cobol_transformer import (
             CobolTransformer,
         )
-        from src.idms_db2_phase2.transformers.idms_statement_transformer import (
+        from converter.transformers.idms_statement_transformer import (
             IdmsStatementTransformer,
         )
-        from src.idms_db2_phase2.transformers.cobol_transformer_line_utils import (
+        from converter.transformers.cobol_transformer_line_utils import (
             CobolTransformerLineUtils,
         )
 
@@ -46,13 +46,13 @@ class TestCobolTransformerCompRemoval:
 
     def test_transformer_removes_filler_entirely(self):
         """CobolTransformer._clean_data_declaration_line should skip FILLER lines."""
-        from src.idms_db2_phase2.transformers.cobol_transformer import (
+        from converter.transformers.cobol_transformer import (
             CobolTransformer,
         )
-        from src.idms_db2_phase2.transformers.idms_statement_transformer import (
+        from converter.transformers.idms_statement_transformer import (
             IdmsStatementTransformer,
         )
-        from src.idms_db2_phase2.transformers.cobol_transformer_line_utils import (
+        from converter.transformers.cobol_transformer_line_utils import (
             CobolTransformerLineUtils,
         )
 
@@ -81,13 +81,13 @@ class TestRecordKeySignHandling:
 
     @staticmethod
     def _transformer():
-        from src.idms_db2_phase2.transformers.cobol_transformer import (
+        from converter.transformers.cobol_transformer import (
             CobolTransformer,
         )
-        from src.idms_db2_phase2.transformers.idms_statement_transformer import (
+        from converter.transformers.idms_statement_transformer import (
             IdmsStatementTransformer,
         )
-        from src.idms_db2_phase2.transformers.cobol_transformer_line_utils import (
+        from converter.transformers.cobol_transformer_line_utils import (
             CobolTransformerLineUtils,
         )
 
@@ -136,7 +136,7 @@ class TestComp3Removal:
 
     def test_picture_strips_comp3_from_usage(self):
         """COMP-3 should be stripped from PIC clause."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -156,7 +156,7 @@ class TestComp3Removal:
 
     def test_picture_strips_computational_3(self):
         """COMPUTATIONAL-3 should also be stripped."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -173,7 +173,7 @@ class TestComp3Removal:
 
     def test_picture_preserves_non_encoding_usage(self):
         """Non-encoding USAGE clauses (like DISPLAY) should be preserved."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -189,7 +189,7 @@ class TestComp3Removal:
 
     def test_picture_no_value_for_alphanumeric(self):
         """Alphanumeric fields should not get VALUE ZEROES."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -205,7 +205,7 @@ class TestComp3Removal:
 
     def test_picture_existing_value_preserved(self):
         """If VALUE clause already exists, don't add VALUE ZEROES."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -249,7 +249,7 @@ class TestSelectColumnOptimization:
     def test_cursor_column_filtering_logic(self):
         """Cursor should select appropriate columns."""
         # Test the static method for filtering audit columns
-        from src.idms_db2_phase2.resolvers.cursor_column_resolver import (
+        from converter.resolvers.cursor_column_resolver import (
             CursorColumnResolver,
         )
 
@@ -273,7 +273,7 @@ class TestSelectColumnOptimization:
 
     def test_column_deduplication(self):
         """Duplicate columns should be removed while preserving order."""
-        from src.idms_db2_phase2.resolvers.cursor_column_resolver import (
+        from converter.resolvers.cursor_column_resolver import (
             CursorColumnResolver,
         )
 
@@ -295,7 +295,7 @@ class TestSelectColumnOptimization:
 
     def test_unnecessary_columns_filtered(self):
         """Filler and system metadata columns should be removed."""
-        from src.idms_db2_phase2.resolvers.cursor_column_resolver import (
+        from converter.resolvers.cursor_column_resolver import (
             CursorColumnResolver,
         )
 
@@ -359,7 +359,7 @@ class TestEndToEndConversion:
 
     def test_field_definition_conversion(self):
         """Test complete field definition transformation."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -397,7 +397,7 @@ if __name__ == "__main__":
 
     def test_picture_strips_comp3_from_usage(self):
         """COMP-3 should be stripped from PIC clause."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -417,7 +417,7 @@ if __name__ == "__main__":
 
     def test_picture_strips_computational_3(self):
         """COMPUTATIONAL-3 should also be stripped."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -434,7 +434,7 @@ if __name__ == "__main__":
 
     def test_picture_preserves_non_encoding_usage(self):
         """Non-encoding USAGE clauses (like DISPLAY) should be preserved."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -450,7 +450,7 @@ if __name__ == "__main__":
 
     def test_picture_no_value_for_alphanumeric(self):
         """Alphanumeric fields should not get VALUE ZEROES."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -466,7 +466,7 @@ if __name__ == "__main__":
 
     def test_picture_existing_value_preserved(self):
         """If VALUE clause already exists, don't add VALUE ZEROES."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 
@@ -510,7 +510,7 @@ class TestSelectColumnOptimization:
     def test_cursor_column_filtering_logic(self):
         """Cursor should select appropriate columns."""
         # Test the static method for filtering audit columns
-        from src.idms_db2_phase2.resolvers.cursor_column_resolver import (
+        from converter.resolvers.cursor_column_resolver import (
             CursorColumnResolver,
         )
 
@@ -534,7 +534,7 @@ class TestSelectColumnOptimization:
 
     def test_column_deduplication(self):
         """Duplicate columns should be removed while preserving order."""
-        from src.idms_db2_phase2.resolvers.cursor_column_resolver import (
+        from converter.resolvers.cursor_column_resolver import (
             CursorColumnResolver,
         )
 
@@ -556,7 +556,7 @@ class TestSelectColumnOptimization:
 
     def test_unnecessary_columns_filtered(self):
         """Filler and system metadata columns should be removed."""
-        from src.idms_db2_phase2.resolvers.cursor_column_resolver import (
+        from converter.resolvers.cursor_column_resolver import (
             CursorColumnResolver,
         )
 
@@ -620,7 +620,7 @@ class TestEndToEndConversion:
 
     def test_field_definition_conversion(self):
         """Test complete field definition transformation."""
-        from src.idms_db2_phase2.composers.record_materialisation.record_entry_renderer import (
+        from converter.composers.record_materialisation.record_entry_renderer import (
             RecordEntryRenderer,
         )
 

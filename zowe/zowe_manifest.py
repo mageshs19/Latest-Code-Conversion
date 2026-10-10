@@ -21,8 +21,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from idms_db2_phase2.parsers.cobol_parser import CobolParser
-from idms_db2_phase2.services.name_derivation_resolver import (
+from converter.parsers.cobol_parser import CobolParser
+from converter.services.name_derivation_resolver import (
     NameDerivationResolver,
 )
 from zowe.zowe_resolver import resolve_dependencies

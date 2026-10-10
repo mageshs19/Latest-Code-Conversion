@@ -1,13 +1,13 @@
 # LOCATION: tests/test_cobol_area_alignment_reflow.py
 # ACTION: CREATE NEW FILE
 
-from idms_db2_phase2.services.cobol_area_alignment_classifier import (
+from converter.services.cobol_area_alignment_classifier import (
     CobolAreaAlignmentClassifier,
 )
-from idms_db2_phase2.services.cobol_area_alignment_reflow import (
+from converter.services.cobol_area_alignment_reflow import (
     CobolAreaAlignmentReflow,
 )
-from idms_db2_phase2.services.fixed_format_line_service import (
+from converter.services.fixed_format_line_service import (
     FixedFormatLineService,
 )
 

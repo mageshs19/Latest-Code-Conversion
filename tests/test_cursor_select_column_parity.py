@@ -31,10 +31,10 @@ between the two is silent and corrupts every fetched row, so the
 invariant is asserted here rather than trusted.
 """
 
-from idms_db2_phase2.generators.db2_infrastructure.cursor_declare_builder import (
+from converter.generators.db2_infrastructure.cursor_declare_builder import (
     CursorDeclareBuilder,
 )
-from idms_db2_phase2.generators.db2_infrastructure.cursor_spec import CursorSpec
+from converter.generators.db2_infrastructure.cursor_spec import CursorSpec
 
 CURSOR = "DZBFASC1"
 TABLE = "DZBFASTV"
@@ -232,7 +232,7 @@ def _resolver(usage: list[str], full: list[str]):
     No test in this suite may construct a production object with
     __new__ again.
     """
-    from idms_db2_phase2.resolvers.cursor_column_resolver import (
+    from converter.resolvers.cursor_column_resolver import (
         CursorColumnResolver,
     )
 
@@ -317,7 +317,7 @@ class _AugmentOwner:
 
 
 def _augment(specs: list[dict]):
-    from idms_db2_phase2.generators.db2_infrastructure.cursor_spec_builder import (
+    from converter.generators.db2_infrastructure.cursor_spec_builder import (
         CursorSpecBuilder,
     )
 

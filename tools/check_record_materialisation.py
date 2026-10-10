@@ -74,7 +74,7 @@ _ok("message keys")
 # ---------------------------------------------------------------- 2
 print("\n2. module imports")
 try:
-    from idms_db2_phase2.composers.record_materialisation_composer import (
+    from converter.composers.record_materialisation_composer import (
         RecordMaterialisationComposer,
     )
 except Exception:

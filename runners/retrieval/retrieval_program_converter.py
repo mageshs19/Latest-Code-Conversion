@@ -33,13 +33,13 @@ from datetime import datetime
 from pathlib import Path
 
 from config.path_settings import DEFAULT_LRF_DIR, lrf_paths
-from idms_db2_phase2.domain.models import ConversionInput
-from idms_db2_phase2.infrastructure.file_loader import FileLoader
-from idms_db2_phase2.infrastructure.local_uploaded_file import LocalUploadedFile
-from idms_db2_phase2.orchestration.conversion_service import ConversionService
-from idms_db2_phase2.parsers.cobol_parser import CobolParser
-from idms_db2_phase2.parsers.lrf_parser import LrfParser
-from idms_db2_phase2.services.name_derivation_resolver import NameDerivationResolver
+from converter.domain.models import ConversionInput
+from converter.infrastructure.file_loader import FileLoader
+from converter.infrastructure.local_uploaded_file import LocalUploadedFile
+from converter.orchestration.conversion_service import ConversionService
+from converter.parsers.cobol_parser import CobolParser
+from converter.parsers.lrf_parser import LrfParser
+from converter.services.name_derivation_resolver import NameDerivationResolver
 from patterns.lrf_patterns import COPY_IDMS_LR_PATTERN
 from rules.lrf_rules import (
     DIAG_LRF_FILE_COUNT_TEMPLATE,
@@ -450,7 +450,7 @@ def convert_one_program(
     # Apply retrieval postprocess: rename copybook references
     converted_cobol = result.converted_cobol or ""
     try:
-        from idms_db2_phase2.postprocess.copybook_reference_renamer import (
+        from converter.postprocess.copybook_reference_renamer import (
             CopybookReferenceRenamer,
         )
 

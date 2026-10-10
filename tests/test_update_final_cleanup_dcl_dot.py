@@ -1,4 +1,4 @@
-from idms_db2_phase2.postprocess.update_final_cleanup import UpdateFinalCleanup
+from converter.postprocess.update_final_cleanup import UpdateFinalCleanup
 
 
 def _fixed(body: str) -> str:

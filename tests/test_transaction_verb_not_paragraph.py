@@ -9,7 +9,7 @@ headers (which produced CHK-06.06 failures).
 from __future__ import annotations
 
 from rules.procedure_indent_rules import NON_PARAGRAPH_SINGLE_WORDS
-from idms_db2_phase2.composers.procedure_indent_normalizer import (
+from converter.composers.procedure_indent_normalizer import (
     ProcedureIndentNormalizer,
 )
 

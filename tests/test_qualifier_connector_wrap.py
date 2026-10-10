@@ -9,8 +9,8 @@ producing an invalid "... OF." statement that the compiler rejects.
 
 from __future__ import annotations
 
-from idms_db2_phase2.composers.fixed_format_wrapper import FixedFormatWrapper
-from idms_db2_phase2.services.fixed_format_line_service import (
+from converter.composers.fixed_format_wrapper import FixedFormatWrapper
+from converter.services.fixed_format_line_service import (
     FixedFormatLineService,
     glue_qualifier_connectors,
 )

@@ -1,7 +1,7 @@
 """CHK-26 ORDER BY logic - CursorOrderByResolver validation.
 
 Validates cursor ORDER BY columns match CursorOrderByResolver implementation
-from src/idms_db2_phase2/resolvers/cursor_order_by_resolver.py:
+from converter/resolvers/cursor_order_by_resolver.py:
 
 1. Parent cursors: ORDER BY from Sheet Mapping remarks (ORDER_HINT_WORDS)
 2. Child cursors: ORDER BY from relationship keys

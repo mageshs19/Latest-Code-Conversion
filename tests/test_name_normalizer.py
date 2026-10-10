@@ -1,4 +1,4 @@
-from idms_db2_phase2.services.name_normalizer import NameNormalizer
+from converter.services.name_normalizer import NameNormalizer
 
 
 def test_normalize_replaces_hyphen_with_underscore():

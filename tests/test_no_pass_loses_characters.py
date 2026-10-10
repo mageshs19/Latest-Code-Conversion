@@ -55,37 +55,37 @@ SOURCE = "\n".join(
 # module, class, candidate entry-point names
 CANDIDATES = [
     (
-        "idms_db2_phase2.services.cobol_area_alignment_service",
+        "converter.services.cobol_area_alignment_service",
         "CobolAreaAlignmentService",
         ("align", "apply", "compose"),
     ),
     (
-        "idms_db2_phase2.services.procedure_block_indent_service",
+        "converter.services.procedure_block_indent_service",
         "ProcedureBlockIndentService",
         ("apply", "compose", "indent", "format"),
     ),
     (
-        "idms_db2_phase2.services.string_block_format_service",
+        "converter.services.string_block_format_service",
         "StringBlockFormatService",
         ("apply", "compose", "format"),
     ),
     (
-        "idms_db2_phase2.services.db2_comment_readability_service",
+        "converter.services.db2_comment_readability_service",
         "Db2CommentReadabilityService",
         ("apply", "compose"),
     ),
     (
-        "idms_db2_phase2.composers.db2_date_comparison_composer",
+        "converter.composers.db2_date_comparison_composer",
         "Db2DateComparisonComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.final_cobol_fix_composer",
+        "converter.composers.final_cobol_fix_composer",
         "FinalCobolFixComposer",
         ("compose", "apply", "fix"),
     ),
     (
-        "idms_db2_phase2.composers.procedure_indent_normalizer",
+        "converter.composers.procedure_indent_normalizer",
         "ProcedureIndentNormalizer",
         ("compose",),
     ),
@@ -93,57 +93,57 @@ CANDIDATES = [
     # which is why it found nothing. fixed_format_line_composer.py:148
     # carries an unguarded  safe_body = safe_body[:BODY_WIDTH].
     (
-        "idms_db2_phase2.composers.fixed_format_composer",
+        "converter.composers.fixed_format_composer",
         "FixedFormatComposer",
         ("compose", "apply", "format"),
     ),
     (
-        "idms_db2_phase2.composers.fixed_format_line_composer",
+        "converter.composers.fixed_format_line_composer",
         "FixedFormatLineComposer",
         ("compose", "apply", "build", "format"),
     ),
     (
-        "idms_db2_phase2.composers.manual_layout_composer",
+        "converter.composers.manual_layout_composer",
         "ManualLayoutComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.manual_style_preserver",
+        "converter.composers.manual_style_preserver",
         "ManualStylePreserver",
         ("compose", "apply", "preserve"),
     ),
     (
-        "idms_db2_phase2.composers.structural_safety_composer",
+        "converter.composers.structural_safety_composer",
         "StructuralSafetyComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.sqlcode_wrapper_cleanup_composer",
+        "converter.composers.sqlcode_wrapper_cleanup_composer",
         "SqlcodeWrapperCleanupComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.unmapped_record_block_composer",
+        "converter.composers.unmapped_record_block_composer",
         "UnmappedRecordBlockComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.counter_declaration_composer",
+        "converter.composers.counter_declaration_composer",
         "CounterDeclarationComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.late_db2_date_composer",
+        "converter.composers.late_db2_date_composer",
         "LateDb2DateComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.output_write_paragraph_composer",
+        "converter.composers.output_write_paragraph_composer",
         "OutputWriteParagraphComposer",
         ("compose", "apply"),
     ),
     (
-        "idms_db2_phase2.composers.cobol_formatter",
+        "converter.composers.cobol_formatter",
         "CobolFormatter",
         ("format", "compose", "apply"),
     ),

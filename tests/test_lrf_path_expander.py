@@ -11,10 +11,10 @@ at EXECUTABLE lines only. Asserting against the whole output text would
 forbid the audit trail.
 """
 
-from idms_db2_phase2.parsers.lrf_parser import LrfParser
-from idms_db2_phase2.repositories.lrf_repository import LrfRepository
-from idms_db2_phase2.resolvers.lrf_path_resolver import LrfPathResolver
-from idms_db2_phase2.transformers.lrf_path_expander import LrfPathExpander
+from converter.parsers.lrf_parser import LrfParser
+from converter.repositories.lrf_repository import LrfRepository
+from converter.resolvers.lrf_path_resolver import LrfPathResolver
+from converter.transformers.lrf_path_expander import LrfPathExpander
 
 
 SUBSCHEMA = """

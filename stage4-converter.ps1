@@ -6,19 +6,19 @@ if (git status --porcelain) {
     exit 1
 }
 
-Write-Host "STAGE 4 : idms_db2_phase2 -> converter`n" -ForegroundColor Cyan
+Write-Host "STAGE 4 : converter -> converter`n" -ForegroundColor Cyan
 
 # ---- 1. move the package to the repo root
-git mv src/idms_db2_phase2 converter.__tmp
+git mv converter converter.__tmp
 git mv converter.__tmp converter
-Write-Host "moved  src/idms_db2_phase2 -> converter" -ForegroundColor Green
+Write-Host "moved  converter -> converter" -ForegroundColor Green
 
 # ---- 2. literal rewrites (specific first)
 $pairs = @(
-    @('src.idms_db2_phase2', 'converter'),
-    @('src/idms_db2_phase2', 'converter'),
-    @('src\idms_db2_phase2', 'converter'),
-    @('idms_db2_phase2',     'converter')
+    @('converter', 'converter'),
+    @('converter', 'converter'),
+    @('converter', 'converter'),
+    @('converter',     'converter')
 )
 
 $files = Get-ChildItem -Path $root -Recurse -File `

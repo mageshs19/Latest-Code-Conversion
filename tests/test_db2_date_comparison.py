@@ -20,13 +20,13 @@ The two historical blockers, each fatal on its own:
 
 import pytest
 
-from idms_db2_phase2.composers.db2_date_comparison_composer import (
+from converter.composers.db2_date_comparison_composer import (
     Db2DateComparisonComposer,
 )
-from idms_db2_phase2.composers.db2_date_condition_assembler import (
+from converter.composers.db2_date_condition_assembler import (
     Db2DateConditionAssembler,
 )
-from idms_db2_phase2.composers.db2_date_field_detector import (
+from converter.composers.db2_date_field_detector import (
     Db2DateFieldDetector,
 )
 
@@ -290,7 +290,7 @@ def test_substitution_keeps_every_line_at_eighty_columns():
     the sequence number to column 63, and the indent normalizer then
     wrapped the corrupted body onto two lines.
     """
-    from idms_db2_phase2.composers.db2_date_comparison_rewriter import (
+    from converter.composers.db2_date_comparison_rewriter import (
         Db2DateComparisonRewriter,
     )
 
@@ -313,7 +313,7 @@ def test_substitution_keeps_every_line_at_eighty_columns():
 
 
 def test_a_four_line_condition_stays_four_lines_when_fixed_format():
-    from idms_db2_phase2.composers.db2_date_comparison_rewriter import (
+    from converter.composers.db2_date_comparison_rewriter import (
         Db2DateComparisonRewriter,
     )
 
@@ -351,7 +351,7 @@ FIXED_PROGRAM = [
 
 
 def _rewrite_fixed():
-    from idms_db2_phase2.composers.db2_date_comparison_rewriter import (
+    from converter.composers.db2_date_comparison_rewriter import (
         Db2DateComparisonRewriter,
     )
 

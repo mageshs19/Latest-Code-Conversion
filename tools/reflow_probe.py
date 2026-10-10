@@ -21,13 +21,13 @@ for _path in (ROOT, ROOT / "src"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-from idms_db2_phase2.services.cobol_area_alignment_classifier import (  # noqa: E402
+from converter.services.cobol_area_alignment_classifier import (  # noqa: E402
     CobolAreaAlignmentClassifier,
 )
-from idms_db2_phase2.services.cobol_area_alignment_reflow import (  # noqa: E402
+from converter.services.cobol_area_alignment_reflow import (  # noqa: E402
     CobolAreaAlignmentReflow,
 )
-from idms_db2_phase2.services.fixed_format_line_service import (  # noqa: E402
+from converter.services.fixed_format_line_service import (  # noqa: E402
     FixedFormatLineService,
 )
 

@@ -102,7 +102,7 @@ SQLCODE VALUES:
 STEP 2: COLUMN MINIMIZATION (LOGIC)
 ================================================================================
 
-File: src/idms_db2_phase2/services/cursor_select_minimizer_service.py
+File: converter/services/cursor_select_minimizer_service.py
 
 Logic: Remove ORDER BY-only columns from SELECT/FETCH when safe
 
@@ -175,7 +175,7 @@ NAMING RULE: NR_ID_ Underscore
 PYTHON IMPLEMENTATION FILES:
 ─────────────────────────────
 
-File 1: src/idms_db2_phase2/resolvers/access_type_classifier.py
+File 1: converter/resolvers/access_type_classifier.py
 ├─ Method: is_calc_dn(record)
 │  └─ Returns: True if has CALC key AND NO seq.no field
 │
@@ -192,7 +192,7 @@ File 1: src/idms_db2_phase2/resolvers/access_type_classifier.py
    └─ Returns: normalized.startswith("NR_ID_")  # ← Checks underscore
 
 
-File 2: src/idms_db2_phase2/resolvers/cursor_order_by_resolver.py
+File 2: converter/resolvers/cursor_order_by_resolver.py
 ├─ Entry Point: order_by_columns_for_record(record)
 │  ├─ IF is_calc_dn(record):
 │  │  └─ return []  # CASE 1: NO ORDER BY

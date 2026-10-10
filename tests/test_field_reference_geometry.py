@@ -17,10 +17,10 @@ displaced digit as body text and emitted
 
 import pytest
 
-from idms_db2_phase2.services.fixed_format_line_service import (
+from converter.services.fixed_format_line_service import (
     FixedFormatLineService,
 )
-from idms_db2_phase2.transformers.field_reference_rewriter import (
+from converter.transformers.field_reference_rewriter import (
     FieldReferenceRewriter,
 )
 

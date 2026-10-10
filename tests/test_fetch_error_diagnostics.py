@@ -23,7 +23,7 @@ characters, so the field ALONE could overflow column 72.
 
 import pytest
 
-from idms_db2_phase2.generators.cursor_paragraph.cursor_paragraph_body_builder import (
+from converter.generators.cursor_paragraph.cursor_paragraph_body_builder import (
     CursorParagraphBodyBuilder,
 )
 from rules.cursor_paragraph_rules import FETCH_KEY_DIAGNOSTIC_LIMIT

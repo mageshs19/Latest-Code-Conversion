@@ -20,7 +20,7 @@ logical line, and a paragraph header reads as a statement.
 
 from __future__ import annotations
 
-from idms_db2_phase2.composers.retrieval_commit_cleanup_composer import (
+from converter.composers.retrieval_commit_cleanup_composer import (
     RetrievalCommitCleanupComposer,
 )
 

@@ -11,10 +11,10 @@ Those comments are a feature, not residue, so assertions about "no LRF verb
 remains" must look at EXECUTABLE lines only.
 """
 
-from idms_db2_phase2.parsers.lrf_parser import LrfParser
-from idms_db2_phase2.repositories.lrf_repository import LrfRepository
-from idms_db2_phase2.resolvers.lrf_path_resolver import LrfPathResolver
-from idms_db2_phase2.transformers.lrf_update_expander import LrfUpdateExpander
+from converter.parsers.lrf_parser import LrfParser
+from converter.repositories.lrf_repository import LrfRepository
+from converter.resolvers.lrf_path_resolver import LrfPathResolver
+from converter.transformers.lrf_update_expander import LrfUpdateExpander
 
 
 # A MODIFY path-group (single element) and a STORE path-group (two elements).

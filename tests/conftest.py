@@ -37,7 +37,7 @@ import sys
 from pathlib import Path
 
 #
-# Path bootstrap. MUST run before any idms_db2_phase2 / rules / patterns
+# Path bootstrap. MUST run before any converter / rules / patterns
 # import below.
 #
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -49,33 +49,33 @@ for _candidate in (PROJECT_ROOT, SRC_DIR):
 
 import pytest  # noqa: E402
 
-from idms_db2_phase2.domain.models import (  # noqa: E402
+from converter.domain.models import (  # noqa: E402
     DclgenColumn,
     SheetMappingRow,
 )
-from idms_db2_phase2.generators.sql_error_generator import (  # noqa: E402
+from converter.generators.sql_error_generator import (  # noqa: E402
     SqlErrorGenerator,
 )
-from idms_db2_phase2.generators.sql_generator import SqlGenerator  # noqa: E402
-from idms_db2_phase2.repositories.dclgen_repository import (  # noqa: E402
+from converter.generators.sql_generator import SqlGenerator  # noqa: E402
+from converter.repositories.dclgen_repository import (  # noqa: E402
     DclgenRepository,
 )
-from idms_db2_phase2.repositories.mapping_repository import (  # noqa: E402
+from converter.repositories.mapping_repository import (  # noqa: E402
     MappingRepository,
 )
-from idms_db2_phase2.resolvers.column_name_resolver import (  # noqa: E402
+from converter.resolvers.column_name_resolver import (  # noqa: E402
     ColumnNameResolver,
 )
-from idms_db2_phase2.resolvers.cursor_name_resolver import (  # noqa: E402
+from converter.resolvers.cursor_name_resolver import (  # noqa: E402
     CursorNameResolver,
 )
-from idms_db2_phase2.resolvers.host_variable_resolver import (  # noqa: E402
+from converter.resolvers.host_variable_resolver import (  # noqa: E402
     HostVariableResolver,
 )
-from idms_db2_phase2.resolvers.table_name_resolver import (  # noqa: E402
+from converter.resolvers.table_name_resolver import (  # noqa: E402
     TableNameResolver,
 )
-from idms_db2_phase2.transformers.idms_statement_transformer import (  # noqa: E402
+from converter.transformers.idms_statement_transformer import (  # noqa: E402
     IdmsStatementTransformer,
 )
 

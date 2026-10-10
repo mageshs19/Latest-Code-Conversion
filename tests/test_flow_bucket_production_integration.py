@@ -14,9 +14,9 @@ LOCATION: tests/test_flow_bucket_production_integration.py
 import unittest
 from typing import List, Tuple
 
-from src.idms_db2_phase2.generators.code_bucket_manager import BucketType
-from src.idms_db2_phase2.generators.code_flow_orchestrator import FlowPhase
-from src.idms_db2_phase2.orchestration.flow_bucket_pipeline_orchestration import (
+from converter.generators.code_bucket_manager import BucketType
+from converter.generators.code_flow_orchestrator import FlowPhase
+from converter.orchestration.flow_bucket_pipeline_orchestration import (
     ProductionFlowBucketOrchestrator,
     apply_production_flow_bucket_orchestration,
 )
@@ -72,7 +72,7 @@ END PROGRAM VMDZ4420.
     
     def test_timestamp_fields_generated_with_nnnn(self):
         """Test timestamp fields include NNNN field (critical fix)."""
-        from src.idms_db2_phase2.generators.code_bucket_manager import BucketType
+        from converter.generators.code_bucket_manager import BucketType
         
         orchestrator = ProductionFlowBucketOrchestrator(self.sample_program)
         orchestrator._add_timestamp_fields()
@@ -91,7 +91,7 @@ END PROGRAM VMDZ4420.
     
     def test_cursor_flags_generated(self):
         """Test cursor flags are generated (critical fix)."""
-        from src.idms_db2_phase2.generators.code_bucket_manager import BucketType
+        from converter.generators.code_bucket_manager import BucketType
         
         orchestrator = ProductionFlowBucketOrchestrator(self.sample_program)
         orchestrator._add_cursor_flags()
@@ -194,7 +194,7 @@ END PROGRAM VMDZ4420.
     
     def test_counter_fields_generated(self):
         """Test audit counter fields are generated."""
-        from src.idms_db2_phase2.generators.code_bucket_manager import BucketType
+        from converter.generators.code_bucket_manager import BucketType
         
         orchestrator = ProductionFlowBucketOrchestrator(self.sample_program)
         orchestrator._add_counter_fields()

@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from idms_db2_phase2.domain.models import ConversionInput
-from idms_db2_phase2.infrastructure.file_loader import FileLoader
-from idms_db2_phase2.infrastructure.local_uploaded_file import LocalUploadedFile
-from idms_db2_phase2.orchestration.conversion_service import ConversionService
-from idms_db2_phase2.parsers.cobol_parser import CobolParser
-from idms_db2_phase2.services.name_derivation_resolver import NameDerivationResolver
+from converter.domain.models import ConversionInput
+from converter.infrastructure.file_loader import FileLoader
+from converter.infrastructure.local_uploaded_file import LocalUploadedFile
+from converter.orchestration.conversion_service import ConversionService
+from converter.parsers.cobol_parser import CobolParser
+from converter.services.name_derivation_resolver import NameDerivationResolver
 from rules.update_runner_messages import (
     BULLET_TEMPLATE,
     DIAG_DERIVED_PROGRAM_ID_TEMPLATE,

@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from idms_db2_phase2.postprocess.update_date_host_converter import (
+from converter.postprocess.update_date_host_converter import (
     UpdateDateHostConverter,
 )
 

@@ -1,15 +1,15 @@
-from idms_db2_phase2.domain.models import DclgenColumn, SheetMappingRow
-from idms_db2_phase2.generators.sql_error_generator import SqlErrorGenerator
-from idms_db2_phase2.generators.sql_generator import SqlGenerator
-from idms_db2_phase2.repositories.dclgen_repository import DclgenRepository
-from idms_db2_phase2.repositories.mapping_repository import MappingRepository
-from idms_db2_phase2.resolvers.column_name_resolver import ColumnNameResolver
-from idms_db2_phase2.resolvers.cursor_name_resolver import CursorNameResolver
-from idms_db2_phase2.resolvers.host_variable_resolver import HostVariableResolver
-from idms_db2_phase2.resolvers.table_name_resolver import TableNameResolver
-from idms_db2_phase2.transformers.cobol_transformer import CobolTransformer
-from idms_db2_phase2.transformers.field_reference_rewriter import FieldReferenceRewriter
-from idms_db2_phase2.transformers.idms_statement_transformer import (
+from converter.domain.models import DclgenColumn, SheetMappingRow
+from converter.generators.sql_error_generator import SqlErrorGenerator
+from converter.generators.sql_generator import SqlGenerator
+from converter.repositories.dclgen_repository import DclgenRepository
+from converter.repositories.mapping_repository import MappingRepository
+from converter.resolvers.column_name_resolver import ColumnNameResolver
+from converter.resolvers.cursor_name_resolver import CursorNameResolver
+from converter.resolvers.host_variable_resolver import HostVariableResolver
+from converter.resolvers.table_name_resolver import TableNameResolver
+from converter.transformers.cobol_transformer import CobolTransformer
+from converter.transformers.field_reference_rewriter import FieldReferenceRewriter
+from converter.transformers.idms_statement_transformer import (
     IdmsStatementTransformer,
 )
 

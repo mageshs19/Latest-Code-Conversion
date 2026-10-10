@@ -457,9 +457,9 @@ STANDARDS_DOCUMENTS = [
 ]
 
 GENERATOR_FILES = [
-    "src/idms_db2_phase2/generators/initialization_centralizer.py",
-    "src/idms_db2_phase2/generators/working_storage_organizer.py",
-    "src/idms_db2_phase2/generators/procedure_division_organizer.py",
-    "src/idms_db2_phase2/generators/converter_pipeline_integration.py",
+    "converter/generators/initialization_centralizer.py",
+    "converter/generators/working_storage_organizer.py",
+    "converter/generators/procedure_division_organizer.py",
+    "converter/generators/converter_pipeline_integration.py",
     "config/production_cobol_standards.py",
 ]

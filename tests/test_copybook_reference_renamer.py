@@ -1,4 +1,4 @@
-from idms_db2_phase2.postprocess.copybook_reference_renamer import (
+from converter.postprocess.copybook_reference_renamer import (
     CopybookReferenceRenamer,
 )
 

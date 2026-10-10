@@ -40,7 +40,7 @@ RUN_TIMEOUT_SECONDS = 600
 # PYTHONPATH handed to the subprocess. Both entries are required: the
 # converter lives under src/, while rules/, patterns/ and catalogs/ sit
 # at the project root.
-PYTHONPATH_ENTRIES = ("src", ".")
+PYTHONPATH_ENTRIES = (".",)
 PYTHONPATH_SEPARATOR_KEY = "PYTHONPATH"
 
 # =====================================================================

@@ -28,7 +28,7 @@ for _candidate in (PROJECT_ROOT, SRC_DIR):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from idms_db2_phase2.composers.db2_date_comparison_rewriter import (  # noqa: E402
+from converter.composers.db2_date_comparison_rewriter import (  # noqa: E402
     Db2DateComparisonRewriter,
 )
 

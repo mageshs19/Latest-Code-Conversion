@@ -6,10 +6,10 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from idms_db2_phase2.domain.models import ConversionInput
-from idms_db2_phase2.infrastructure.file_loader import FileLoader
-from idms_db2_phase2.infrastructure.local_uploaded_file import LocalUploadedFile
-from idms_db2_phase2.orchestration.conversion_service import ConversionService
+from converter.domain.models import ConversionInput
+from converter.infrastructure.file_loader import FileLoader
+from converter.infrastructure.local_uploaded_file import LocalUploadedFile
+from converter.orchestration.conversion_service import ConversionService
 from patterns.lrf_patterns import COPY_IDMS_LR_PATTERN
 from rules.batch_runner_messages import (
     DIAG_SOURCE_FILE_TEMPLATE,

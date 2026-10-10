@@ -23,11 +23,11 @@ from __future__ import annotations
 
 import pytest
 
-from idms_db2_phase2.generators.db2_infrastructure.cursor_declare_builder import (
+from converter.generators.db2_infrastructure.cursor_declare_builder import (
     CursorDeclareBuilder,
 )
-from idms_db2_phase2.generators.db2_infrastructure.cursor_spec import CursorSpec
-from idms_db2_phase2.resolvers.cursor_join_resolver import CursorJoinResolver
+from converter.generators.db2_infrastructure.cursor_spec import CursorSpec
+from converter.resolvers.cursor_join_resolver import CursorJoinResolver
 from rules.cursor_declaration_rules import (
     CHILD_CURSOR_KEEPS_ORDER_BY,
     EMIT_DRIVING_KEY_PREDICATE,

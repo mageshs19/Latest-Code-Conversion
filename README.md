@@ -29,8 +29,8 @@ Use:
 - `catalogs/` for column names, aliases, SQL type lists, labels, and static catalog values
 - `patterns/` for regex patterns
 - `rules/` for business and conversion rules
-- `src/idms_db2_phase2/parsers/` for parsing logic only
-- `src/idms_db2_phase2/services/`, `generators/`, `resolvers/`, `transformers/`, and `validators/` for logic only
+- `converter/parsers/` for parsing logic only
+- `converter/services/`, `generators/`, `resolvers/`, `transformers/`, and `validators/` for logic only
 
 ## Run
 
@@ -38,7 +38,7 @@ From the project root:
 
 ```bash
 set PYTHONPATH=src
-python -m streamlit run src/idms_db2_phase2/app.py --server.port 8502
+python -m streamlit run converter/app.py --server.port 8502
 
 $env:PYTHONPATH = "src"
 python runners\run_update.py

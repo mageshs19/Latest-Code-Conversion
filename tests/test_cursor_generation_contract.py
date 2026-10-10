@@ -30,13 +30,13 @@ from __future__ import annotations
 
 import pytest
 
-from idms_db2_phase2.generators.cursor_paragraph.cursor_paragraph_body_builder import (
+from converter.generators.cursor_paragraph.cursor_paragraph_body_builder import (
     CursorParagraphBodyBuilder,
 )
-from idms_db2_phase2.generators.db2_infrastructure.cursor_declare_builder import (
+from converter.generators.db2_infrastructure.cursor_declare_builder import (
     CursorDeclareBuilder,
 )
-from idms_db2_phase2.generators.db2_infrastructure.cursor_spec import CursorSpec
+from converter.generators.db2_infrastructure.cursor_spec import CursorSpec
 from rules.cursor_declaration_rules import QUERYNO_BASE, QUERYNO_STEP
 
 CURSOR = "DZBFASC1"

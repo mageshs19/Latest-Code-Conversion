@@ -1,10 +1,10 @@
-from idms_db2_phase2.domain.models import ConversionInput, DclgenColumn, SheetMappingRow
-from idms_db2_phase2.repositories.dclgen_repository import DclgenRepository
-from idms_db2_phase2.repositories.mapping_repository import MappingRepository
-from idms_db2_phase2.resolvers.table_name_resolver import TableNameResolver
-from idms_db2_phase2.validators.input_validator import InputValidator
-from idms_db2_phase2.validators.mapping_validator import MappingValidator
-from idms_db2_phase2.validators.production_validator import ProductionValidator
+from converter.domain.models import ConversionInput, DclgenColumn, SheetMappingRow
+from converter.repositories.dclgen_repository import DclgenRepository
+from converter.repositories.mapping_repository import MappingRepository
+from converter.resolvers.table_name_resolver import TableNameResolver
+from converter.validators.input_validator import InputValidator
+from converter.validators.mapping_validator import MappingValidator
+from converter.validators.production_validator import ProductionValidator
 
 
 def test_input_validator_detects_missing_inputs():

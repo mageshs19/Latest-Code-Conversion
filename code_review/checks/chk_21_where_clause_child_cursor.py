@@ -1,7 +1,7 @@
 """CHK-21 WHERE clause - child cursor join predicates.
 
 Validates child cursor WHERE clauses match CursorJoinResolver implementation
-from src/idms_db2_phase2/resolvers/cursor_join_resolver.py:
+from converter/resolvers/cursor_join_resolver.py:
 
 1. Join predicates: <child column> = :<parent group>.<parent host field>
 2. Foreign key resolution: Both sides must resolve

@@ -24,10 +24,10 @@ cut the IF away from its own condition tail:
 
 import pytest
 
-from idms_db2_phase2.composers.output_write.output_write_guard import (
+from converter.composers.output_write.output_write_guard import (
     OutputWriteGuard,
 )
-from idms_db2_phase2.services.cobol_condition_scanner import (
+from converter.services.cobol_condition_scanner import (
     CobolConditionScanner,
 )
 

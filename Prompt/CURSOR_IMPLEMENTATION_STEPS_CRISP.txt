@@ -22,7 +22,7 @@ Classification:
 STEP 2: COLUMN MINIMIZATION
 ================================================================================
 
-File: src/idms_db2_phase2/services/cursor_select_minimizer_service.py
+File: converter/services/cursor_select_minimizer_service.py
 
 Algorithm:
 1. Extract all DCLGEN columns
@@ -40,8 +40,8 @@ Result: SELECT only necessary columns (5-15 typically, not all 50-100+)
 STEP 3: ORDER BY CLAUSE GENERATION
 ================================================================================
 
-File: src/idms_db2_phase2/resolvers/access_type_classifier.py
-File: src/idms_db2_phase2/resolvers/cursor_order_by_resolver.py
+File: converter/resolvers/access_type_classifier.py
+File: converter/resolvers/cursor_order_by_resolver.py
 
 LOGIC:
 

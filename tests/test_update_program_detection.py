@@ -18,7 +18,7 @@ def test_update_program_detection_idms_store():
         STORE SOME-IDMS-RECORD.
     """
     
-    from idms_db2_phase2.ui.conversion_actions import _is_update_program
+    from converter.ui.conversion_actions import _is_update_program
     assert _is_update_program(source) is True
 
 
@@ -37,7 +37,7 @@ def test_update_program_detection_db2_insert():
         END-EXEC.
     """
     
-    from idms_db2_phase2.ui.conversion_actions import _is_update_program
+    from converter.ui.conversion_actions import _is_update_program
     assert _is_update_program(source) is True
 
 
@@ -56,7 +56,7 @@ def test_update_program_detection_db2_update():
         END-EXEC.
     """
     
-    from idms_db2_phase2.ui.conversion_actions import _is_update_program
+    from converter.ui.conversion_actions import _is_update_program
     assert _is_update_program(source) is True
 
 
@@ -76,7 +76,7 @@ def test_retrieval_program_detection():
         END-EXEC.
     """
     
-    from idms_db2_phase2.ui.conversion_actions import _is_update_program
+    from converter.ui.conversion_actions import _is_update_program
     assert _is_update_program(source) is False
 
 
@@ -95,13 +95,13 @@ def test_idms_retrieval_program_detection():
         END-EXEC.
     """
     
-    from idms_db2_phase2.ui.conversion_actions import _is_update_program
+    from converter.ui.conversion_actions import _is_update_program
     assert _is_update_program(source) is False
 
 
 def test_empty_source_is_retrieval():
     """Empty or None source is not detected as UPDATE."""
-    from idms_db2_phase2.ui.conversion_actions import _is_update_program
+    from converter.ui.conversion_actions import _is_update_program
     
     assert _is_update_program("") is False
     assert _is_update_program(None) is False

@@ -1,4 +1,4 @@
-from idms_db2_phase2.postprocess.update_input_record_renamer import (
+from converter.postprocess.update_input_record_renamer import (
     UpdateInputRecordRenamer,
 )
 

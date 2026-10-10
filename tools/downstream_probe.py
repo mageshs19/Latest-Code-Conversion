@@ -74,8 +74,8 @@ CANDIDATES = [
     (
         "FixedFormatComposer",
         [
-            "idms_db2_phase2.composers.fixed_format_composer",
-            "idms_db2_phase2.composers.fixed_format",
+            "converter.composers.fixed_format_composer",
+            "converter.composers.fixed_format",
         ],
         "FixedFormatComposer",
         ("format", "compose"),
@@ -83,8 +83,8 @@ CANDIDATES = [
     (
         "ProcedureIndentNormalizer",
         [
-            "idms_db2_phase2.services.procedure_indent_normalizer",
-            "idms_db2_phase2.composers.procedure_indent_normalizer",
+            "converter.services.procedure_indent_normalizer",
+            "converter.composers.procedure_indent_normalizer",
         ],
         "ProcedureIndentNormalizer",
         ("compose", "format"),
@@ -92,7 +92,7 @@ CANDIDATES = [
     (
         "CobolAreaAlignmentReflow",
         [
-            "idms_db2_phase2.services.cobol_area_alignment_reflow",
+            "converter.services.cobol_area_alignment_reflow",
         ],
         "CobolAreaAlignmentReflow",
         ("compose", "reflow"),
@@ -100,7 +100,7 @@ CANDIDATES = [
     (
         "SequenceArtifactCleanupComposer",
         [
-            "idms_db2_phase2.composers.sequence_artifact_cleanup_composer",
+            "converter.composers.sequence_artifact_cleanup_composer",
         ],
         "SequenceArtifactCleanupComposer",
         ("compose",),
@@ -108,7 +108,7 @@ CANDIDATES = [
     (
         "FinalSequenceResequencerService",
         [
-            "idms_db2_phase2.services.final_sequence_resequencer_service",
+            "converter.services.final_sequence_resequencer_service",
         ],
         "FinalSequenceResequencerService",
         ("resequence", "compose"),
@@ -116,7 +116,7 @@ CANDIDATES = [
     (
         "FinalCobolFixComposer",
         [
-            "idms_db2_phase2.composers.final_cobol_fix_composer",
+            "converter.composers.final_cobol_fix_composer",
         ],
         "FinalCobolFixComposer",
         ("compose", "format"),
@@ -124,7 +124,7 @@ CANDIDATES = [
     (
         "StructuralSafetyComposer",
         [
-            "idms_db2_phase2.composers.structural_safety_composer",
+            "converter.composers.structural_safety_composer",
         ],
         "StructuralSafetyComposer",
         ("compose",),

@@ -11,7 +11,7 @@ from config.path_settings import (  # noqa: E402
     DEFAULT_UPDATE_PROGRAM_DIR,
     LOGS_DIR,
 )
-from idms_db2_phase2.infrastructure.logger_factory import LoggerFactory  # noqa: E402
+from converter.infrastructure.logger_factory import LoggerFactory  # noqa: E402
 from runners.update.update_input_loader import (  # noqa: E402
     load_shared_inputs,
 )

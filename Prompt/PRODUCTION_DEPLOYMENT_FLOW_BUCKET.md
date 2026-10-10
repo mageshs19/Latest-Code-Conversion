@@ -104,7 +104,7 @@ Location in pipeline.py:
     converted_cobol = generators["cursor_paragraph"].apply(converted_cobol)
     
     # NEW: Apply flow-bucket orchestration for production quality
-    from src.idms_db2_phase2.orchestration.flow_bucket_pipeline_orchestration import (
+    from converter.orchestration.flow_bucket_pipeline_orchestration import (
         apply_production_flow_bucket_orchestration
     )
     
@@ -121,7 +121,7 @@ Code to add in conversion_pipeline.py:
     # Fixes: cursor flags, timestamp fields, move ordering
     
     if converted_cobol:
-        from src.idms_db2_phase2.orchestration.flow_bucket_pipeline_orchestration import (
+        from converter.orchestration.flow_bucket_pipeline_orchestration import (
             apply_production_flow_bucket_orchestration
         )
         
@@ -387,7 +387,7 @@ Backup location:
   backup/conversion_pipeline.py.backup
   
 Restore command:
-  cp backup/conversion_pipeline.py.backup src/idms_db2_phase2/orchestration/conversion_pipeline.py
+  cp backup/conversion_pipeline.py.backup converter/orchestration/conversion_pipeline.py
 """
 
 

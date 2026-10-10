@@ -1,7 +1,7 @@
 """CHK-16 UPDATE statement validation - SET, WHERE, audit fields.
 
 Validates UPDATE statements per UpdateSqlPlanResolver implementation
-from src/idms_db2_phase2/resolvers/update_sql_plan_resolver.py:
+from converter/resolvers/update_sql_plan_resolver.py:
 
 1. SET clause: Conservative (only changed columns + update audit fields)
 2. WHERE clause: PRIMARY KEY columns only (no FK, no relationship columns)

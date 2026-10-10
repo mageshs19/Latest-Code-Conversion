@@ -13,7 +13,7 @@ A four-line IF condition was emitted as two lines truncated mid-name:
 losing "NOT = '00000000') OR" and "= '00000000')" entirely.
 """
 
-from idms_db2_phase2.composers.procedure_indent_normalizer import (
+from converter.composers.procedure_indent_normalizer import (
     ProcedureIndentNormalizer,
 )
 

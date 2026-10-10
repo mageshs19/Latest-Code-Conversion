@@ -26,13 +26,13 @@ from __future__ import annotations
 
 import pytest
 
-from idms_db2_phase2.composers.cursor_order_cleanup_composer import (
+from converter.composers.cursor_order_cleanup_composer import (
     CursorOrderCleanupComposer,
 )
-from idms_db2_phase2.generators.db2_infrastructure.cursor_declare_builder import (
+from converter.generators.db2_infrastructure.cursor_declare_builder import (
     CursorDeclareBuilder,
 )
-from idms_db2_phase2.generators.db2_infrastructure.cursor_spec import CursorSpec
+from converter.generators.db2_infrastructure.cursor_spec import CursorSpec
 from rules.cursor_declaration_rules import (
     CHILD_CURSOR_KEEPS_ORDER_BY,
     ENFORCE_ORDER_BY_RETENTION,

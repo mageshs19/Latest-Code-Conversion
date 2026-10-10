@@ -33,7 +33,7 @@ from catalogs.output_sections import (
     DB2_INFRASTRUCTURE_MARKER,
     DB2_INFRASTRUCTURE_MARKER_SHORT,
 )
-from idms_db2_phase2.generators.db2_infrastructure.infrastructure_block_builder import (
+from converter.generators.db2_infrastructure.infrastructure_block_builder import (
     InfrastructureBlockBuilder,
 )
 
