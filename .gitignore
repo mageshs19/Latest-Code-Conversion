@@ -1,0 +1,18 @@
+﻿
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# --- Run residue ---
+logs/
+debug_indent_*.txt
+zowe/workspace/Output/
+zowe/workspace/Review/
+zowe/workspace/Logs/
+
+# --- Cleanup artefacts ---
+_quarantine_*/
+caps_files_audit.csv
+cleanup_caps_*.log
