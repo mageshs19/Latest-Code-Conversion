@@ -288,8 +288,30 @@ def test_missing_full_column_set_falls_back_to_usage():
     assert resolved == usage
 
 
-def test_empty_usage_falls_back_to_full_record():
-    """A cursor is never emitted empty when usage proves no columns."""
+def test_empty_usage_on_a_non_materialised_record_selects_nothing():
+    """No proven usage and not materialised -> no columns from THIS layer.
+
+    CORRECTION - this test asserted a fallback the resolver no longer
+    performs, and had been failing since that change.
+
+    DESIGN (verified 10-10-2026 across all six sample programs):
+    a non-materialised record with no proven usage returns an EMPTY list
+    here. Columns arrive later from exactly two places:
+
+      * force_full_record=True, for a record the materialisation composer
+        copies as a whole - see the test below, and
+      * the cursor_spec_builder augmentation pass, which adds the parent
+        key columns a child cursor's WHERE clause needs.
+
+    Falling back to the full mapped record here would over-select: the
+    manual reference programs name a specific column list, and
+    cobol_standards.ENFORCE_CURSOR_EXPLICIT_COLUMNS forbids a blanket
+    projection.
+
+    EVIDENCE the path is unreachable in practice: the conversion log
+    emits 'no_usage_no_full_record' zero times for the sample set, and no
+    generated program contains a SELECT with an empty column list.
+    """
     full = ["DA_CPTAFS_479BFAS", "CT_RKTGDSV_479BFAS", "NR_CIOFMAS_479BFAS"]
 
     resolved = _resolver([], full).select_columns_for_record(
@@ -297,11 +319,27 @@ def test_empty_usage_falls_back_to_full_record():
         field_usage_analysis=object(),
     )
 
-    # Usage empty -> full record (minus audit) so the SELECT still has
-    # columns and the FETCH populates the host group.
+    assert resolved == []
+
+
+def test_materialised_record_selects_the_full_mapped_record():
+    """force_full_record=True projects every mapped column.
+
+    This is the real guarantee the previous test was reaching for. The
+    record materialisation composer emits one MOVE per mapped column, so
+    a usage-only SELECT would leave most host fields unfetched and the
+    output record would carry zeroes.
+    """
+    full = ["DA_CPTAFS_479BFAS", "CT_RKTGDSV_479BFAS", "NR_CIOFMAS_479BFAS"]
+
+    resolved = _resolver([], full).select_columns_for_record(
+        record_name="VMBFAS",
+        field_usage_analysis=object(),
+        force_full_record=True,
+    )
+
     assert resolved == full
-
-
+    
 # ---------------------------------------------------------------------
 # FIX GUARD 1 - minimal SELECT still exposes join and ORDER BY keys
 # ---------------------------------------------------------------------

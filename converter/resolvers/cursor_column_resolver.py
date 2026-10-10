@@ -78,39 +78,28 @@ class CursorColumnResolver:
     ) -> list[str]:
         """Cursor SELECT columns for one IDMS record.
 
-        Two contributions, unioned in this order:
+        Two contributions. Contribution 2 applies ONLY when the record is
+        materialised; see force_full_record below.
 
         1. USAGE-DRIVEN  - columns FieldUsageAnalyzer proved the original
-           IDMS COBOL reads. These LEAD the list so the SELECT still
-           opens with the columns the program actually drives on.
+           IDMS COBOL reads. For a non-materialised record this is the
+           WHOLE answer: selecting more would over-fetch, and the site
+           standard requires an explicit, minimal column list
+           (cobol_standards.ENFORCE_CURSOR_EXPLICIT_COLUMNS).
 
-        2. FULL RECORD   - every mapped DCLGEN column of the record.
+        2. FULL RECORD   - every mapped DCLGEN column, merged with the
+           usage columns, when force_full_record is True.
 
-        Contribution 2 exists because the record materialisation
-        composer runs AFTER cursor specs are built and emits one MOVE
-        per mapped column:
-
-            *DB2: Materialised VMBFAS from DCLDZBFASTV - 83 field move(s).
-
-        Those columns are invisible to the usage analyzer, so a
-        usage-only list left 73 of 83 host fields unfetched: INITIALIZE
-        cleared them and nothing repopulated them.
-
-        Contribution 1 only ORDERS the result - contribution 2 is a
-        superset of it - so a usage selector that is absent or fails
-        costs column ORDER, never a column, and must not take the
-        conversion down.
-
-        force_full_record
-        ------------------
-        When True, the caller has proven this record is materialised as a
-        whole (a 'MOVE <record> TO <target>' in the PROCEDURE DIVISION).
-        The usage-only SELECT would then fetch a handful of columns while
-        the materialisation copies EVERY mapped column out of the host
-        group, so the unfetched columns are moved as zeros - silent data
-        loss. In that case the full mapped record is projected regardless
-        of the ENFORCE_FULL_RECORD_SELECT default.
+        CORRECTION - this docstring described a union that the code no
+        longer performs. It previously claimed contribution 2 was always
+        a superset, which made a usage-only result look like a defect.
+        A non-materialised record with no proven usage legitimately
+        resolves to NO columns here; cursor_spec_builder's augmentation
+        pass then adds the parent key columns a child WHERE clause needs.
+        Verified 10-10-2026: across all six sample programs this path
+        never fires and no empty SELECT is emitted.
         """
+        
         record = NameNormalizer.normalize(record_name)
         if not record:
             return []
