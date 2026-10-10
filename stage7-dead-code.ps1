@@ -23,7 +23,7 @@ $groupC = @(
     'review\runner\review_update.py'
 )
 
-function Kill($list, $label) {
+function Remove-Group($list, $label) {
     Write-Host "`n--- $label ---" -ForegroundColor Cyan
     foreach ($p in $list) {
         if (Test-Path $p) {
