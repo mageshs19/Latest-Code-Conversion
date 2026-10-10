@@ -60,6 +60,11 @@ ORDERING CONTRACT (enforced by ConversionLayoutPipeline)
 8.  ``FinalSequenceResequencerService`` re-sequences ONLY columns 1-6
     and 73-80.
 
+9.  Final comment cleanup. MIGRATED to converter/pipeline/registry.py
+    under the stage name 'cleanup_final_comments'. The method below is
+    retained as the call site so ConversionLayoutPipeline.finish() is
+    unchanged; it now delegates to run_pipeline().
+
 CORRECTION - step 4b was a silent no-op
 
     materialise_records returned the source unchanged and said nothing
@@ -312,7 +317,7 @@ class ConversionLayoutSteps:
         return FinalSequenceResequencerService().resequence(converted_cobol)
 
     # =================================================================
-    # 9. Final comment cleanup
+    # 9. Final comment cleanup   -- MIGRATED TO THE PIPELINE REGISTRY
     # =================================================================
     def cleanup_final_comments(
         self,
@@ -320,18 +325,24 @@ class ConversionLayoutSteps:
         validation_messages: list[str],
     ) -> str:
         """Remove unnecessary comment blocks from fixed-format output.
-        
+
         This runs AFTER all other passes including resequencing, so it
         operates on the final fixed-format output with line numbers.
+
+        MIGRATED - the composer is no longer constructed here. This pass
+        is registered in converter/pipeline/registry.py under the stage
+        name 'cleanup_final_comments'. This method remains as the call
+        site so ConversionLayoutPipeline.finish() is unchanged.
+
+        To disable this pass, set enabled=False on its registry entry.
+        To reorder it, move its line in registry.PIPELINE.
         """
-        from converter.composers.unnecessary_comments_cleanup_composer import (
-            UnnecessaryCommentsCleanupComposer,
-        )
-        
-        composer = UnnecessaryCommentsCleanupComposer()
-        converted_cobol = composer.compose(converted_cobol)
-        validation_messages.extend(self._component_messages(composer))
-        return converted_cobol
+        from converter.pipeline.run import run_pipeline
+        from converter.pipeline.stage import Document
+
+        doc = run_pipeline(Document(cobol=converted_cobol))
+        validation_messages.extend(doc.messages)
+        return doc.cobol
 
 
 # ---------------------------------------------------------------------
