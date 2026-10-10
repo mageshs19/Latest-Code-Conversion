@@ -205,7 +205,7 @@ Compliance Range    | Approval Status
 
 1. **Track all reviews**
    ```
-   Store completed reviews in code_review/[PROGRAM]/ folder
+   Store completed reviews in review/[PROGRAM]/ folder
    Collect metrics: passed %, common issues, review time
    ```
 
@@ -257,7 +257,7 @@ Compliance Range    | Approval Status
 ## File Structure
 
 ```
-code_review/
+review/
 ├── README.md (this file)
 ├── COBOL_DB2_Code_Review_Checklist.md (main checklist - 25 checks)
 ├── Review_Template.md (fillable form)

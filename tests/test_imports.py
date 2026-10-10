@@ -1,6 +1,6 @@
 def test_core_imports():
     from converter.domain.models import ConversionInput
-    from converter.orchestration.conversion_service import ConversionService
+    from converter.pipeline.conversion_service import ConversionService
     from converter.parsers.sheet_mapping_parser import SheetMappingParser
     from converter.parsers.dclgen_parser import DclgenParser
     from converter.parsers.copybook_parser import CopybookParser

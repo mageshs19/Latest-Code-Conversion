@@ -96,8 +96,8 @@ STEP_REVIEW_UPDATE = "review_update"
 STEP_DEFINITIONS = (
     (STEP_CONVERT_RETRIEVAL, "Convert retrieval", "runners/convert_programs.py", False),
     (STEP_CONVERT_UPDATE,    "Convert update",    "runners/run_update.py",    False),
-    (STEP_REVIEW_RETRIEVAL,  "Review retrieval",  "code_review/runner/review_file.py",            True),
-    (STEP_REVIEW_UPDATE,     "Review update",     "code_review/runner/review_file.py",            True),
+    (STEP_REVIEW_RETRIEVAL,  "Review retrieval",  "review/runner/review_file.py",            True),
+    (STEP_REVIEW_UPDATE,     "Review update",     "review/runner/review_file.py",            True),
 )
 
 # review_file.py REVIEWS ONLY. review_retrieval.py / review_update.py are
@@ -216,7 +216,7 @@ STEP_TIMEOUT_SECONDS = 900
 REVIEW_NOTE_TEMPLATE = "{reviewed} reviewed, {accepted} accepted, {rejected} rejected"
 
 # Fallback when the runner output does not name its report folder.
-DEFAULT_REPORT_FOLDER = "code_review/report/output"
+DEFAULT_REPORT_FOLDER = "review/report/output"
 
 # LOCATION: rules/batch_console_rules.py
 # ACTION: APPEND at the end of the file

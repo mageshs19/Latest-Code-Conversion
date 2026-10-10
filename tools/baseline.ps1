@@ -1,7 +1,7 @@
 $env:PYTHONPATH = "."
 
-python -m zowe.zowe_pipeline clean | Out-Null
-$out = python -m zowe.zowe_pipeline convert 2>&1 | Out-String
+python -m mainframe.zowe_pipeline clean | Out-Null
+$out = python -m mainframe.zowe_pipeline convert 2>&1 | Out-String
 
 $expect = @(
     @{ Key = 'Sheet Mapping rows'; Want = '840'  },

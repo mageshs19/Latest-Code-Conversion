@@ -8,12 +8,12 @@ UPDATE-only checks are skipped.
 
 from __future__ import annotations
 
-from code_review.engine.context import (
+from review.engine.context import (
     KIND_RETRIEVAL,
     KIND_UNKNOWN,
     KIND_UPDATE,
 )
-from code_review.standards.program_kind_detector import detect_program_kind
+from review.standards.program_kind_detector import detect_program_kind
 
 
 def test_idms_write_verb_in_kept_comment_means_update() -> None:

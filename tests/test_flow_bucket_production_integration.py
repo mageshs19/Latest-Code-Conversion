@@ -16,7 +16,7 @@ from typing import List, Tuple
 
 from converter.generators.code_bucket_manager import BucketType
 from converter.generators.code_flow_orchestrator import FlowPhase
-from converter.orchestration.flow_bucket_pipeline_orchestration import (
+from converter.pipeline.flow_bucket_pipeline_orchestration import (
     ProductionFlowBucketOrchestrator,
     apply_production_flow_bucket_orchestration,
 )

@@ -104,7 +104,7 @@ Location in pipeline.py:
     converted_cobol = generators["cursor_paragraph"].apply(converted_cobol)
     
     # NEW: Apply flow-bucket orchestration for production quality
-    from converter.orchestration.flow_bucket_pipeline_orchestration import (
+    from converter.pipeline.flow_bucket_pipeline_orchestration import (
         apply_production_flow_bucket_orchestration
     )
     
@@ -121,7 +121,7 @@ Code to add in conversion_pipeline.py:
     # Fixes: cursor flags, timestamp fields, move ordering
     
     if converted_cobol:
-        from converter.orchestration.flow_bucket_pipeline_orchestration import (
+        from converter.pipeline.flow_bucket_pipeline_orchestration import (
             apply_production_flow_bucket_orchestration
         )
         
@@ -152,7 +152,7 @@ TEST ON SINGLE PROGRAM: VMDZ4420
 
 Command:
 
-  python -m zowe.zowe_pipeline convert \
+  python -m mainframe.zowe_pipeline convert \
     --input zowe/workspace/Input/VMDZ4420.cbl \
     --output zowe/workspace/Output/
 
@@ -216,7 +216,7 @@ Programs to test:
 
 Run full pipeline:
 
-  python -m zowe.zowe_pipeline all --to convert
+  python -m mainframe.zowe_pipeline all --to convert
 
 Expected result:
 
@@ -228,7 +228,7 @@ Expected result:
 
 Validation report generation:
 
-  python -m zowe.zowe_pipeline all --from convert --to review
+  python -m mainframe.zowe_pipeline all --from convert --to review
   
   This will generate review reports in:
   zowe/workspace/Review/
@@ -387,7 +387,7 @@ Backup location:
   backup/conversion_pipeline.py.backup
   
 Restore command:
-  cp backup/conversion_pipeline.py.backup converter/orchestration/conversion_pipeline.py
+  cp backup/conversion_pipeline.py.backup converter/pipeline/conversion_pipeline.py
 """
 
 

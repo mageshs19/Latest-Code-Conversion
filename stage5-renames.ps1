@@ -6,30 +6,30 @@ if (git status --porcelain) {
     exit 1
 }
 
-Write-Host "STAGE 5 : code_review->review, zowe->mainframe, orchestration->pipeline`n" -ForegroundColor Cyan
+Write-Host "STAGE 5 : review->review, zowe->mainframe, orchestration->pipeline`n" -ForegroundColor Cyan
 
-git mv code_review review.__tmp
+git mv review review.__tmp
 git mv review.__tmp review
-Write-Host "moved  code_review -> review" -ForegroundColor Green
+Write-Host "moved  review -> review" -ForegroundColor Green
 
 git mv zowe mainframe.__tmp
 git mv mainframe.__tmp mainframe
 Write-Host "moved  zowe -> mainframe" -ForegroundColor Green
 
-git mv converter/orchestration converter/pipeline.__tmp
+git mv converter/pipeline converter/pipeline.__tmp
 git mv converter/pipeline.__tmp converter/pipeline
-Write-Host "moved  converter/orchestration -> converter/pipeline" -ForegroundColor Green
+Write-Host "moved  converter/pipeline -> converter/pipeline" -ForegroundColor Green
 
 # literal rewrites - specific first
 $pairs = @(
-    @('converter.orchestration', 'converter.pipeline'),
-    @('converter/orchestration', 'converter/pipeline'),
-    @('converter\orchestration', 'converter\pipeline'),
-    @('code_review',             'review'),
-    @('from zowe.',              'from mainframe.'),
-    @('import zowe.',            'import mainframe.'),
-    @('zowe.zowe_',              'mainframe.zowe_'),
-    @('-m zowe.',                '-m mainframe.')
+    @('converter.pipeline', 'converter.pipeline'),
+    @('converter/pipeline', 'converter/pipeline'),
+    @('converter\pipeline', 'converter\pipeline'),
+    @('review',             'review'),
+    @('from mainframe.',              'from mainframe.'),
+    @('import mainframe.',            'import mainframe.'),
+    @('mainframe.zowe_',              'mainframe.zowe_'),
+    @('-m mainframe.',                '-m mainframe.')
 )
 
 $files = Get-ChildItem -Path $root -Recurse -File `

@@ -61,10 +61,10 @@ check
 
 
 # Everything except the mainframe write
-python -m zowe.zowe_pipeline all --to review
+python -m mainframe.zowe_pipeline all --to review
 
 # Resume after a failed convert, no re-download
-python -m zowe.zowe_pipeline all --from convert
+python -m mainframe.zowe_pipeline all --from convert
 
 # Convert and review only
-python -m zowe.zowe_pipeline all --from convert --to review
+python -m mainframe.zowe_pipeline all --from convert --to review

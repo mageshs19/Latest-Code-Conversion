@@ -59,7 +59,7 @@ LONE_PERIOD = "."
 # SQL-LOCATION is supplied by the SQLERRWS copybook, NOT declared by the
 # converter.
 #
-# code_review CHK-05 already accepts both forms:
+# review CHK-05 already accepts both forms:
 #     MOVE_SQL_LOCATION = re.compile(
 #         r"^MOVE\s+(?:'[^']*'|\d+)\s+TO\s+SQL-LOCATION\s*\.?$"
 #     )

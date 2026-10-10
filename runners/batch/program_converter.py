@@ -9,7 +9,7 @@ from pathlib import Path
 from converter.domain.models import ConversionInput
 from converter.infrastructure.file_loader import FileLoader
 from converter.infrastructure.local_uploaded_file import LocalUploadedFile
-from converter.orchestration.conversion_service import ConversionService
+from converter.pipeline.conversion_service import ConversionService
 from patterns.lrf_patterns import COPY_IDMS_LR_PATTERN
 from rules.batch_runner_messages import (
     DIAG_SOURCE_FILE_TEMPLATE,

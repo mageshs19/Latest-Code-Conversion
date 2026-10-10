@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from code_review.ui.review_panel import render_review_panel
+from review.ui.review_panel import render_review_panel
 from converter.ui.main_tab import render_main_tab
 from converter.ui.output_tabs import (
     render_diagnostics_tab,

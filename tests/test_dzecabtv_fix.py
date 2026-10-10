@@ -20,7 +20,7 @@ Testing:
 
 import pytest
 
-from zowe.zowe_resolver import resolve_dependencies
+from mainframe.zowe_resolver import resolve_dependencies
 
 
 class TestFfrecabFiltering:

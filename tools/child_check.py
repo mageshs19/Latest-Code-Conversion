@@ -21,7 +21,7 @@ CODE = (
     "print('  mapping folder =', p.DEFAULT_MAPPING_SHEET_DIR)"
 )
 
-from zowe.zowe_steps import subprocess_environment  # noqa: E402
+from mainframe.zowe_steps import subprocess_environment  # noqa: E402
 
 print("")
 print("CHILD PROCESS VIEW")

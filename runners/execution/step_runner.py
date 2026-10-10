@@ -27,7 +27,7 @@ reviews what the convert step wrote instead of producing its own copy.
 The folder IS the contract the batch previously lacked.
 
 This requires the review steps in rules/batch_console_rules.STEP_DEFINITIONS
-to point at `code_review/runner/review_file.py`, which reviews only and
+to point at `review/runner/review_file.py`, which reviews only and
 never converts. Steps whose key is absent from REVIEW_FOLDERS receive no
 extra arguments, so a review runner that does not accept `--folder` is
 never handed one.

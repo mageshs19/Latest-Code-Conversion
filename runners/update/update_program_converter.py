@@ -6,7 +6,7 @@ from pathlib import Path
 from converter.domain.models import ConversionInput
 from converter.infrastructure.file_loader import FileLoader
 from converter.infrastructure.local_uploaded_file import LocalUploadedFile
-from converter.orchestration.conversion_service import ConversionService
+from converter.pipeline.conversion_service import ConversionService
 from converter.parsers.cobol_parser import CobolParser
 from converter.services.name_derivation_resolver import NameDerivationResolver
 from rules.update_runner_messages import (

@@ -50,7 +50,7 @@ for _candidate in (PROJECT_ROOT, SRC_DIR):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-SCAN_DIRS = ("src", "rules", "patterns", "catalogs", "code_review", "tests")
+SCAN_DIRS = ("src", "rules", "patterns", "catalogs", "review", "tests")
 WATCHED_PACKAGES = ("rules", "patterns", "catalogs")
 
 SKIP_DIR_NAMES = {

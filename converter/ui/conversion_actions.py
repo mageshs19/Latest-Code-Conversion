@@ -8,7 +8,7 @@ import re
 import streamlit as st
 
 from converter.domain.models import ConversionInput
-from converter.orchestration.conversion_service import ConversionService
+from converter.pipeline.conversion_service import ConversionService
 from converter.parsers.cobol_parser import CobolParser
 from converter.services.name_derivation_resolver import NameDerivationResolver
 from converter.ui.file_name_utils import build_converted_cobol_file_name

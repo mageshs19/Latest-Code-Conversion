@@ -36,7 +36,7 @@ from config.path_settings import DEFAULT_LRF_DIR, lrf_paths
 from converter.domain.models import ConversionInput
 from converter.infrastructure.file_loader import FileLoader
 from converter.infrastructure.local_uploaded_file import LocalUploadedFile
-from converter.orchestration.conversion_service import ConversionService
+from converter.pipeline.conversion_service import ConversionService
 from converter.parsers.cobol_parser import CobolParser
 from converter.parsers.lrf_parser import LrfParser
 from converter.services.name_derivation_resolver import NameDerivationResolver

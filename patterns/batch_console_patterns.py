@@ -10,7 +10,7 @@ change inside a runner cannot break the orchestrator. Everything it
 reports is therefore read back out of the runner's own console output,
 using the wording those runners already emit from
 rules/retrieval_runner_messages.py, rules/update_runner_messages.py and
-code_review/standards/wording.py.
+review/standards/wording.py.
 
 Every pattern is optional: a value that cannot be found renders as '-'
 and never fails the batch.

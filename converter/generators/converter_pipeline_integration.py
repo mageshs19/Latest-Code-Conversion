@@ -11,7 +11,7 @@ This is the orchestrator that ensures:
 4. All three work together seamlessly
 
 How to integrate into existing pipeline:
-  See: converter/orchestration/conversion/conversion_layout_pipeline.py
+  See: converter/pipeline/conversion/conversion_layout_pipeline.py
 
 Add this as a final post-processing step AFTER all other converters:
   converter_enhanced_pipeline = ConverterEnhancementPipeline(program_text)
@@ -31,7 +31,7 @@ from .working_storage_organizer import (
 from .procedure_division_organizer import (
     ProcedureDivisionOrganizer,
 )
-from converter.orchestration.conversion.conversion_layout_steps import (
+from converter.pipeline.conversion.conversion_layout_steps import (
     FinalSequenceResequencerService,
 )
 

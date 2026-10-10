@@ -19,7 +19,7 @@ Paragraph-header policy (Decision D-1, CLOSED by the manual reference):
 - The SQLERROR copybook supplies the paragraph label itself.
 - Emitting a local "SQLERROR." header duplicates that label and the
   compiler rejects the program with a duplicate paragraph-name error.
-- code_review/standards/cobol_standards.py records the same decision:
+- review/standards/cobol_standards.py records the same decision:
       SQL_ERROR_BODY    = ("EXEC SQL", "INCLUDE SQLERROR", "END-EXEC")
       SQL_ERROR_INCLUDE = "INCLUDE SQLERROR"
   and CHK-05.01 accepts "declared OR included".
