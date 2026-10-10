@@ -4,21 +4,44 @@ ADD     -> one line.      REMOVE -> delete one line.
 REORDER -> move one line. DISABLE -> enabled=False.
 
 STATUS
-  [LIVE]   the owning method delegates via run_stage(); composer is
-           constructed here, not at the call site
-  [PARKED] registered but disabled; the direct call is still active in
-           conversion_pipeline.py
+  [LIVE]   the owning call site delegates via run_stage(); the composer
+           is constructed HERE, not taken from the factory dict
+  [PARKED] registered but disabled; a direct call is still active
 
 WARNING
-  A stage marked [LIVE] whose call site delegates to run_stage() MUST
-  be enabled. Disabling it makes the pass silently stop running, and
-  the row/column baseline will not notice.
+  A stage whose call site delegates to run_stage() MUST be enabled.
+  Disabling it makes the pass silently stop running, and the row/column
+  baseline will not notice. tools/baseline.ps1 guard 3 checks the log
+  for evidence that key passes actually fired.
+
+CURRENT STATE
+  All seven stages are LIVE. Every direct composer call for these passes
+  has been removed from conversion_pipeline.py and
+  conversion_layout_steps.py.
+
+ORDER NOTE
+  While migrating, call POSITION is still owned by the call sites, so the
+  order below is documentation rather than execution order. After the
+  Phase B collapse - finish() replaced by a single run_pipeline() call -
+  this tuple becomes the single source of truth for order as well.
+
+DUPLICATE CALLS (pre-existing, behaviour preserved)
+  'update_restart_skip'   runs twice: after statement transformation and
+                          again in the cleanup group.
+  'cursor_order_cleanup'  runs twice inside _apply_db2_infrastructure.
+  Both composers are idempotent. Removing either call is a separate,
+  baselined change.
 """
 
 from __future__ import annotations
 
 from converter.pipeline.stage import Stage, composer_stage
 
+
+# ---------------------------------------------------------------------
+# Factories. Imports are local so a broken composer cannot stop this
+# module from importing, and so the registry stays cheap to load.
+# ---------------------------------------------------------------------
 
 def _cursor_order_cleanup():
     from converter.composers.cursor_order_cleanup_composer import (
@@ -69,28 +92,29 @@ def _unnecessary_comments():
     return UnnecessaryCommentsCleanupComposer()
 
 
+# ---------------------------------------------------------------------
+# The pipeline
+# ---------------------------------------------------------------------
+
 PIPELINE: tuple[Stage, ...] = (
-    # ---- still called directly in conversion_pipeline.py ---------------
-    composer_stage(
-        "cursor_order_cleanup",
-        "[PARKED] Remove ORDER BY from parent cursors when configured",
-        _cursor_order_cleanup,
-        enabled=False,
-    ),
+    # ---- CONTENT PHASE - conversion_pipeline.py ------------------------
     composer_stage(
         "update_restart_skip",
-        "[PARKED] Replace unmappable restart blocks with a comment + CONTINUE",
+        "[LIVE] Replace unmappable restart blocks with a comment + CONTINUE",
         _update_restart_skip,
-        enabled=False,
+    ),
+    composer_stage(
+        "cursor_order_cleanup",
+        "[LIVE] Remove ORDER BY from parent cursors when configured",
+        _cursor_order_cleanup,
     ),
     composer_stage(
         "guarantee_cursor_close",
-        "[PARKED] Ensure every opened cursor is actually closed",
+        "[LIVE] Ensure every opened cursor is opened, driven and closed",
         _cursor_close_guarantee,
-        enabled=False,
     ),
 
-    # ---- delegated via run_stage() - MUST stay enabled ------------------
+    # ---- FINISHING PHASE - conversion_layout_steps.py ------------------
     composer_stage(
         "extract_output_write_paragraph",
         "[LIVE] Lift a guarded WRITE out of the per-row paragraph",
@@ -115,6 +139,7 @@ PIPELINE: tuple[Stage, ...] = (
 
 
 def describe() -> list[str]:
+    """One readable line per stage. Printed by tools/pipeline_doc.py."""
     return [
         f"{i + 1:>2}. {s.name:<32} {'' if s.enabled else '[DISABLED] '}{s.description}"
         for i, s in enumerate(PIPELINE)

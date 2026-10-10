@@ -8,6 +8,8 @@ from converter.domain.models import ConversionInput
 from converter.pipeline.conversion.conversion_layout_pipeline import (
     ConversionLayoutPipeline,
 )
+from converter.pipeline.run import run_stage
+from converter.pipeline.stage import Document
 from converter.validators.mapping_scope_filter import (
     MappingScopeFilter,
 )
@@ -55,7 +57,44 @@ class ConversionPipeline:
 
     Steps 2 through 8 are owned by ConversionLayoutPipeline and documented
     there.
+
+    REGISTRY MIGRATION
+    ------------------
+    Passes marked MIGRATED below are defined in
+    converter/pipeline/registry.py and executed through run_stage(). The
+    composer is constructed by the registry, not taken from the factory
+    dict. Call POSITION is still owned by this file; once every pass has
+    moved, ConversionLayoutPipeline.finish() collapses to a single
+    run_pipeline() call and the registry owns order as well.
+
+    OBSERVED DUPLICATE CALLS (behaviour preserved, not yet changed)
+    ---------------------------------------------------------------
+      * ``update_restart_skip`` runs twice: once after statement
+        transformation and again in the cleanup group.
+      * ``cursor_order_cleanup`` runs twice inside
+        ``_apply_db2_infrastructure``.
+    Both composers are idempotent, so output is unaffected. The duplication
+    was invisible while each call constructed its own composer; the registry
+    makes it explicit. Removing either call is a separate, baselined change.
     """
+
+    # ------------------------------------------------------------------
+    # Registry helper
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _stage(
+        name: str,
+        converted_cobol: str,
+        validation_messages: list[str],
+    ) -> str:
+        """Run one registered stage and drain its diagnostics.
+
+        A disabled stage is a no-op. An unknown name is reported as an
+        [error] message rather than silently dropping the pass.
+        """
+        doc = run_stage(name, Document(cobol=converted_cobol))
+        validation_messages.extend(doc.messages)
+        return doc.cobol
 
     # ------------------------------------------------------------------
     # Entry point
@@ -137,11 +176,9 @@ class ConversionPipeline:
         )
         validation_messages.extend(transform_messages)
 
-        converted_cobol = composers["update_restart_skip"].compose(
-            converted_cobol
-        )
-        validation_messages.extend(
-            self._component_messages(composers["update_restart_skip"])
+        # MIGRATED -> registry stage 'update_restart_skip' (call 1 of 2)
+        converted_cobol = self._stage(
+            "update_restart_skip", converted_cobol, validation_messages
         )
 
         # ------------------------------------------------------------------
@@ -280,12 +317,6 @@ class ConversionPipeline:
     # ------------------------------------------------------------------
     # DB2 infrastructure and cursor passes
     # ------------------------------------------------------------------
-    #
-    # DB2 infrastructure and cursor passes
-    #
-    #
-    # DB2 infrastructure and cursor passes
-    #
     def _apply_db2_infrastructure(
         self,
         *,
@@ -295,17 +326,14 @@ class ConversionPipeline:
         composers: dict,
         validation_messages: list[str],
     ) -> str:
-        
         converted_cobol, infrastructure_messages = generators[
             "db2_infrastructure"
         ].apply(cobol_text=converted_cobol, operations=operations)
         validation_messages.extend(infrastructure_messages)
 
-        converted_cobol = composers["cursor_order_cleanup"].compose(
-            converted_cobol
-        )
-        validation_messages.extend(
-            self._component_messages(composers["cursor_order_cleanup"])
+        # MIGRATED -> registry stage 'cursor_order_cleanup' (call 1 of 2)
+        converted_cobol = self._stage(
+            "cursor_order_cleanup", converted_cobol, validation_messages
         )
 
         converted_cobol, cursor_messages = generators[
@@ -320,26 +348,29 @@ class ConversionPipeline:
             ].augment_lrf_procedure_division(converted_cobol)
             validation_messages.extend(lrf_messages)
 
+        # ------------------------------------------------------------------
+        # Flow-Bucket Orchestration
         #
-        # Flow-Bucket Orchestration (Production Quality)
-        #
-        # Enhance WORKING-STORAGE with missing fields while preserving complete program structure:
-        #   - Missing cursor flags (WS-*-FLAG with 88 levels)
-        #   - Missing timestamp fields (proper NNNN field)
-        #   - All sections preserved (IDENTIFICATION, ENVIRONMENT, FILE, LINKAGE, etc.)
-        #
+        # KNOWN DEFECT: this module is not fixed-format aware. It reads raw
+        # lines without stripping the 6-digit COBOL sequence area, so
+        # _parse_program_sections() cannot find WORKING-STORAGE and the pass
+        # logs "No WORKING-STORAGE SECTION found - skipping orchestration"
+        # on every real program. See tests/test_flow_bucket_production_
+        # integration.py, which targets the NON-v2 module and therefore
+        # fails. Fix or remove as a separate change.
+        # ------------------------------------------------------------------
         try:
             from converter.pipeline.flow_bucket_pipeline_orchestration_v2 import (
                 apply_production_flow_bucket_orchestration
             )
-            
+
             organized_cobol, flow_messages = apply_production_flow_bucket_orchestration(
                 converted_cobol
             )
             validation_messages.extend(flow_messages)
             converted_cobol = organized_cobol
-            
-        except Exception as e:
+
+        except Exception as e:  # noqa: BLE001
             validation_messages.append(
                 f"Flow-Bucket Orchestration warning: {str(e)} "
                 "(continuing with unorganized output)"
@@ -353,7 +384,7 @@ class ConversionPipeline:
             self._component_messages(composers["cursor_flow"])
         )
 
-        #
+        # ------------------------------------------------------------------
         # Cursor close guarantee.
         #
         # Guarantees the three properties a generated cursor must hold,
@@ -363,31 +394,22 @@ class ConversionPipeline:
         #   - the CLOSE paragraph is performed,
         #   - the fetched row reaches the business paragraph.
         #
-        close_guarantee = composers.get("cursor_close_guarantee")
-
-        if close_guarantee is None:
-            validation_messages.append(
-                "Cursor close guarantee: composer is not registered; a "
-                "cursor whose driving loop could not be correlated will "
-                "be opened without a loop, left unclosed, and its "
-                "fetched row will not be processed."
-            )
-        else:
-            converted_cobol = close_guarantee.compose(converted_cobol)
-            validation_messages.extend(
-                self._component_messages(close_guarantee)
-            )
+        # MIGRATED -> registry stage 'guarantee_cursor_close'. The old
+        # None-guard is no longer needed: run_stage() reports an unknown or
+        # disabled stage itself.
+        # ------------------------------------------------------------------
+        converted_cobol = self._stage(
+            "guarantee_cursor_close", converted_cobol, validation_messages
+        )
 
         converted_cobol = composers["sqlcode_cleanup"].compose(converted_cobol)
         validation_messages.extend(
             self._component_messages(composers["sqlcode_cleanup"])
         )
 
-        converted_cobol = composers["cursor_order_cleanup"].compose(
-            converted_cobol
-        )
-        validation_messages.extend(
-            self._component_messages(composers["cursor_order_cleanup"])
+        # MIGRATED -> registry stage 'cursor_order_cleanup' (call 2 of 2)
+        converted_cobol = self._stage(
+            "cursor_order_cleanup", converted_cobol, validation_messages
         )
 
         #
@@ -412,6 +434,7 @@ class ConversionPipeline:
             )
 
         return converted_cobol
+
     # ------------------------------------------------------------------
     # Cleanup passes
     # ------------------------------------------------------------------
@@ -429,6 +452,10 @@ class ConversionPipeline:
         out of the child-row paragraph into the parent paragraph. The
         paragraph EXTRACTION in the finishing phase depends on that
         relocation having already happened.
+
+        feedback_cleanup and update_program_feedback remain factory-fed:
+        CobolCleanupComposer needs a DclgenRepository, so it cannot be
+        built by the no-argument registry adapter yet.
         """
         converted_cobol = composers["feedback_cleanup"].compose(
             converted_cobol
@@ -451,11 +478,9 @@ class ConversionPipeline:
             self._component_messages(composers["update_program_feedback"])
         )
 
-        converted_cobol = composers["update_restart_skip"].compose(
-            converted_cobol
-        )
-        validation_messages.extend(
-            self._component_messages(composers["update_restart_skip"])
+        # MIGRATED -> registry stage 'update_restart_skip' (call 2 of 2)
+        converted_cobol = self._stage(
+            "update_restart_skip", converted_cobol, validation_messages
         )
 
         return converted_cobol
