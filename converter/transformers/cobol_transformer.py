@@ -124,6 +124,7 @@ class CobolTransformer:
 
         validation_messages: list[str] = []
         output_lines: list[str] = []
+        compiler_option_seen = False
         current_division = ""
         sql_error_paragraph = self._detect_sql_error_paragraph(cobol_text)
         
@@ -166,6 +167,11 @@ class CobolTransformer:
                 continue
 
             if self._is_cbl_line(logical_stripped):
+                compiler_option_seen = True
+                validation_messages.append(
+                    f"Compiler option: replaced '{logical_stripped}' with "
+                    f"{DB2_COMPILER_OPTION_LINE}."
+                )
                 output_lines.append(
                     self.line_utils.replace_logical_body(
                         original_line=line,
@@ -173,7 +179,6 @@ class CobolTransformer:
                     )
                 )
                 continue
-
             if self.residual_cleanup.is_idms_abort_paragraph(logical_stripped):
                 output_lines.append(
                     "* DB2: Removed orphan IDMS-ABORT paragraph."
@@ -292,6 +297,8 @@ class CobolTransformer:
                 )
             else:
                 output_lines.append(line)
+        if not compiler_option_seen:
+            self._ensure_compiler_option(output_lines, validation_messages)
 
         converted_text = "\n".join(output_lines).rstrip() + "\n"
 
@@ -345,6 +352,50 @@ class CobolTransformer:
         logical_line: str,
     ) -> bool:
         return str(logical_line or "").strip().upper().startswith("CBL ")
+
+    def _ensure_compiler_option(
+        self,
+        output_lines: list[str],
+        validation_messages: list[str],
+    ) -> None:
+        """Insert the DB2 compiler option when the source carried none.
+
+        CBL is a compiler directive and must precede IDENTIFICATION
+        DIVISION, so the line is inserted immediately above it.
+
+        The inserted line clones the sequence-area geometry of the
+        IDENTIFICATION DIVISION line it sits above, exactly as every
+        other insertion pass does. FinalSequenceResequencerService
+        renumbers columns 1-6 and 73-80 afterwards, so the clone only
+        has to be well-formed, not finally numbered.
+
+        Never raises: a program with no IDENTIFICATION DIVISION is
+        already broken for other reasons, and is reported rather than
+        silently patched.
+        """
+        for index, line in enumerate(output_lines):
+            logical = self.line_utils.logical_line(line).strip().upper()
+
+            if not logical.startswith("IDENTIFICATION DIVISION"):
+                continue
+
+            output_lines.insert(
+                index,
+                self.line_utils.replace_logical_body(
+                    original_line=line,
+                    replacement_body=DB2_COMPILER_OPTION_LINE,
+                ),
+            )
+            validation_messages.append(
+                "Compiler option: source carried no CBL line; inserted "
+                f"{DB2_COMPILER_OPTION_LINE} before IDENTIFICATION DIVISION."
+            )
+            return
+
+        validation_messages.append(
+            "Compiler option: no IDENTIFICATION DIVISION found, so "
+            f"{DB2_COMPILER_OPTION_LINE} was not inserted."
+        )
 
     def _detect_sql_error_paragraph(
         self,

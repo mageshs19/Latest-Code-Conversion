@@ -169,8 +169,20 @@ END PROGRAM OLDPROG.
     assert "Removed OBTAIN CALC SELECT" in converted
     assert "Direct UPDATE will use mapped composite key WHERE clause" in converted
     assert len(operations) == 1
-    assert messages == []
 
+    # CORRECTION - this asserted `messages == []`, an exact-list match.
+    #
+    # The test source carries no CBL line, so the transformer now inserts
+    # CBL ARITH(EXTEND) and reports it. That diagnostic is correct and
+    # required: CHK-04.01 fails without the compiler option, and every
+    # hand-written reference program in Manual Output begins with it.
+    #
+    # The intent of the original assertion was "no UNEXPECTED diagnostic",
+    # so that is what is asserted now. An exact-list match on diagnostics
+    # breaks whenever any unrelated pass gains a message, which is a
+    # maintenance tax with no safety benefit.
+    assert any("Compiler option:" in m for m in messages), messages
+    assert [m for m in messages if "Compiler option:" not in m] == []
 
 def test_field_reference_rewriter_rewrites_qualified_reference():
     context = build_transformer_context()
