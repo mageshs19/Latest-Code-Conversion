@@ -1,0 +1,106 @@
+# LOCATION: rules/cursor_spec/cursor_spec_rules.py
+# ACTION: CREATE NEW FILE
+"""Cursor specification rules.
+
+Constants only. No regex, no runtime logic, no program / record / table
+/ cursor / host variable names.
+
+CORRECTION 1 - parent and child were told apart by a PARAGRAPH NUMBER.
+
+    return fetch_paragraph.split("-")[0][0] == "7"
+
+cobol_standards.CURSOR_OPEN_NUMBERS is (710, 810, 910), so the THIRD
+cursor in a program opens at 910 and the test returned False for it. A
+program with three root sweeps mis-labelled two of them as children,
+and cursor_paragraph_body_builder then emitted driving-key DISPLAY
+lines for a cursor that has no driving key.
+
+The discriminator is the DATA, not the numbering: a cursor with WHERE
+predicates is driven BY something and is therefore a CHILD; a cursor
+with none is a root/sweep and is the DRIVER. That is exactly the shape
+the manual reference shows - 720-FETCH (no WHERE) reports the cursor
+name only, 820-FETCH (four predicates) reports the four key values.
+
+The series numbers are retained because they document the shop
+convention and the review check reads them, but nothing classifies on
+them any more.
+
+CORRECTION 2 - CURSOR_OPERATIONS was declared twice.
+
+The same frozenset lives in rules/program_flow_rules.py. One fact, two
+modules: the day a fourth verb is added, one of them will be missed.
+This module re-exports rather than re-declaring.
+"""
+
+from __future__ import annotations
+
+# Single source of truth. Re-exported, never re-declared.
+from rules.program_flow_rules import CURSOR_OPERATIONS  # noqa: F401
+
+# ---------------------------------------------------------------------
+# Parent / child classification
+# ---------------------------------------------------------------------
+# True  -> a cursor with no WHERE predicate is the driver (parent).
+# False -> fall back to the paragraph-series convention below.
+CLASSIFY_PARENT_BY_ABSENT_WHERE = True
+
+# Shop convention, documentation only. See CORRECTION 1.
+PARENT_CURSOR_OPEN_NUMBER = 710
+CHILD_CURSOR_MINIMUM_NUMBER = 810
+PARAGRAPH_NUMBER_SEPARATOR = "-"
+
+# ---------------------------------------------------------------------
+# Fixed-format geometry for scanning the SOURCE program
+# ---------------------------------------------------------------------
+# Columns 1-6 left sequence, column 7 indicator, columns 8-72 body,
+# columns 73-80 right sequence. Zero-based, end-exclusive.
+BODY_START_INDEX = 7
+BODY_END_INDEX = 72
+
+# ---------------------------------------------------------------------
+# Spec dictionary keys
+# ---------------------------------------------------------------------
+# CursorSpec.read() normalises a plain dict; these are the keys it
+# expects. Named here so producer and consumer cannot drift.
+SPEC_SET_NAME = "set_name"
+SPEC_RECORD_NAME = "record_name"
+SPEC_TABLE_NAME = "table_name"
+SPEC_CURSOR_NAME = "cursor_name"
+SPEC_SELECT_COLUMNS = "select_columns"
+SPEC_HOST_VARIABLES = "host_variables"
+SPEC_WHERE_CONDITIONS = "where_conditions"
+SPEC_ORDER_BY_COLUMNS = "order_by_columns"
+SPEC_OPEN_PARAGRAPH = "open_paragraph"
+SPEC_FETCH_PARAGRAPH = "fetch_paragraph"
+SPEC_CLOSE_PARAGRAPH = "close_paragraph"
+SPEC_CURSOR_ORDER = "cursor_order"
+SPEC_IS_PARENT_CURSOR = "is_parent_cursor"
+
+# ---------------------------------------------------------------------
+# Predicate rendering
+# ---------------------------------------------------------------------
+RELATIONSHIP_PREDICATE_TEMPLATE = "{child_column} = {parent_host}"
+
+# A DCLGEN host group is conventionally DCL + table, but the DCLGEN
+# repository is the AUTHORITY. This prefix is used only to recover a
+# table from an already-rendered host reference when no repository is
+# available, and that fallback is reported.
+DCLGEN_GROUP_PREFIX = "DCL"
+HOST_REFERENCE_PREFIX = ":"
+HOST_GROUP_SEPARATOR = "."
+
+__all__ = [
+    "CURSOR_OPERATIONS",
+    "CLASSIFY_PARENT_BY_ABSENT_WHERE",
+    "PARENT_CURSOR_OPEN_NUMBER", "CHILD_CURSOR_MINIMUM_NUMBER",
+    "PARAGRAPH_NUMBER_SEPARATOR",
+    "BODY_START_INDEX", "BODY_END_INDEX",
+    "SPEC_SET_NAME", "SPEC_RECORD_NAME", "SPEC_TABLE_NAME",
+    "SPEC_CURSOR_NAME", "SPEC_SELECT_COLUMNS", "SPEC_HOST_VARIABLES",
+    "SPEC_WHERE_CONDITIONS", "SPEC_ORDER_BY_COLUMNS",
+    "SPEC_OPEN_PARAGRAPH", "SPEC_FETCH_PARAGRAPH",
+    "SPEC_CLOSE_PARAGRAPH", "SPEC_CURSOR_ORDER",
+    "SPEC_IS_PARENT_CURSOR",
+    "RELATIONSHIP_PREDICATE_TEMPLATE",
+    "DCLGEN_GROUP_PREFIX", "HOST_REFERENCE_PREFIX", "HOST_GROUP_SEPARATOR",
+]

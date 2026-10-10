@@ -119,3 +119,10 @@ MISSING_TABLE_TEMPLATE = (
 #
 # Re-exporting above and assigning below would shadow the import and
 # restore the defect, so nothing is assigned here at all.
+
+MISSING_CURSOR_NAME = (
+    "* DB2 WARNING: Cursor not declared; no cursor name."
+)
+MISSING_TABLE_TEMPLATE = (
+    "* DB2 WARNING: Cursor {cursor} not declared; no DB2 table."
+)

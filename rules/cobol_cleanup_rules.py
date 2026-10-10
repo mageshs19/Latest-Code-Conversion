@@ -160,3 +160,47 @@ CLEANUP_MESSAGES["output_write_moved"] = (
 CLEANUP_MESSAGES["paragraph_terminated"] = (
     "Cleanup: closed unterminated sentence in paragraph {paragraph}."
 )
+
+STATEMENT_CONTINUATION_TOKENS = (
+    "TO",
+    "FROM",
+    "INTO",
+    "BY",
+    "OF",
+    "IN",
+    "GIVING",
+    "AND",
+    "OR",
+    "NOT",
+    "=",
+    ",",
+)
+
+# LOCATION: rules/cobol_cleanup_rules.py
+# ACTION: APPEND to CLEANUP_MESSAGES
+
+CLEANUP_MESSAGES["output_write_no_row_paragraph"] = (
+    "Output write placement: child FETCH {fetch} performs no business "
+    "paragraph under WHEN ZERO; the write block was left in place."
+)
+CLEANUP_MESSAGES["output_write_no_close_perform"] = (
+    "Output write placement: no PERFORM of the {cursor} CLOSE paragraph "
+    "was found outside the generated cursor paragraphs."
+)
+CLEANUP_MESSAGES["output_write_no_block"] = (
+    "Output write placement: {source} has no trailing IF ... WRITE ... "
+    "END-IF block to relocate."
+)
+
+CLEANUP_MESSAGES["db2_date_no_output_move"] = (
+    "DB2 date output: no DB2 DATE host is moved to an output date field "
+    "in this program ({count} candidate move(s) examined)."
+)
+CLEANUP_MESSAGES["db2_date_no_output_move"] = (
+    "DB2 date output: no DB2 DATE host is moved to an output date field "
+    "({examined} line(s) examined). Nothing to convert."
+)
+CLEANUP_MESSAGES["db2_date_move_not_eligible"] = (
+    "DB2 date output: {count} DB2 DATE move(s) recognised but none "
+    "targeted an output date field; left unchanged."
+)

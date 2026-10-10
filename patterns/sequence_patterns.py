@@ -3,50 +3,58 @@
 
 """COBOL fixed-format sequence handling.
 
-ROOT CAUSE CORRECTED IN THIS FILE
----------------------------------
-The previous left-sequence pattern was:
+CORRECTION 1 - the indicator column was required to be blank
+------------------------------------------------------------
+The original left-sequence pattern demanded whitespace after the six
+digits:
 
-    LEFT_SEQUENCE_PATTERN = re.compile(
-        r"^\\s*(?P<seq>\\d{6})(?P<body>\\s+.*)$"
-    )
+    r"^\\s*(?P<seq>\\d{6})(?P<body>\\s+.*)$"
 
-The body group demanded WHITESPACE immediately after the six digits.
+Column 7 is the INDICATOR AREA. It legitimately holds '*', '/', '-' or
+'D'. On any such line the sequence number was never stripped, so a body
+read as "001690/" was classified as executable COBOL and the terminator
+pass punctuated it into "001690/." - not valid COBOL. The same defect
+hid trailing IF ... WRITE ... END-IF blocks from the output-write pass.
 
-In fixed-format COBOL, position 7 is the INDICATOR AREA. It holds a space
-on ordinary statement lines, but it legitimately holds:
+Stripping is now COLUMN-BASED, with a regex fallback only for free-form
+text that carries no fixed-format frame.
 
-    '*'  comment
-    '/'  comment + page eject
-    '-'  continuation
-    'D'  debug line
+CORRECTION 2 - a duplicated sequence area survived
+---------------------------------------------------
+A line that had already been sequenced, then sequenced a SECOND time by
+a later pass, reaches this module as:
 
-On any such line the pattern did not match, so the left sequence number was
-NEVER STRIPPED. Downstream consumers then saw the sequence number as COBOL
-text:
+    000380 000380* 2004/12 REPRENDRE N  DE TITRE EN OUTPUT (12 POS  00380000
+    ^^^^^^ ^                                                       ^^^^^^^^
+    cols1-6 col7                                             cols 73-80
 
-    001690/                                                     00420000
-        -> strip_sequence_numbers(...) returned "001690/"
-        -> is_comment_or_blank("001690/") returned False
-        -> ParagraphTerminatorCleanup appended a period
-        -> "001690/."   <- not valid COBOL
+Columns 1-6 are digits and column 7 is a blank indicator, so the line
+passed is_fixed_format_line() and columns 8-72 were returned verbatim -
+inner sequence and all. strip_sequence_numbers() now removes a nested
+sequence area as well, capped and guarded so a legitimate body that
+happens to begin with digits is never damaged.
 
-That single defect also hid trailing IF ... WRITE ... END-IF blocks from
-OutputWritePlacementCleanup, so a guarded output WRITE was never relocated
-out of the child-row paragraph and fired once per fetched child row.
+CORRECTION 3 - the right sequence was removed without being verified
+---------------------------------------------------------------------
+strip_right_sequence() truncated every fixed-format line at column 72.
+A generated line whose body overran column 72 therefore lost real text
+with no diagnostic. Columns 73-80 are now removed only when they are
+actually an eight-digit sequence.
 
-Stripping is now COLUMN-BASED, which is what the COBOL standard actually
-specifies, with a regex fallback only for free-form text that carries no
-fixed-format frame.
+CORRECTION 4 - CRLF
+--------------------
+rstrip("\\n") left a trailing '\\r' at position 80, displacing the right
+sequence slice by one. Both line endings are removed.
 
 CONTRACT (unchanged for callers)
 --------------------------------
-strip_sequence_numbers(line) returns the line with columns 1-6 and 73-80
-removed, KEEPING column 7 onwards. A comment line therefore still starts
-with its '*' or '/' indicator, which is what is_comment_or_blank() relies
-on.
+strip_sequence_numbers(line) removes columns 1-6 and 73-80, KEEPING
+column 7 onwards. A comment line therefore still begins with its '*' or
+'/' indicator, which is what is_comment_or_blank() relies on.
 
-This file must contain regex patterns and pure text helpers only.
+logical_body(line) returns columns 8-72 only, indicator excluded.
+
+This file contains regex patterns and pure text helpers only.
 No business rules, no layout constants, no program names.
 """
 
@@ -65,39 +73,74 @@ BODY_END = 72
 RIGHT_SEQUENCE_START = 72
 RIGHT_SEQUENCE_END = 80
 
-MIN_ADDRESSABLE_LENGTH = 7
+LINE_WIDTH = RIGHT_SEQUENCE_END
+BODY_WIDTH = BODY_END - BODY_START
+INDICATED_BODY_WIDTH = BODY_END - INDICATOR_INDEX
+
+MIN_ADDRESSABLE_LENGTH = BODY_START
+LEFT_SEQUENCE_WIDTH = LEFT_SEQUENCE_END - LEFT_SEQUENCE_START
+RIGHT_SEQUENCE_WIDTH = RIGHT_SEQUENCE_END - RIGHT_SEQUENCE_START
+
+LINE_ENDINGS = "\r\n"
 
 # Every indicator the COBOL standard permits in column 7.
 VALID_INDICATORS = (" ", "*", "/", "D", "d", "-")
 COMMENT_INDICATORS = ("*", "/")
 DEBUG_INDICATORS = ("D", "d")
 CONTINUATION_INDICATOR = "-"
+BLANK_INDICATOR = " "
+
+# A duplicated sequence area is a pass bug, never source. One extra pass
+# is all that is ever observed; a cap stops a malformed body from being
+# eaten digit group by digit group.
+STRIP_NESTED_SEQUENCE = True
+MAX_NESTED_SEQUENCE_PASSES = 2
 
 # =====================================================================
 # Patterns
 # =====================================================================
-# Left sequence followed by the indicator area. The body group now accepts
-# ANY indicator character, not whitespace only. Kept for callers that
-# import it directly.
+_INDICATOR_CLASS = r"[ */\-Dd]"
+
+# Left sequence followed by the indicator area. The body group accepts
+# ANY valid indicator, not whitespace only. Kept for direct importers.
 LEFT_SEQUENCE_PATTERN = re.compile(
-    r"^(?P<seq>\d{6})(?P<body>[ */\-Dd].*)?$",
+    rf"^\s*(?P<seq>\d{{{LEFT_SEQUENCE_WIDTH}}})(?P<body>{_INDICATOR_CLASS}.*)?$",
 )
 
 # Trailing eight-digit right sequence on a free-form line.
 RIGHT_SEQUENCE_PATTERN = re.compile(
-    r"^(?P<body>.*?)\s+(?P<right>\d{8})\s*$",
+    rf"^(?P<body>.*?)\s+(?P<right>\d{{{RIGHT_SEQUENCE_WIDTH}}})\s*$",
 )
 
-# A body that is nothing but a leaked six-digit sequence number, with an
-# optional indicator character and an optional period.
+# A sequence area that has leaked INTO a body: six digits immediately
+# followed by a valid indicator character.
+NESTED_SEQUENCE_PATTERN = re.compile(
+    rf"^(?P<seq>\d{{{LEFT_SEQUENCE_WIDTH}}})(?P<rest>{_INDICATOR_CLASS}.*)?$",
+)
+
+# A body that is nothing but a leaked sequence number. The digit run is
+# 6-8 wide: a short record keeps part of its right sequence, which is how
+# "<paragraph>.  0074700" reached the paragraph scanner.
 SEQUENCE_ARTIFACT_PATTERN = re.compile(
-    r"^\s*\d{6}\s*[*/\-Dd]?\s*\.?\s*$",
+    rf"^\s*\d{{{LEFT_SEQUENCE_WIDTH},{RIGHT_SEQUENCE_WIDTH}}}"
+    rf"\s*{_INDICATOR_CLASS}?\s*\.?\s*$",
 )
 
+_ALL_DIGITS_PATTERN = re.compile(r"^\d+$")
+
 
 # =====================================================================
-# Helpers
+# Classification
 # =====================================================================
+def _clean(line: str) -> str:
+    """The physical line with its line ending removed, nothing else.
+
+    Trailing blanks are NOT stripped: they are what position the right
+    sequence at column 73.
+    """
+    return str(line or "").rstrip(LINE_ENDINGS)
+
+
 def is_fixed_format_line(line: str) -> bool:
     """True when columns 1-6 are numeric and column 7 is a valid indicator.
 
@@ -105,7 +148,7 @@ def is_fixed_format_line(line: str) -> bool:
     often leave it blank or truncate the line, and demanding it was what
     caused sequence numbers to be parsed as COBOL text.
     """
-    text = str(line or "").rstrip("\n")
+    text = _clean(line)
 
     if len(text) < MIN_ADDRESSABLE_LENGTH:
         return False
@@ -116,10 +159,37 @@ def is_fixed_format_line(line: str) -> bool:
     return text[INDICATOR_INDEX] in VALID_INDICATORS
 
 
+def has_right_sequence(line: str) -> bool:
+    """True when columns 73-80 hold an eight-digit sequence."""
+    text = _clean(line)
+
+    if len(text) < RIGHT_SEQUENCE_END:
+        return False
+
+    return bool(
+        _ALL_DIGITS_PATTERN.match(
+            text[RIGHT_SEQUENCE_START:RIGHT_SEQUENCE_END]
+        )
+    )
+
+
 def indicator_of(line: str) -> str:
-    """Column 7 of a fixed-format line, or '' when there is none."""
-    text = str(line or "").rstrip("\n")
-    return text[INDICATOR_INDEX] if is_fixed_format_line(text) else ""
+    """Column 7 of a fixed-format line.
+
+    Falls back to the first non-blank character of a free-form line when
+    that character is a comment indicator, so a caller can classify an
+    unsequenced member without a separate code path.
+    """
+    text = _clean(line)
+
+    if is_fixed_format_line(text):
+        return text[INDICATOR_INDEX]
+
+    stripped = text.lstrip()
+    if stripped and stripped[0] in COMMENT_INDICATORS:
+        return stripped[0]
+
+    return ""
 
 
 def is_comment_or_control(line: str) -> bool:
@@ -127,30 +197,63 @@ def is_comment_or_control(line: str) -> bool:
 
     Works on a RAW line, before any stripping, so a caller can classify
     correctly without relying on the stripped text starting with '*'.
+    A continuation line ('-') is NOT a comment and returns False.
     """
-    text = str(line or "").rstrip("\n")
+    text = _clean(line)
 
     if not text.strip():
         return False
 
-    if is_fixed_format_line(text):
-        return text[INDICATOR_INDEX] in COMMENT_INDICATORS + DEBUG_INDICATORS
+    return indicator_of(text) in COMMENT_INDICATORS + DEBUG_INDICATORS
 
-    stripped = text.lstrip()
-    return bool(stripped) and stripped[0] in COMMENT_INDICATORS
+
+def is_blank(line: str) -> bool:
+    """True when the line carries no body at all."""
+    return not logical_body(line)
+
+
+def has_nested_sequence_area(body: str) -> bool:
+    """True when a BODY still begins with a leaked sequence area.
+
+    Accepts an optional leading indicator character, because
+    strip_sequence_numbers() returns column 7 onwards.
+    """
+    text = str(body or "")
+
+    if text[:1] in VALID_INDICATORS:
+        text = text[1:]
+
+    return bool(NESTED_SEQUENCE_PATTERN.match(text.lstrip()))
 
 
 def is_sequence_artifact(line: str) -> bool:
-    """True when the stripped body is only a leaked sequence number."""
-    body = strip_sequence_numbers(line).strip()
-    if not body:
+    """True when the line carries nothing but a leaked sequence number."""
+    text = _clean(line)
+
+    if not text.strip():
         return False
-    return bool(SEQUENCE_ARTIFACT_PATTERN.match(body))
+
+    body = logical_body(text)
+    if body and SEQUENCE_ARTIFACT_PATTERN.match(body):
+        return True
+
+    # A fully fixed-format artifact strips down to its bare indicator, so
+    # the body test above cannot see it. Measure the raw record instead.
+    if is_fixed_format_line(text):
+        remainder = text[BODY_START:RIGHT_SEQUENCE_START].strip()
+        if not remainder and not has_right_sequence(text):
+            return True
+
+    stripped = text.strip()
+    return bool(SEQUENCE_ARTIFACT_PATTERN.match(stripped))
 
 
+# =====================================================================
+# Stripping
+# =====================================================================
 def strip_left_sequence(line: str) -> str:
     """Remove columns 1-6, keeping the indicator and the body."""
-    text = str(line or "").rstrip("\n")
+    text = _clean(line)
 
     if is_fixed_format_line(text):
         return text[LEFT_SEQUENCE_END:]
@@ -163,11 +266,17 @@ def strip_left_sequence(line: str) -> str:
 
 
 def strip_right_sequence(line: str) -> str:
-    """Remove columns 73-80."""
-    text = str(line or "").rstrip("\n")
+    """Remove columns 73-80, but only when they really are a sequence.
 
-    if is_fixed_format_line(text) and len(text) > RIGHT_SEQUENCE_START:
-        return text[:RIGHT_SEQUENCE_START]
+    Truncating unconditionally destroyed body text on any generated line
+    that overran column 72.
+    """
+    text = _clean(line)
+
+    if is_fixed_format_line(text):
+        if has_right_sequence(text):
+            return text[:RIGHT_SEQUENCE_START]
+        return text
 
     match = RIGHT_SEQUENCE_PATTERN.match(text)
     if match:
@@ -176,46 +285,132 @@ def strip_right_sequence(line: str) -> str:
     return text
 
 
+def strip_nested_sequence(body: str) -> str:
+    """Remove a sequence area that has leaked into a body.
+
+    Guarded and capped. The leading indicator is preserved so the
+    strip_sequence_numbers() contract is not broken.
+    """
+    if not STRIP_NESTED_SEQUENCE:
+        return str(body or "")
+
+    text = str(body or "")
+    indicator = ""
+
+    if text[:1] in VALID_INDICATORS:
+        indicator, text = text[0], text[1:]
+
+    for _ in range(MAX_NESTED_SEQUENCE_PASSES):
+        candidate = text.lstrip()
+        match = NESTED_SEQUENCE_PATTERN.match(candidate)
+        if not match:
+            break
+        text = match.group("rest") or ""
+
+    return f"{indicator}{text}"
+
+
 def strip_sequence_numbers(line: str) -> str:
     """Remove columns 1-6 and 73-80, KEEPING column 7 onwards.
 
     A comment line therefore still begins with its '*' or '/' indicator,
-    preserving the contract every existing caller depends on.
+    preserving the contract every existing caller depends on. A nested
+    sequence area left by an earlier pass is removed as well.
     """
-    text = str(line or "").rstrip("\n")
+    text = _clean(line)
 
     if is_fixed_format_line(text):
         padded = text.ljust(RIGHT_SEQUENCE_END)
-        return padded[INDICATOR_INDEX:RIGHT_SEQUENCE_START].rstrip()
+        body = padded[INDICATOR_INDEX:RIGHT_SEQUENCE_START].rstrip()
+        return strip_nested_sequence(body)
 
-    return strip_right_sequence(strip_left_sequence(text)).rstrip()
+    body = strip_right_sequence(strip_left_sequence(text)).rstrip()
+    return strip_nested_sequence(body)
 
 
 def logical_body(line: str) -> str:
     """Columns 8-72 only, stripped. Indicator excluded."""
-    text = str(line or "").rstrip("\n")
+    text = _clean(line)
 
     if is_fixed_format_line(text):
         padded = text.ljust(RIGHT_SEQUENCE_END)
-        return padded[BODY_START:BODY_END].strip()
+        body = padded[BODY_START:BODY_END].rstrip()
+        return strip_nested_sequence(body).strip()
 
     return strip_sequence_numbers(text).strip()
 
 
+# =====================================================================
+# Rebuilding
+# =====================================================================
+def replace_body(line: str, new_body: str) -> str:
+    """Rewrite columns 8-72 and keep both sequence areas in place.
+
+    Returns the line unchanged when the replacement will not fit, so a
+    rewrite can never displace the right sequence. Callers that must know
+    should compare the result with the input.
+    """
+    text = _clean(line)
+    body = str(new_body or "").rstrip()
+
+    if not is_fixed_format_line(text):
+        leading = len(text) - len(text.lstrip())
+        return f"{' ' * leading}{body}"
+
+    if len(body) > BODY_WIDTH:
+        return text
+
+    left = text[LEFT_SEQUENCE_START:LEFT_SEQUENCE_END]
+    indicator = text[INDICATOR_INDEX]
+    right = (
+        text[RIGHT_SEQUENCE_START:RIGHT_SEQUENCE_END]
+        if has_right_sequence(text)
+        else ""
+    )
+
+    return f"{left}{indicator}{body.ljust(BODY_WIDTH)}{right}"
+
+
 __all__ = [
-    "LEFT_SEQUENCE_PATTERN",
-    "RIGHT_SEQUENCE_PATTERN",
-    "SEQUENCE_ARTIFACT_PATTERN",
+    # geometry
+    "LEFT_SEQUENCE_START",
+    "LEFT_SEQUENCE_END",
+    "INDICATOR_INDEX",
+    "BODY_START",
+    "BODY_END",
+    "RIGHT_SEQUENCE_START",
+    "RIGHT_SEQUENCE_END",
+    "LINE_WIDTH",
+    "BODY_WIDTH",
+    "INDICATED_BODY_WIDTH",
+    # indicators
     "VALID_INDICATORS",
     "COMMENT_INDICATORS",
     "DEBUG_INDICATORS",
     "CONTINUATION_INDICATOR",
+    "BLANK_INDICATOR",
+    # switches
+    "STRIP_NESTED_SEQUENCE",
+    "MAX_NESTED_SEQUENCE_PASSES",
+    # patterns
+    "LEFT_SEQUENCE_PATTERN",
+    "RIGHT_SEQUENCE_PATTERN",
+    "NESTED_SEQUENCE_PATTERN",
+    "SEQUENCE_ARTIFACT_PATTERN",
+    # classification
     "is_fixed_format_line",
+    "has_right_sequence",
     "indicator_of",
     "is_comment_or_control",
+    "is_blank",
+    "has_nested_sequence_area",
     "is_sequence_artifact",
+    # stripping
     "strip_left_sequence",
     "strip_right_sequence",
+    "strip_nested_sequence",
     "strip_sequence_numbers",
     "logical_body",
+    # rebuilding
+    "replace_body",
 ]

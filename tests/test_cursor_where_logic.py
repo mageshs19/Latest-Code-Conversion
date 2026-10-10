@@ -1,5 +1,5 @@
 # LOCATION: tests/test_cursor_where_logic.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """Cursor WHERE resolution and declaration contract.
 
 Nine defects are pinned here, one group each. Every group names the
@@ -17,6 +17,32 @@ only which assert broke.
     D-9  a WHERE-less cursor was emitted silently    -> undetectable gap
 
 No real customer name is asserted against; the fixtures define their own.
+
+CORRECTION 1 - a refusal was asserted by LINE COUNT.
+
+    assert len(bodies) == 1
+
+pinned the single-line DB2 WARNING. That form rendered to ~77
+characters with real names, and the COBOL body window is columns 8-72 -
+sixty-five - so the fixed-format composer wrapped or truncated the one
+comment that explains why a cursor is missing. The warning is a
+MULTI-LINE block now, and a line count was never the property worth
+asserting. _assert_refusal() checks what matters: every line carries
+the marker, every line fits the window, and no SQL is emitted.
+
+CORRECTION 2 - a test could not fail.
+
+    assert resolver.where_conditions(CHILD_RECORD) == [] or True
+
+`or True` makes the assertion unconditional. It caught only an
+exception, which is what D-1 is about, so it now says that instead of
+pretending to check a value.
+
+CORRECTION 3 - the parent ORDER BY test was declared twice.
+
+test_a_parent_cursor_also_keeps_order_by and
+test_a_parent_cursor_keeps_order_by were the same test under two names.
+Both ran, both passed, and a reader had to diff them to learn that.
 """
 
 from __future__ import annotations
@@ -29,6 +55,7 @@ from converter.generators.db2_infrastructure.cursor_declare_builder import (
 from converter.generators.db2_infrastructure.cursor_spec import CursorSpec
 from converter.resolvers.cursor_join_resolver import CursorJoinResolver
 from rules.cursor_declaration_rules import (
+    BODY_LAST_COLUMN,
     CHILD_CURSOR_KEEPS_ORDER_BY,
     EMIT_DRIVING_KEY_PREDICATE,
     ENFORCE_WHERE_COLUMN_OWNERSHIP,
@@ -36,6 +63,10 @@ from rules.cursor_declaration_rules import (
     QUERYNO_BASE,
     QUERYNO_STEP,
 )
+
+# A rendered body carries the indicator, so a body of length n ends at
+# physical column 7 + n.
+BODY_COLUMN_OFFSET = 7
 
 # =====================================================================
 # Fixture names - defined here, never read from a customer program
@@ -53,6 +84,7 @@ PARENT_GROUP = "DCLDZBSIASTV"
 KEY_COLUMN = "KY_SIFORM"
 DATA_COLUMN = "DA_CPTAFS"
 FOREIGN_COLUMN = "NR_CIOFMAS"
+UNOWNED_COLUMN = "NR_PARENT_ONLY"
 
 CHILD_COLUMNS = [KEY_COLUMN, DATA_COLUMN, FOREIGN_COLUMN]
 
@@ -76,6 +108,34 @@ def _clause_index(bodies: list[str], token: str) -> int:
 
 def _has_clause(bodies: list[str], token: str) -> bool:
     return _clause_index(bodies, token) >= 0
+
+
+def _assert_refusal(bodies: list[str], *expected_tokens: str) -> None:
+    """A refusal is a DB2 WARNING block, not SQL.
+
+    The block is MULTI-LINE by design - see CORRECTION 1. These are the
+    properties that matter:
+
+      - something is emitted, so the gap is visible in the source,
+      - every line carries the marker, so production validation and
+        CHK-02 FORBIDDEN_MARKERS both catch it,
+      - every line fits the body window, so nothing is truncated,
+      - no SQL is rendered, so nothing un-bindable reaches the program.
+    """
+    assert bodies, "a refusal must emit something"
+    assert all("DB2 WARNING" in body for body in bodies), bodies
+    assert all(
+        BODY_COLUMN_OFFSET + len(body) <= BODY_LAST_COLUMN
+        for body in bodies
+    ), bodies
+    assert not any(
+        body.upper().startswith(("EXEC SQL", "SELECT", "FROM", "WHERE"))
+        for body in bodies
+    ), bodies
+
+    joined = " ".join(bodies)
+    for token in expected_tokens:
+        assert token in joined, f"{token!r} missing from {joined!r}"
 
 
 class _LineUtils:
@@ -291,8 +351,15 @@ def test_driving_key_fallback_constants_are_importable():
 
 
 def test_fallback_path_never_raises_name_error():
+    """D-1 is about NOT RAISING. See CORRECTION 2.
+
+    The value is unimportant here; the earlier form asserted
+    `== [] or True`, which could not fail whatever came back.
+    """
     resolver = _join(_RelationshipResolver(resolution=None))
-    assert resolver.where_conditions(CHILD_RECORD) == [] or True
+    conditions = resolver.where_conditions(CHILD_RECORD)
+
+    assert isinstance(conditions, list)
 
 
 # =====================================================================
@@ -451,11 +518,12 @@ def test_diagnostics_are_reset_between_calls():
 # D-6  SELECT * is refused
 # =====================================================================
 def test_an_empty_column_list_refuses_instead_of_select_star(declares):
+    """CHK-12.04 forbids SELECT *, and an implicit list breaks FETCH
+    parity. Refusing is the only safe answer."""
     bodies = _bodies(declares.build(_spec(select_columns=[])))
 
-    assert len(bodies) == 1
-    assert "DB2 WARNING" in bodies[0]
-    assert "*" not in bodies[0].split("WARNING")[1].split(";")[0]
+    _assert_refusal(bodies, CHILD_TABLE)
+    assert "*" not in " ".join(bodies)
 
 
 def test_select_star_never_appears_in_a_rendered_declare(declares):
@@ -476,13 +544,21 @@ def test_ownership_guard_is_enabled_by_the_site_standard():
 def test_a_parent_column_on_the_left_is_refused(guarded_declares):
     """A parent column on the left is SQLCODE -206 at bind time."""
     spec = _spec(
-        where_conditions=[f"NR_PARENT_ONLY = :{PARENT_GROUP}.NR-PARENT-ONLY"],
+        where_conditions=[f"{UNOWNED_COLUMN} = :{PARENT_GROUP}.NR-PARENT-ONLY"],
     )
     bodies = _bodies(guarded_declares.build(spec))
 
-    assert len(bodies) == 1
-    assert "DB2 WARNING" in bodies[0]
-    assert "NR_PARENT_ONLY" in bodies[0]
+    _assert_refusal(bodies, UNOWNED_COLUMN, CHILD_TABLE)
+
+
+def test_the_refusal_is_reported_as_well_as_emitted(guarded_declares):
+    """A refusal with no diagnostic is worse than no guard at all."""
+    spec = _spec(
+        where_conditions=[f"{UNOWNED_COLUMN} = :{PARENT_GROUP}.NR-PARENT-ONLY"],
+    )
+    guarded_declares.build(spec)
+
+    assert any(UNOWNED_COLUMN in m for m in guarded_declares.messages)
 
 
 def test_an_owned_column_on_the_left_is_accepted(guarded_declares):
@@ -493,12 +569,33 @@ def test_an_owned_column_on_the_left_is_accepted(guarded_declares):
     assert any(EXPECTED_PREDICATE in body for body in bodies)
 
 
+def test_a_keyword_operator_predicate_is_not_refused(guarded_declares):
+    """IS / BETWEEN / IN / LIKE carry no '=' character.
+
+    The parser cut at the first symbol operator, so the WHOLE predicate
+    came back as the 'column', failed the ownership test, and a valid
+    cursor was refused.
+    """
+    spec = _spec(where_conditions=[f"{KEY_COLUMN} IS NOT NULL"])
+    bodies = _bodies(guarded_declares.build(spec))
+
+    assert _has_clause(bodies, "WHERE")
+
+
 def test_the_guard_stands_down_when_no_column_list_is_available(declares):
     """No resolver injected: validate nothing rather than refuse."""
     spec = _spec(where_conditions=["ANY_COLUMN = :SOMEGROUP.ANY-COLUMN"])
     bodies = _bodies(declares.build(spec))
 
     assert _has_clause(bodies, "WHERE")
+
+
+def test_the_stand_down_is_reported(declares):
+    """A guard that stands down in SILENCE is how an unguarded builder
+    reached production and stayed invisible."""
+    declares.build(_spec(where_conditions=[EXPECTED_PREDICATE]))
+
+    assert any("stood down" in m for m in declares.messages)
 
 
 # =====================================================================
@@ -535,6 +632,7 @@ def test_a_parent_cursor_also_keeps_order_by(declares):
 
     assert _has_clause(bodies, "ORDER BY")
     assert not any("removed ORDER BY" in m for m in declares.messages)
+
 
 # =====================================================================
 # D-9  no silent WHERE-less cursor
@@ -595,15 +693,21 @@ def test_a_spec_without_a_table_produces_a_warning_not_sql(declares):
     """Refusing beats guessing: no fabricated FROM clause."""
     bodies = _bodies(declares.build(_spec(table_name="")))
 
-    assert len(bodies) == 1
-    assert "DB2 WARNING" in bodies[0]
+    _assert_refusal(bodies, CURSOR)
 
 
 def test_a_spec_without_a_cursor_name_produces_a_warning_not_sql(declares):
     bodies = _bodies(declares.build(_spec(cursor_name="")))
 
-    assert len(bodies) == 1
-    assert "DB2 WARNING" in bodies[0]
+    _assert_refusal(bodies)
+
+
+def test_a_spec_level_refusal_is_reported(declares):
+    """Both spec-level refusals emitted a warning and logged NOTHING, so
+    a cursor vanished from the program and the report did not say why."""
+    declares.build(_spec(cursor_name=""))
+
+    assert declares.messages
 
 
 # =====================================================================
@@ -636,13 +740,3 @@ def test_a_sweep_record_still_renders_valid_sql_without_a_where(declares):
     assert not _has_clause(bodies, "WHERE")
     assert _has_clause(bodies, "FOR READ ONLY")
     assert any("WITHOUT a WHERE" in m for m in declares.messages)
-
-def test_a_parent_cursor_keeps_order_by(declares):
-    """CORRECTED: manual reference VMDZ7200 orders its root cursor."""
-    assert PARENT_CURSOR_KEEPS_ORDER_BY is True
-
-    spec = _spec(order_by_columns=[f"{KEY_COLUMN} ASC"])
-    bodies = _bodies(declares.build(spec))
-
-    assert _has_clause(bodies, "ORDER BY")
-    assert not any("removed ORDER BY" in m for m in declares.messages)

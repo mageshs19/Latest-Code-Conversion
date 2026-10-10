@@ -21,7 +21,7 @@ FALLBACK_INPUT_DIR = Path(
     r"\Case2-Automation on COBOL IDMS to COBOL DB2 - Code Conversion Phase"
 )
 
-
+FALLBACK_INPUT_DIR = Path(r"C:\S\S-Input")
 
 
 def _input_root() -> Path:

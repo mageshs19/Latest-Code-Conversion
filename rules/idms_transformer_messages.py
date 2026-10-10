@@ -89,3 +89,9 @@ TRANSFORMER_MESSAGES = {
 TRANSFORMER_MESSAGES["program_kind"] = (
     "Program kind: classified as {kind}; COMMIT policy emit_commit={emit}."
 )
+REMOVED_REDUNDANT_OBTAIN_NEXT = (
+    "*DB2: Removed redundant OBTAIN NEXT after cursor EOC loop."
+)
+REMOVED_REDUNDANT_SQLCODE_WRAPPER = (
+    "*DB2: Removed redundant SQLCODE wrapper after cursor EOC loop."
+)

@@ -108,3 +108,35 @@ def test_program_without_a_write_is_unchanged():
     out = OutputWriteParagraphComposer().compose(text)
 
     assert "PERFORM WRITE-" not in out
+
+# LOCATION: tests/test_output_write_paragraph_composer.py
+# ACTION: ADD
+#
+# REGRESSION - the OUTER guard was extracted, so the inner write
+# decision moved into WRITE-UITRECORD and the call-site counter
+# incremented on every attempt instead of every write.
+
+def test_every_guard_stays_at_the_call_site():
+    out = OutputWriteParagraphComposer().compose(_program())
+
+    call_site, _, tail = out.partition("WRITE-UITRECORD.")
+
+    # Both guards belong to the caller.
+    assert "IF NOT SW-STATUS-D = 'Y'" in call_site
+    assert "IF WS-STATUS = 'C'" in call_site
+
+    # The extracted paragraph is pure population - no decision in it.
+    assert "IF WS-STATUS = 'C'" not in tail
+    assert "IF NOT SW-STATUS-D = 'Y'" not in tail
+
+
+def test_the_counter_is_guarded_by_the_write_decision():
+    """ADD 1 must sit INSIDE the condition that decides the write."""
+    out = OutputWriteParagraphComposer().compose(_program())
+    bodies = [line[7:72].strip() for line in out.splitlines() if len(line) > 7]
+
+    guard = bodies.index("IF WS-STATUS = 'C'")
+    counter = bodies.index("ADD 1 TO WS-NB-OUTPUT-COUNT")
+    closer = bodies.index("END-IF", guard)
+
+    assert guard < counter < closer

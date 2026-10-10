@@ -1,9 +1,41 @@
+# LOCATION: converter/composers/cleanup/initialize_before_output_cleanup.py
+# ACTION: REPLACE ENTIRE FILE
+
 """
 Initialize-before-output cleanup.
 
 Ensures an INITIALIZE of the output record appears immediately before the
-first output-field population MOVE preceding a WRITE, removing any duplicate
-INITIALIZE for that record inside the population block.
+FIRST output-field population MOVE preceding a WRITE, and removes any
+duplicate INITIALIZE for that record inside the population block.
+
+CORRECTION - population MOVEs were matched on PHYSICAL lines
+-------------------------------------------------------------
+_line_targets_output_field() recognised two wrap shapes and missed a
+third:
+
+    MOVE src TO UIT-X             matched
+    MOVE src / TO UIT-X           matched
+    MOVE src TO / UIT-X           MISSED
+
+The third is what the body wrapper emits when it breaks at a word
+boundary, leaving TO as the last token of line 1 and a bare target on
+line 2. Neither pattern can see it: line 1 has nothing after TO, line 2
+has no TO at all.
+
+Consequence in a production program:
+
+    MOVE AM-CNSTK-479BEFF  OF DCLDZBEFFTV TO
+    UIT-AM-CN-STOCK
+    MOVE AM-CNDSTK-479BEFF OF DCLDZBEFFTV TO
+    UIT-AM-CND-STOCK
+    INITIALIZE UITRECORD          <- inserted here
+    MOVE WS-NR-CIO-CRE TO UIT-NR-CIO-CRE
+
+Both amounts were zeroed in every written record, silently.
+
+Matching is now performed against LOGICAL statements, assembled from
+however many physical lines they occupy, and the insertion point is the
+FIRST PHYSICAL LINE of the first matching statement.
 """
 
 from converter.composers.cleanup.cleanup_message_collector import (
@@ -15,16 +47,16 @@ from converter.composers.cleanup.cobol_cleanup_line_utils import (
 from converter.services.name_normalizer import NameNormalizer
 from patterns.cobol_cleanup_patterns import (
     INITIALIZE_PATTERN,
-    MOVE_START_PATTERN,
     MOVE_TO_OUTPUT_FIELD_PATTERN,
-    TO_OUTPUT_FIELD_PATTERN,
     WRITE_PATTERN,
 )
 from rules.cobol_cleanup_rules import (
     INITIALIZE_LOOKBACK_WINDOW,
     OUTPUT_MOVE_SCAN_WINDOW,
-    STOP_BACKWARD_SCAN_WORDS,
+    STATEMENT_CONTINUATION_TOKENS,
 )
+
+NOT_FOUND = -1
 
 
 class InitializeBeforeOutputCleanup:
@@ -36,6 +68,9 @@ class InitializeBeforeOutputCleanup:
         self.messages = messages
         self.line_utils = line_utils or CobolCleanupLineUtils()
 
+    # ------------------------------------------------------------------
+    # Line helpers
+    # ------------------------------------------------------------------
     def _logical(self, line: str) -> str:
         return self.line_utils.logical(line)
 
@@ -45,6 +80,9 @@ class InitializeBeforeOutputCleanup:
     def _is_comment_or_blank(self, logical: str) -> bool:
         return self.line_utils.is_comment_or_blank(logical)
 
+    # ------------------------------------------------------------------
+    # Public entry point
+    # ------------------------------------------------------------------
     def ensure_initialize_before_output_population(self, text: str) -> str:
         lines = text.splitlines()
         output = list(lines)
@@ -90,6 +128,9 @@ class InitializeBeforeOutputCleanup:
 
         return text
 
+    # ------------------------------------------------------------------
+    # Discovery
+    # ------------------------------------------------------------------
     def _output_write_blocks(
         self,
         lines: list[str],
@@ -126,62 +167,80 @@ class InitializeBeforeOutputCleanup:
         lines: list[str],
         write_index: int,
     ) -> int:
+        """First PHYSICAL line of the first statement targeting output.
+
+        Statements are iterated in source order, so the first match is
+        already the earliest. The returned index is the statement's own
+        first line, never a continuation of it.
+        """
         start = max(0, write_index - OUTPUT_MOVE_SCAN_WINDOW)
-        first_move_start = -1
 
-        for index in range(start, write_index):
-            if self._line_targets_output_field(lines[index]):
-                move_start = self._move_block_start(
-                    lines=lines,
-                    target_index=index,
-                    search_start=start,
-                )
-                if move_start >= 0:
-                    if first_move_start < 0 or move_start < first_move_start:
-                        first_move_start = move_start
+        for statement, first_index in self._logical_statements(
+            lines=lines,
+            start=start,
+            end=write_index,
+        ):
+            if MOVE_TO_OUTPUT_FIELD_PATTERN.match(statement):
+                return first_index
 
-        return first_move_start
+        return NOT_FOUND
 
-    def _line_targets_output_field(self, line: str) -> bool:
-        logical = self._logical(line)
-
-        if MOVE_TO_OUTPUT_FIELD_PATTERN.match(logical):
-            return True
-
-        if TO_OUTPUT_FIELD_PATTERN.match(logical):
-            return True
-
-        return False
-
-    def _move_block_start(
+    # ------------------------------------------------------------------
+    # Logical statement assembly
+    # ------------------------------------------------------------------
+    def _logical_statements(
         self,
         lines: list[str],
-        target_index: int,
-        search_start: int,
-    ) -> int:
-        logical = self._logical(lines[target_index])
+        start: int,
+        end: int,
+    ):
+        """Yield (statement_text, first_physical_index) in source order.
 
-        if MOVE_TO_OUTPUT_FIELD_PATTERN.match(logical):
-            return target_index
+        Comment, blank and page-eject lines are skipped and never start
+        or terminate a statement.
+        """
+        buffer = ""
+        first = NOT_FOUND
 
-        for index in range(target_index, search_start - 1, -1):
-            candidate = self._logical(lines[index])
-            upper = candidate.upper()
+        for index in range(max(0, start), min(end, len(lines))):
+            logical = self._logical(lines[index])
 
-            if MOVE_START_PATTERN.match(candidate):
-                return index
-
-            if index == target_index:
+            if not logical or self._is_comment_or_blank(logical):
                 continue
 
-            if self._is_comment_or_blank(candidate):
-                continue
+            if first < 0:
+                first = index
 
-            if upper.startswith(STOP_BACKWARD_SCAN_WORDS):
-                break
+            buffer = f"{buffer} {logical}".strip() if buffer else logical
 
-        return target_index
+            if self._is_complete(buffer):
+                yield buffer, first
+                buffer, first = "", NOT_FOUND
 
+        if first >= 0 and buffer:
+            yield buffer, first
+
+    @staticmethod
+    def _is_complete(buffer: str) -> bool:
+        """False while the statement ends on a continuation token.
+
+        A line ending in TO, OF, AND and the rest cannot be the end of a
+        statement; its operand is on the next line.
+        """
+        text = str(buffer or "").rstrip()
+
+        if not text:
+            return False
+
+        if text.endswith(","):
+            return False
+
+        last = text.split()[-1].upper().rstrip(".")
+        return last not in STATEMENT_CONTINUATION_TOKENS
+
+    # ------------------------------------------------------------------
+    # INITIALIZE handling
+    # ------------------------------------------------------------------
     def _remove_initialize_for_record_in_range(
         self,
         lines: list[str],
@@ -191,19 +250,16 @@ class InitializeBeforeOutputCleanup:
     ) -> tuple[list[str], int]:
         output: list[str] = []
         removed_count = 0
+        target_record = NameNormalizer.normalize(record)
 
         for index, line in enumerate(lines):
             if start_index <= index < end_index:
-                logical = self._logical(line)
-                match = INITIALIZE_PATTERN.match(logical)
+                match = INITIALIZE_PATTERN.match(self._logical(line))
 
                 if match:
-                    current_record = NameNormalizer.normalize(
-                        match.group("record")
-                    )
-                    target_record = NameNormalizer.normalize(record)
+                    current = NameNormalizer.normalize(match.group("record"))
 
-                    if current_record == target_record:
+                    if current == target_record:
                         removed_count += 1
                         continue
 
@@ -221,15 +277,12 @@ class InitializeBeforeOutputCleanup:
         target_record = NameNormalizer.normalize(record)
 
         for prior_index in range(lookback_start, index):
-            logical = self._logical(lines[prior_index])
-            match = INITIALIZE_PATTERN.match(logical)
+            match = INITIALIZE_PATTERN.match(self._logical(lines[prior_index]))
 
             if not match:
                 continue
 
-            current_record = NameNormalizer.normalize(match.group("record"))
-
-            if current_record == target_record:
+            if NameNormalizer.normalize(match.group("record")) == target_record:
                 return True
 
         return False

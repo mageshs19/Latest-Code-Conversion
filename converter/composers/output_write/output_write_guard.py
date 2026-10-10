@@ -1,5 +1,5 @@
 # LOCATION: converter/composers/output_write/output_write_guard.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """Structural safety gate for the output write extraction.
 
 DEFECT THIS CLOSES
@@ -18,10 +18,30 @@ Cutting at if_index + 1 leaves the IF with no condition tail and moves
 the tail into the new paragraph, where it begins with a dangling AND.
 The program does not compile.
 
-The gate is deliberately PROGRAM-WIDE and coarse: when any PROCEDURE
-DIVISION IF carries a multi-line condition, extraction is refused for
-the whole program and a diagnostic is emitted. Refusing leaves working
-COBOL; guessing produces source the compiler rejects.
+CORRECTION - the gate was PROGRAM-WIDE
+---------------------------------------
+It refused every extraction in a program when ANY PROCEDURE DIVISION IF
+carried a multi-line condition, including conditions with no WRITE
+anywhere near them. One program refused on a two-line business status
+test while its real write guard, IF WS-STATUS = 'C', was a single line
+and entirely safe to cut. Three of six programs lost their
+WRITE-<record> paragraph, and with it the output counter that is added
+at the call site the extraction creates.
+
+Rule A1 in rules/structural_safety_rules.py is narrower than the old
+gate: an extraction must never cut between an IF keyword and the end of
+ITS condition. The scope is one candidate block, not the program.
+
+API
+---
+    blocks_candidate(lines, if_index)   DECIDES. One candidate.
+    condition_size(lines, if_index)     measures one condition.
+    blocks_extraction(text)             REPORTING ONLY. Whole program.
+    widest_condition(text)              REPORTING ONLY. Whole program.
+
+The two program-wide methods are retained because they characterise a
+program in one call, and because tests assert them. NOTHING decides on
+them. Deciding on them is the defect above.
 """
 
 from __future__ import annotations
@@ -37,10 +57,11 @@ from patterns.output_write_paragraph_patterns import (
 )
 
 SINGLE_LINE_CONDITION = 1
+NOT_A_CONDITION = 0
 
 
 class OutputWriteGuard:
-    """Refuses extraction when a guard condition spans lines."""
+    """Refuses extraction of a block whose own guard spans lines."""
 
     def __init__(
         self,
@@ -52,12 +73,44 @@ class OutputWriteGuard:
             fixed_format=self.lines.fixed_format,
         )
 
-    # ---------------------------------------------------------- public
+    # ------------------------------------------------------ per candidate
+    # The decision. Everything below this section is measurement.
+    # ---------------------------------------------------------------------
+    def blocks_candidate(self, lines: list[str], if_index: int) -> bool:
+        """True when THIS candidate's own condition spans lines."""
+        return self.condition_size(lines, if_index) > SINGLE_LINE_CONDITION
+
+    def condition_size(self, lines: list[str], if_index: int) -> int:
+        """Line count of the condition opening at `if_index`.
+
+        Returns 0 when the index is out of range or the line does not
+        open a condition at all, so a caller can never mistake 'not a
+        condition' for 'a safe one-line condition'.
+        """
+        if not 0 <= if_index < len(lines):
+            return NOT_A_CONDITION
+
+        if not self.condition_scanner.is_condition_start(lines[if_index]):
+            return NOT_A_CONDITION
+
+        return self.condition_scanner.condition_line_count(lines, if_index)
+
+    # ------------------------------------------------------- reporting
     def blocks_extraction(self, text: str) -> bool:
+        """True when ANY PROCEDURE DIVISION IF condition spans lines.
+
+        REPORTING ONLY. Retained because it characterises a program in a
+        single call and two tests assert it, but NOTHING decides on it.
+
+        Deciding on it is the defect this module documents: a
+        program-wide answer vetoed every extraction in three of six
+        programs, including write blocks whose own guard was one safe
+        line. The decision is blocks_candidate().
+        """
         return self.widest_condition(text) > SINGLE_LINE_CONDITION
 
     def widest_condition(self, text: str) -> int:
-        """Line count of the longest PROCEDURE DIVISION IF condition."""
+        """Longest PROCEDURE DIVISION IF condition. REPORTING ONLY."""
         lines = (
             str(text or "")
             .replace("\r\n", "\n")
@@ -86,8 +139,7 @@ class OutputWriteGuard:
             if not self.condition_scanner.is_condition_start(line):
                 continue
 
-            size = self.condition_scanner.condition_line_count(lines, index)
-            widest = max(widest, size)
+            widest = max(widest, self.condition_size(lines, index))
 
         return widest
 

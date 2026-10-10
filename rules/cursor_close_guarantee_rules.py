@@ -167,3 +167,47 @@ __all__ = [
     "NON_PARAGRAPH_SINGLE_WORDS",
     "CURSOR_CLOSE_GUARANTEE_MESSAGES",
 ]
+# LOCATION: rules/cursor_close_guarantee_rules.py
+# ACTION: APPEND to CURSOR_CLOSE_GUARANTEE_MESSAGES
+
+CURSOR_CLOSE_GUARANTEE_MESSAGES["business_paragraph_unverified"] = (
+    "Cursor close guarantee: candidate business paragraph {paragraph} for "
+    "cursor {cursor} references neither its DCLGEN group nor a nested "
+    "cursor; binding refused."
+)
+CURSOR_CLOSE_GUARANTEE_MESSAGES["when_zero_not_bindable"] = (
+    "Cursor close guarantee: the WHEN ZERO branch of {fetch} holds no "
+    "CONTINUE to replace; left unchanged."
+)
+# LOCATION: rules/cursor_close_guarantee_rules.py
+# ACTION: APPEND to CURSOR_CLOSE_GUARANTEE_MESSAGES
+
+CURSOR_CLOSE_GUARANTEE_MESSAGES["no_driving_loop"] = (
+    "Cursor close guarantee: cursor {cursor} has no driving loop and "
+    "synthesis is disabled; left untouched for review."
+)
+CURSOR_CLOSE_GUARANTEE_MESSAGES["business_paragraph_unverified"] = (
+    "Cursor close guarantee: candidate business paragraph {paragraph} for "
+    "cursor {cursor} references neither its DCLGEN group nor a nested "
+    "cursor; binding refused."
+)
+
+# LOCATION: rules/cursor_close_guarantee_rules.py
+# ACTION: APPEND to CURSOR_CLOSE_GUARANTEE_MESSAGES
+#
+# NOTE: business_paragraph_unverified is currently assigned TWICE in this
+# file. Delete one. It is a subscript assignment so the duplicate-constant
+# test does not catch it, but the second silently shadows the first.
+
+CURSOR_CLOSE_GUARANTEE_MESSAGES["bind_missing_argument"] = (
+    "Cursor close guarantee: cannot bind - fetch paragraph {fetch}, "
+    "business paragraph {paragraph}."
+)
+CURSOR_CLOSE_GUARANTEE_MESSAGES["fetch_paragraph_not_found"] = (
+    "Cursor close guarantee: FETCH paragraph {fetch} was not found in "
+    "the program; WHEN ZERO left unchanged."
+)
+CURSOR_CLOSE_GUARANTEE_MESSAGES["business_paragraph_already_bound"] = (
+    "Cursor close guarantee: {fetch} already performs {paragraph}; no "
+    "change needed."
+)

@@ -1,3 +1,6 @@
+# LOCATION: converter/composers/cleanup/output_write_placement_cleanup.py
+# ACTION: REPLACE ENTIRE FILE
+
 """Output write placement cleanup.
 
 An IDMS child-set loop converts to:
@@ -33,6 +36,14 @@ WRITE, and it does nothing at all when the shape is not recognised:
   4. lift a trailing IF ... WRITE ... END-IF block out of the row paragraph,
   5. re-indent it and insert it after the child CLOSE, wrapped in the
      early-stop guard when the parent loop uses the early-stop flag.
+
+DEPENDENCY
+----------
+Step 2 reads what CursorRepair.bind_fetch_to_business writes. The binder
+runs earlier (conversion_pipeline stage 'guarantee_cursor_close'), and
+until it has bound WHEN ZERO to a business paragraph there is nothing
+here to read. That case is now REPORTED rather than passed over in
+silence - a silent refusal here cost a full debugging cycle.
 
 No program, paragraph, record, table, cursor or host variable name is
 hardcoded. Regex lives in patterns/cobol_cleanup_patterns.py, constants in
@@ -70,6 +81,8 @@ from rules.cobol_cleanup_rules import (
     WHEN_ZERO_PERFORM_SCAN_LIMIT,
 )
 
+NOT_FOUND = -1
+
 
 class OutputWritePlacementCleanup:
     """Moves a guarded output write out of a child-row paragraph."""
@@ -81,6 +94,11 @@ class OutputWritePlacementCleanup:
     ) -> None:
         self.messages = messages
         self.line_utils = line_utils or CobolCleanupLineUtils()
+
+        # Refusal signatures already reported for the current program.
+        # A successful move re-scans on the next pass and would otherwise
+        # report the now-empty row paragraph as a refusal every time.
+        self._reported: set = set()
 
     def _logical(self, line: str) -> str:
         return self.line_utils.logical(line)
@@ -96,6 +114,8 @@ class OutputWritePlacementCleanup:
     # ------------------------------------------------------------------
     def move_output_write_after_child_loop(self, text: str) -> str:
         """Relocate every misplaced guarded output write block."""
+        self._reported = set()
+
         if not text or not ENFORCE_OUTPUT_WRITE_AFTER_CHILD_LOOP:
             return text or ""
 
@@ -128,6 +148,14 @@ class OutputWritePlacementCleanup:
 
             row_paragraph = self._row_paragraph(lines, fetch_span)
             if not row_paragraph or row_paragraph not in spans:
+                # The binder has not yet bound WHEN ZERO to a business
+                # paragraph, so there is nothing to read. Reporting this
+                # is what distinguishes "no work to do" from "this pass
+                # ran before the binder".
+                self._report_once(
+                    "output_write_no_row_paragraph",
+                    fetch=fetch_paragraph,
+                )
                 continue
 
             cursor = self._cursor_of(fetch_paragraph)
@@ -140,10 +168,18 @@ class OutputWritePlacementCleanup:
                 cursor=cursor,
             )
             if close_index < 0:
+                self._report_once(
+                    "output_write_no_close_perform",
+                    cursor=cursor,
+                )
                 continue
 
             block = self._trailing_write_block(lines, spans[row_paragraph])
             if not block:
+                self._report_once(
+                    "output_write_no_block",
+                    source=row_paragraph,
+                )
                 continue
 
             start, end = block
@@ -165,6 +201,7 @@ class OutputWritePlacementCleanup:
             )
             return True
 
+        # No candidate was relocated on this pass. The caller stops here.
         return False
 
     def _relocate(
@@ -238,44 +275,52 @@ class OutputWritePlacementCleanup:
                 continue
 
             current = self._leading_spaces(self._body_of(line))
-            extra = current[len(original) :] if len(current) > len(original) else ""
+            extra = (
+                current[len(original) :]
+                if len(current) > len(original)
+                else ""
+            )
             output.append(f"{target_indent}{extra}{logical}")
 
         return output
 
     def _minimum_indent(self, block: list[str]) -> str:
-        widest = None
+        """The shallowest indent in the block. Nesting is measured from it."""
+        narrowest = None
 
         for line in block:
             logical = self._logical(line)
             if not logical:
                 continue
             indent = self._leading_spaces(self._body_of(line))
-            if widest is None or len(indent) < len(widest):
-                widest = indent
+            if narrowest is None or len(indent) < len(narrowest):
+                narrowest = indent
 
-        return widest or ""
+        return narrowest or ""
 
     def _body_of(self, line: str) -> str:
-        """The line with sequence numbers stripped but indentation kept."""
-        text = str(line or "").rstrip()
-        logical = self._logical(text)
+        """The logical body with its own indentation, sequence area removed.
+
+        CORRECTION - the previous expression carried a dead `if False
+        else` branch and sliced the prefix with [-n:]. In Python s[-0:]
+        is the WHOLE string, so an indent width of zero prepended the
+        entire sequence area to the body.
+        """
+        logical = self._logical(line)
 
         if not logical:
             return ""
 
-        position = text.find(logical)
-        return text[position - self._indent_width(text, position) : ] if False else (
-            text[:position].replace("\t", " ")[-self._indent_width(text, position) :]
-            + logical
-            if position > 0
-            else logical
-        )
+        text = str(line or "").rstrip()
+        position = text.rfind(logical)
 
-    @staticmethod
-    def _indent_width(text: str, position: int) -> int:
-        prefix = text[:position]
-        return len(prefix) - len(prefix.rstrip(" "))
+        if position <= 0:
+            return logical
+
+        prefix = text[:position].replace("\t", " ")
+        indent = len(prefix) - len(prefix.rstrip(" "))
+
+        return (" " * indent) + logical
 
     # ------------------------------------------------------------------
     # Paragraph discovery
@@ -284,7 +329,7 @@ class OutputWritePlacementCleanup:
         """Paragraph name -> (first line index, last line index)."""
         spans: dict[str, tuple[int, int]] = {}
         current = ""
-        start = -1
+        start = NOT_FOUND
 
         for index, line in enumerate(lines):
             logical = self._logical(line)
@@ -337,7 +382,9 @@ class OutputWritePlacementCleanup:
     # Cursor correlation
     # ------------------------------------------------------------------
     def _is_child_fetch(self, paragraph: str) -> bool:
-        match = FETCH_PARAGRAPH_NUMBER_PATTERN.match(str(paragraph or "").upper())
+        match = FETCH_PARAGRAPH_NUMBER_PATTERN.match(
+            str(paragraph or "").upper()
+        )
 
         if not match:
             return False
@@ -419,7 +466,7 @@ class OutputWritePlacementCleanup:
 
             return index
 
-        return -1
+        return NOT_FOUND
 
     def _is_generated_cursor_paragraph(self, paragraph: str) -> bool:
         return bool(
@@ -467,7 +514,8 @@ class OutputWritePlacementCleanup:
         block = lines[opener : last + 1]
 
         if not any(
-            WRITE_STATEMENT_PATTERN.match(self._logical(line)) for line in block
+            WRITE_STATEMENT_PATTERN.match(self._logical(line))
+            for line in block
         ):
             return None
 
@@ -490,7 +538,7 @@ class OutputWritePlacementCleanup:
             if self._is_comment_or_blank(logical):
                 continue
             return index
-        return -1
+        return NOT_FOUND
 
     def _matching_if_index(
         self,
@@ -516,4 +564,26 @@ class OutputWritePlacementCleanup:
                 if depth == 0:
                     return index
 
-        return -1
+        return NOT_FOUND
+
+    # ------------------------------------------------------------------
+    # Diagnostics
+    # ------------------------------------------------------------------
+    def _report_once(self, key: str, **fields: str) -> None:
+        """Report a refusal at most once per program.
+
+        move_output_write_after_child_loop() re-scans after every
+        successful move. Without this, a relocation would be followed by
+        'output_write_no_block' for the now-empty row paragraph on the
+        very next pass - a refusal message for work that just succeeded.
+        """
+        signature = (key, tuple(sorted(fields.items())))
+
+        if signature in self._reported:
+            return
+
+        self._reported.add(signature)
+        self.messages.add(key, **fields)
+
+
+__all__ = ["OutputWritePlacementCleanup"]

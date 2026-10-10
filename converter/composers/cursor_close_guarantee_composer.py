@@ -1,7 +1,7 @@
 # LOCATION: converter/composers/cursor_close_guarantee_composer.py
 # ACTION: REPLACE ENTIRE FILE
 
-"""Guarantees that every generated cursor is looped and closed.
+"""Guarantees that every generated cursor is looped, driven and closed.
 
 Runs AFTER CursorFlowComposer. A no-op for any cursor the INLINE or SPAN
 strategy already handled, and a last-resort repair for every cursor they
@@ -32,6 +32,18 @@ with the FETCH paragraph driving the business paragraph:
       WHEN ZERO
            PERFORM BEHANDELING THRU BEHANDELING-EXIT
 
+CORRECTION - WHEN ZERO BINDING WAS PATH-DEPENDENT
+--------------------------------------------------
+bind_fetch_to_business was reachable only from CursorRepair.synthesise_loop,
+which runs on Path C alone. A cursor that already had a driving loop took
+Path A or B, both of which deliberately never touch the business
+paragraph, so the FETCH kept CONTINUE and the business paragraph became
+UNREACHABLE. The program fetched every row and wrote nothing. Nothing was
+logged either, because business_paragraph_unknown was also raised only
+inside the synthesiser.
+
+Binding now happens ONCE, before path selection, on every path.
+
 THREE REPAIR PATHS
 ------------------
 A. A fetch PERFORM already carries UNTIL -> INLINE already ran.
@@ -41,17 +53,18 @@ B. A business loop drives the paragraph that held the OBTAIN NEXT
    -> SPAN shape. Normalise its exit condition and guarantee the CLOSE.
    The in-loop fetch is REQUIRED here and is never removed.
 
-C. No loop at all -> synthesise the shape, bind the FETCH paragraph to
-   the business paragraph, and remove the orphan repeat fetch.
+C. No loop at all -> synthesise the shape and remove the orphan repeat
+   fetch.
 
 RESPONSIBILITY
 --------------
 This class owns PATH SELECTION and nothing else:
 
-    cursor_guarantee/cursor_models.py    regex, value objects, log
-    cursor_guarantee/cursor_lines.py     logical lines, paragraphs
-    cursor_guarantee/cursor_scanner.py   discovery, read-only
-    cursor_guarantee/cursor_repair.py    every mutation
+    cursor_guarantee/cursor_models.py                regex, value objects, log
+    cursor_guarantee/cursor_lines.py                 logical lines, paragraphs
+    cursor_guarantee/cursor_scanner.py               discovery, read-only
+    cursor_guarantee/cursor_repair.py                every mutation
+    cursor_guarantee/business_paragraph_resolver.py  business paragraph, read-only
 
 Concrete module imports, not the package: a stale or partially updated
 __init__.py then cannot break this composer, which is precisely the
@@ -66,8 +79,8 @@ hardcoded here.
 
 from __future__ import annotations
 
-from converter.composers.cursor_flow_line_formatter import (
-    CursorFlowLineFormatter,
+from converter.composers.cursor_guarantee.business_paragraph_resolver import (
+    BusinessParagraphResolver,
 )
 from converter.composers.cursor_guarantee.cursor_lines import CursorLines
 from converter.composers.cursor_guarantee.cursor_models import (
@@ -76,11 +89,10 @@ from converter.composers.cursor_guarantee.cursor_models import (
     MessageLog,
 )
 from converter.composers.cursor_guarantee.cursor_repair import CursorRepair
-from converter.composers.cursor_guarantee.cursor_scanner import (
-    CursorScanner,
-)
+from converter.composers.cursor_guarantee.cursor_scanner import CursorScanner
 from rules.cursor_close_guarantee_rules import (
     ENFORCE_CURSOR_CLOSE_GUARANTEE,
+    ENFORCE_FETCH_DRIVES_BUSINESS_PARAGRAPH,
     EOC_CONDITION_TEMPLATE,
     OPERATION_CLOSE,
     OPERATION_FETCH,
@@ -92,14 +104,18 @@ from rules.cursor_close_guarantee_rules import (
 class CursorCloseGuaranteeComposer:
     """Last-resort guarantee that a generated cursor loops and closes."""
 
-    def __init__(
-        self,
-        line_formatter: CursorFlowLineFormatter | None = None,
-    ) -> None:
+    def __init__(self, line_formatter=None) -> None:
         self.log = MessageLog()
         self.lines_utils = CursorLines(line_formatter=line_formatter)
         self.scanner = CursorScanner(lines_utils=self.lines_utils)
         self.repair = CursorRepair(
+            lines_utils=self.lines_utils,
+            log=self.log,
+        )
+        # Business-paragraph resolution is needed on EVERY repair path, not
+        # only on synthesis, so the composer owns it. It shares the one
+        # MessageLog, per the cursor_models.py contract.
+        self.business_resolver = BusinessParagraphResolver(
             lines_utils=self.lines_utils,
             log=self.log,
         )
@@ -157,20 +173,27 @@ class CursorCloseGuaranteeComposer:
     ) -> list[str]:
         cursor = cursor_set.cursor
         eoc_condition = EOC_CONDITION_TEMPLATE.format(cursor=cursor)
-
         performs = self.scanner.performs(lines, cursor)
         opens = self.scanner.by_operation(performs, OPERATION_OPEN)
-        fetches = self.scanner.by_operation(performs, OPERATION_FETCH)
-        closes = self.scanner.by_operation(performs, OPERATION_CLOSE)
 
-        # A declared but never opened cursor is dead code, not a broken
-        # loop. Repairing it would invent a flow the program never had.
         if not opens:
             self.log.log("no_open_perform", cursor=cursor)
             return lines
 
-        # ---- Path A: an INLINE loop already exists.
-        driving = next((item for item in fetches if item.has_until), None)
+        fetches = self.scanner.by_operation(performs, OPERATION_FETCH)
+        closes = self.scanner.by_operation(performs, OPERATION_CLOSE)
+
+        # Binding is PATH-INDEPENDENT and runs FIRST. Paths A and B leave
+        # the FETCH paragraph untouched by design, so binding there would
+        # never happen and the business paragraph would stay unreachable.
+        lines, business = self._bind_business_paragraph(
+            lines=lines,
+            cursor_set=cursor_set,
+            fetches=fetches,
+        )
+
+        # ---- Path A: INLINE already produced a driving PERFORM ... UNTIL
+        driving = self._driving_fetch(fetches)
 
         if driving is not None:
             return self._repair_inline(
@@ -181,17 +204,7 @@ class CursorCloseGuaranteeComposer:
                 eoc_condition=eoc_condition,
             )
 
-        # An opened cursor with no fetch at all cannot be repaired here:
-        # there is no statement to turn into the driving loop.
-        if not fetches:
-            self.log.log("no_fetch_perform", cursor=cursor)
-            return lines
-
-        priming = fetches[0]
-        repeats = fetches[1:]
-        business = self._business_paragraph(lines, repeats)
-
-        # ---- Path B: a business loop already drives that paragraph.
+        # ---- Path B: a business loop drives the row paragraph (SPAN)
         loop = (
             self.scanner.find_business_loop(lines, business)
             if business
@@ -207,20 +220,67 @@ class CursorCloseGuaranteeComposer:
                 eoc_condition=eoc_condition,
             )
 
-        # ---- Path C: nothing drives the cursor.
+        # ---- Path C: no loop at all
         if not SYNTHESISE_MISSING_DRIVING_LOOP:
-            self.log.log("synthesis_disabled", cursor=cursor)
+            self.log.log("no_driving_loop", cursor=cursor)
             return lines
 
         return self.repair.synthesise_loop(
             lines=lines,
             cursor_set=cursor_set,
-            priming=priming,
-            repeats=repeats,
+            priming=fetches[0] if fetches else opens[0],
+            repeats=self._repeat_fetches(fetches),
             business=business,
             close_performs=closes,
             eoc_condition=eoc_condition,
         )
+
+    # =================================================================
+    # WHEN ZERO binding - every path
+    # =================================================================
+    def _bind_business_paragraph(
+        self,
+        lines: list[str],
+        cursor_set: CursorParagraphSet,
+        fetches: list[CursorPerform],
+    ) -> tuple[list[str], str]:
+        """Make the FETCH drive its business paragraph.
+
+        Returns the updated lines and the resolved paragraph name, so the
+        caller can hand the same name to the loop finder without resolving
+        it a second time.
+
+        Resolution order, highest confidence first:
+          1. BusinessParagraphResolver - first non-generated paragraph
+             after the one that performs the cursor OPEN, verified against
+             the cursor's own DCLGEN group or a nested cursor OPEN.
+          2. the paragraph that held the orphan repeat fetch.
+        An unresolved cursor is reported and left unchanged. It is never
+        guessed.
+        """
+        business = self.business_resolver.resolve(lines, cursor_set)
+
+        if not business:
+            business = self._business_paragraph(
+                lines, self._repeat_fetches(fetches)
+            )
+
+        if not ENFORCE_FETCH_DRIVES_BUSINESS_PARAGRAPH:
+            return lines, business
+
+        if not business:
+            self.log.log(
+                "business_paragraph_unknown",
+                cursor=cursor_set.cursor,
+            )
+            return lines, ""
+
+        lines = self.repair.bind_fetch_to_business(
+            lines=lines,
+            fetch_paragraph=cursor_set.fetch_name,
+            business=business,
+        )
+        return lines, business
 
     # =================================================================
     # Path A
@@ -280,6 +340,28 @@ class CursorCloseGuaranteeComposer:
     # =================================================================
     # Helpers
     # =================================================================
+    @staticmethod
+    def _driving_fetch(
+        fetches: list[CursorPerform],
+    ) -> CursorPerform | None:
+        """The fetch PERFORM that already carries an UNTIL clause."""
+        for perform in fetches:
+            if perform.has_until:
+                return perform
+        return None
+
+    @staticmethod
+    def _repeat_fetches(
+        fetches: list[CursorPerform],
+    ) -> list[CursorPerform]:
+        """Every fetch PERFORM after the priming one, none with UNTIL.
+
+        A fetch that already loops is never an orphan, and the first plain
+        fetch is the priming call Path C rewrites into the loop.
+        """
+        plain = [item for item in fetches if not item.has_until]
+        return plain[1:] if len(plain) > 1 else []
+
     def _business_paragraph(
         self,
         lines: list[str],

@@ -64,6 +64,9 @@ class LoopSynthesiser:
     #
     # Public entry point
     #
+# LOCATION: converter/composers/cursor_close_guarantee/loop_synthesiser.py
+# ACTION: REPLACE the synthesise() method only. Everything else is unchanged.
+
     def synthesise(
         self,
         lines: list[str],
@@ -74,23 +77,36 @@ class LoopSynthesiser:
         close_performs: list[CursorPerform],
         eoc_condition: str,
     ) -> list[str]:
+        """Build OPEN / FETCH-UNTIL / CLOSE for an undriven cursor.
+
+        CORRECTION - step 1 no longer binds.
+
+        CursorCloseGuaranteeComposer._bind_business_paragraph now binds
+        BEFORE path selection, so the FETCH is already bound whichever
+        path a cursor takes. Binding again is harmless - the operation is
+        idempotent - but it emits a second business_paragraph_bound
+        message for a single edit, which makes the conversion log
+        overstate how many paragraphs were repaired.
+
+        Step 2 still runs before step 3: deleting a line BELOW the priming
+        fetch cannot move it, while inserting above it would move every
+        repeat index.
+        """
         output = list(lines)
 
-        # 1. Bind the FETCH paragraph to the business paragraph.
-        if business and ENFORCE_FETCH_DRIVES_BUSINESS_PARAGRAPH:
-            output = self._bind_fetch_to_business(
-                lines=output,
-                fetch_paragraph=cursor_set.fetch_name,
-                business=business,
-            )
-        elif not business:
+        # 1. Binding is owned by the composer. Only the refusal is logged
+        #    here, for a caller that reached synthesis with no business
+        #    paragraph resolved.
+        if not business:
             self.log.log(
                 "business_paragraph_unknown",
                 cursor=cursor_set.cursor,
             )
 
         # 2. Remove every orphan repeat fetch, highest index first.
-        for repeat in sorted(repeats, key=lambda item: item.index, reverse=True):
+        for repeat in sorted(
+            repeats, key=lambda item: item.index, reverse=True
+        ):
             output = self._remove_statement(output, repeat.index)
             self.log.log("repeat_fetch_removed", fetch=repeat.paragraph)
 
@@ -102,7 +118,6 @@ class LoopSynthesiser:
             close_performs=close_performs,
             eoc_condition=eoc_condition,
         )
-
     #
     # Step 1
     #

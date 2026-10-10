@@ -106,13 +106,23 @@ class OutputWriteParagraphComposer:
     # Public entry point
     # =================================================================
     def compose(self, text: str) -> str:
+        """Extract every eligible output write block.
+
+        CORRECTION - the structural guard was applied here, program-wide.
+
+        _refused_by_guard() ran before any candidate was examined and
+        abandoned the whole program when ANY PROCEDURE DIVISION IF
+        carried a multi-line condition. In VMDZ4420 the offending
+        conditions were business status tests; the write block's own
+        guard, IF WS-STATUS = 'C', was a single line and safe.
+
+        The guard is now evaluated PER CANDIDATE in _extract_once(),
+        which already skips a refused candidate and tries the next.
+        """
         self.messages = []
 
         if not text or not ENFORCE_OUTPUT_WRITE_PARAGRAPH:
             return str(text or "")
-
-        if self._refused_by_guard(text):
-            return str(text)
 
         lines = (
             str(text)
@@ -127,7 +137,7 @@ class OutputWriteParagraphComposer:
                 break
 
         return "\n".join(lines).rstrip() + "\n"
-
+    
     # =================================================================
     # Structural safety
     # =================================================================
@@ -154,9 +164,49 @@ class OutputWriteParagraphComposer:
     # =================================================================
     # One extraction
     # =================================================================
+# LOCATION: converter/composers/output_write_paragraph_composer.py
+# ACTION: REPLACE _extract_once
+
     def _extract_once(self, lines: list[str]) -> bool:
-        """Extract the first eligible block. True when one was taken."""
+        """Extract the INNERMOST eligible block. True when one was taken.
+
+        CORRECTION - the first eligible candidate was taken, and
+        candidates arrive outermost first.
+
+        Extraction moves the candidate's BODY, which starts at
+        if_index + 1. Taking the outer guard therefore moved the inner
+        guard into the new paragraph:
+
+            IF NOT SW-STATUS-D = 'Y'
+               PERFORM WRITE-UITRECORD
+               ADD 1 TO WS-NB-OUTPUT-COUNT     <- fires unconditionally
+            END-IF.
+
+         WRITE-UITRECORD.
+            IF WS-STATUS = 'C'                 <- the real write decision
+               ...
+               WRITE UITRECORD
+            END-IF.
+
+        The counter then measured ATTEMPTS, not writes, and
+        output_write_paragraph_rules.py requires the opposite: the count
+        is taken at the call site precisely so it reflects every guard
+        decision.
+
+        Every enclosing guard must stay at the call site. The innermost
+        eligible candidate is the one whose body is pure population, so
+        candidates are now ranked and the deepest is taken.
+
+        Three gates, cheapest and least noisy first:
+
+          1. ELIGIBILITY - exactly one WRITE. A block with none is an
+             ordinary IF and is dismissed in silence.
+          2. CONDITION INTEGRITY - this block's OWN guard must fit one
+             line, because the cut is at if_index + 1.
+          3. EXTRACT the deepest survivor.
+        """
         existing = self.lines.paragraph_names(lines)
+        accepted: list = []
 
         for block in self.finder.candidates(lines):
             plan, refusal = self.eligibility.assess(lines, block, existing)
@@ -166,12 +216,22 @@ class OutputWriteParagraphComposer:
                     self._log(refusal.key, **refusal.values)
                 continue
 
-            self.extractor.apply(lines, plan)
-            self._log_success(block.source, plan.paragraph)
-            return True
+            if self._condition_spans_lines(lines, block):
+                continue
 
-        return False
+            accepted.append((block, plan))
 
+        if not accepted:
+            return False
+
+        # Deepest candidate = highest if_index. Nested blocks are always
+        # yielded after the block that encloses them.
+        block, plan = max(accepted, key=lambda item: item[0].if_index)
+
+        self.extractor.apply(lines, plan)
+        self._log_success(block.source, plan.paragraph)
+        return True
+        
     # =================================================================
     # Diagnostics
     # =================================================================
@@ -189,6 +249,22 @@ class OutputWriteParagraphComposer:
         template = OUTPUT_WRITE_PARAGRAPH_MESSAGES.get(key, "")
         if template:
             self.messages.append(template.format(**values))
+
+    def _condition_spans_lines(self, lines: list[str], block) -> bool:
+        """Refuse one candidate whose own IF condition spans lines."""
+        if not ENFORCE_CONDITION_INTEGRITY:
+            return False
+
+        if not self.guard.blocks_candidate(lines, block.if_index):
+            return False
+
+        self.messages.append(
+            STRUCTURAL_SAFETY_MESSAGES["extraction_refused_block"].format(
+                source=block.source,
+                count=self.guard.condition_size(lines, block.if_index),
+            )
+        )
+        return True
 
 
 __all__ = ["OutputWriteParagraphComposer"]

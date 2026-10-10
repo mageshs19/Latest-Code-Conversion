@@ -215,3 +215,5 @@ FETCH_KEY_MESSAGES = {
         "qualified host to display; generic error text only."
     ),
 }
+
+FETCH_KEY_WHERE_DISPLAY_TEMPLATE = "DISPLAY '{label} = ' {field}"

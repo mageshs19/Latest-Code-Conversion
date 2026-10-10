@@ -26,6 +26,9 @@ from converter.composers.cursor_guarantee.cursor_models import (
     LoopShape,
     MessageLog,
 )
+from mainframe.zowe_commands import NOT_FOUND
+from converter.composers.record_materialisation.record_sites import NOT_FOUND
+from patterns.cursor_close_guarantee_patterns import ANY_WHEN_PATTERN, END_EVALUATE_PATTERN
 from rules.cursor_close_guarantee_rules import (
     ENFORCE_FETCH_DRIVES_BUSINESS_PARAGRAPH,
     EXIT_PARAGRAPH_SUFFIX,
@@ -38,6 +41,8 @@ from rules.cursor_close_guarantee_rules import (
     UNTIL_TEMPLATE,
 )
 
+NOT_FOUND = -1
+ALREADY_BOUND = -2
 
 class CursorRepair:
     """Rewrites, inserts and deletes. Owns no path selection."""
@@ -244,26 +249,70 @@ class CursorRepair:
 
         return output
 
+# LOCATION: converter/composers/cursor_guarantee/cursor_repair.py
+# ACTION: REPLACE the whole bind_fetch_to_business method and ADD
+#         _continue_in_branch and _compress below it.
+#         _business_body is unchanged.
+
     def bind_fetch_to_business(
         self,
         lines: list[str],
         fetch_paragraph: str,
         business: str,
     ) -> list[str]:
-        """Rewrite WHEN ZERO / CONTINUE inside the FETCH paragraph."""
+        """Rewrite WHEN ZERO / CONTINUE inside the FETCH paragraph.
+
+        CORRECTION 1 - only the FIRST statement after WHEN ZERO was read
+
+        next_executable_index() returns ONE index. The generated branch
+        carries the row counter ahead of the CONTINUE:
+
+            WHEN ZERO
+                 ADD 1 TO WS-NB-BEFF-COUNT      <- returned
+                 CONTINUE                       <- never examined
+
+        CONTINUE_PATTERN failed against the ADD, the loop advanced, and
+        the method returned the list unchanged. Every FETCH that carries
+        a counter - which is every FETCH the body builder emits, and the
+        shape the manual reference uses - was unbindable, so the business
+        paragraph stayed unreachable and the program wrote nothing.
+
+        The WHOLE branch is now scanned, bounded by the next WHEN or by
+        END-EVALUATE, so a CONTINUE at any depth in the branch is found
+        and a CONTINUE belonging to another branch never is.
+
+        CORRECTION 2 - five exits, no diagnostics
+
+        span not found, no CONTINUE, already bound, nothing bound: all
+        returned in silence. A refusal with no diagnostic is worse than
+        no guard at all - it cost a full debugging cycle to find this.
+        Every exit now reports.
+        """
+        if not fetch_paragraph or not business:
+            self.log.log(
+                "bind_missing_argument",
+                fetch=fetch_paragraph or "(none)",
+                paragraph=business or "(none)",
+            )
+            return lines
+
         headers = self.lines_utils.paragraph_headers(lines)
         span = self.lines_utils.paragraph_span(
             headers, fetch_paragraph, len(lines)
         )
 
         if span is None:
+            self.log.log("fetch_paragraph_not_found", fetch=fetch_paragraph)
             return lines
 
         start, end = span
-        output = list(lines)
         body = self._business_body(headers, business)
+        target_key = self._compress(body)
 
+        output = list(lines)
+        bound = 0
         index = start
+
         while index < end:
             logical = self.lines_utils.logical(output[index])
 
@@ -271,29 +320,81 @@ class CursorRepair:
                 index += 1
                 continue
 
-            target = self.lines_utils.next_executable_index(
-                output, index + 1, end
+            target = self._continue_in_branch(
+                lines=output,
+                start=index + 1,
+                end=end,
+                target_key=target_key,
             )
 
-            if target < 0:
+            if target == ALREADY_BOUND:
+                self.log.log(
+                    "business_paragraph_already_bound",
+                    fetch=fetch_paragraph,
+                    paragraph=business,
+                )
+                return lines
+
+            if target == NOT_FOUND:
                 index += 1
                 continue
 
-            if not CONTINUE_PATTERN.match(self.lines_utils.logical(output[target])):
-                index += 1
-                continue
-
-            output[target] = self.lines_utils.format_like(output[target], body)
-
+            output[target] = self.lines_utils.format_like(
+                output[target], body
+            )
             self.log.log(
                 "business_paragraph_bound",
                 fetch=fetch_paragraph,
                 paragraph=business,
             )
-
+            bound += 1
             index = target + 1
 
+        if not bound:
+            self.log.log("when_zero_not_bindable", fetch=fetch_paragraph)
+            return lines
+
         return output
+
+    def _continue_in_branch(
+        self,
+        lines: list[str],
+        start: int,
+        end: int,
+        target_key: str,
+    ) -> int:
+        """Index of the CONTINUE inside one WHEN ZERO branch.
+
+        Returns ALREADY_BOUND when the branch already performs the
+        business paragraph, NOT_FOUND otherwise. Scanning stops at the
+        next WHEN or at END-EVALUATE, so a CONTINUE belonging to WHEN 100
+        or WHEN OTHER can never be claimed.
+        """
+        for index in range(max(0, start), min(end, len(lines))):
+            logical = self.lines_utils.logical(lines[index])
+
+            if not logical or self.lines_utils.is_comment(logical):
+                continue
+
+            if self._compress(logical) == target_key:
+                return ALREADY_BOUND
+
+            if ANY_WHEN_PATTERN.match(logical):
+                return NOT_FOUND
+
+            if END_EVALUATE_PATTERN.match(logical):
+                return NOT_FOUND
+
+            if CONTINUE_PATTERN.match(logical):
+                return index
+
+        return NOT_FOUND
+
+    @staticmethod
+    def _compress(text: str) -> str:
+        """Whitespace-insensitive, case-insensitive comparison key."""
+        return " ".join(str(text or "").split()).upper().rstrip(".")
+    
 
     @staticmethod
     def _business_body(headers, business: str) -> str:

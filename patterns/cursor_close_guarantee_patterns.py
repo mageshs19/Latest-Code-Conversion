@@ -102,3 +102,32 @@ CONTINUE_PATTERN = re.compile(
     r"^CONTINUE\s*\.?\s*$",
     flags=re.IGNORECASE,
 )
+
+# LOCATION: patterns/cursor_close_guarantee_patterns.py
+# ACTION: APPEND at the end of the file
+
+# A WHEN branch other than WHEN ZERO. Used to detect the end of the
+# WHEN ZERO body without consuming the next branch.
+ANY_WHEN_PATTERN = re.compile(
+    r"^WHEN\b",
+    flags=re.IGNORECASE,
+)
+
+# Closes the EVALUATE SQLCODE block.
+END_EVALUATE_PATTERN = re.compile(
+    r"^END-EVALUATE\b",
+    flags=re.IGNORECASE,
+)
+
+# PERFORM <paragraph>, with an optional terminator. Recognises a binding
+# that is already in place so the pass is idempotent.
+PERFORM_PLAIN_PATTERN = re.compile(
+    rf"^PERFORM\s+(?P<paragraph>{_NAME})\s*(?P<terminator>\.?)\s*$",
+    flags=re.IGNORECASE,
+)
+
+# A DCLGEN host reference inside a FETCH INTO list: :DCLDZBEFFTV.FIELD
+HOST_GROUP_REFERENCE_PATTERN = re.compile(
+    r":(?P<group>DCL[A-Z0-9]+)\.",
+    flags=re.IGNORECASE,
+)

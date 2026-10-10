@@ -336,3 +336,47 @@ PERFORM_PARAGRAPH_PATTERN = re.compile(
     r"^PERFORM\s+(?P<paragraph>[A-Z0-9][A-Z0-9-]*)\s*\.?\s*$",
     flags=re.IGNORECASE,
 )
+
+# --- Category G: residual generated comment noise ---
+#
+# TWO TIERS.
+#
+# TRACE markers are CONSUMED by a later pass (BusinessParagraphResolver /
+# FetchBusinessBinder read "Converted OBTAIN ..." to locate the business
+# paragraph). They may only be stripped by the FINAL cleanup stage.
+#
+# NOISE markers carry no downstream meaning and are stripped on sight.
+
+_NOISE_FRAGMENTS = (
+    r"Removed\s+residual\s+IDMS",
+    r"Removed\s+IDMS",
+    r"Removed\s+orphan\s+IDMS",
+    r"IDMS\s+record\s+[A-Z0-9-]+\s+was\s+not\s+converted",
+    r"Missing\s+Sheet\s+Mapping\s+and\s+DCLGEN\s+metadata",
+    r"Restart/control\s+logic\s+requires\s+manual\s+DB2\s+redesign",
+    r"IDMS\s+FINISH\s+converted\s+to\s+COMMIT",
+    # emitted by InitializationCentralizer before the create-before-remove fix
+    r"Centralized\s+initialization",
+    r"Redundant\s+INITIALIZE\s+block\s+removed",
+    # emitted by the cursor EOC cleanups
+    r"Removed\s+redundant\s+OBTAIN\s+NEXT",
+    r"Removed\s+redundant\s+SQLCODE\s+wrapper",
+    r"COMMIT\s+removed",
+    r"realigned\s+\d+\s+DB2\s+DATE\s+host",
+)
+
+_TRACE_FRAGMENTS = (
+    r"Converted\s+OBTAIN\s+(?:FIRST|NEXT)",
+    r"Converted\s+FIND\s+FIRST",
+    r"Materialised\s+[A-Z0-9-]+\s+from",
+)
+
+RESIDUAL_IDMS_COMMENT_PATTERN = re.compile(
+    r"^\s*\*\s*DB2:\s*(" + r"|".join(_NOISE_FRAGMENTS) + r")",
+    flags=re.IGNORECASE,
+)
+
+TRACE_MARKER_COMMENT_PATTERN = re.compile(
+    r"^\s*\*\s*DB2:\s*(" + r"|".join(_TRACE_FRAGMENTS) + r")",
+    flags=re.IGNORECASE,
+)

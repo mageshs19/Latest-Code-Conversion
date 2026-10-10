@@ -154,3 +154,9 @@ STRUCTURAL_SAFETY_MESSAGES = {
         "declared inside it."
     ),
 }
+
+STRUCTURAL_SAFETY_MESSAGES["extraction_refused_block"] = (
+    "Structural safety: output write extraction skipped for the block in "
+    "{source}; its guard condition spans {count} lines and cannot be "
+    "split. Other candidates were still considered."
+)
