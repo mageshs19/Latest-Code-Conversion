@@ -337,7 +337,29 @@ class ConversionLayoutSteps:
 
         doc = run_stage("move_alignment", Document(cobol=converted_cobol))
         validation_messages.extend(doc.messages)
-        return doc.cobol    
+        return doc.cobol   
+    #
+    # 7c. Paragraph separation
+    #
+    def separate_paragraphs(
+        self,
+        *,
+        converted_cobol: str,
+        validation_messages: list[str],
+    ) -> str:
+        """Insert a blank line before a paragraph header.
+
+        MIGRATED - registered as 'statement_layout'.
+
+        Runs after align_moves so the blank lands against final text,
+        and before resequence so it receives a sequence number.
+        """
+        from converter.pipeline.run import run_stage
+        from converter.pipeline.stage import Document
+
+        doc = run_stage("statement_layout", Document(cobol=converted_cobol))
+        validation_messages.extend(doc.messages)
+        return doc.cobol 
     # =================================================================
     # 8. Final resequence
     # =================================================================

@@ -14,8 +14,13 @@ WARNING
   baseline will not notice. tools/baseline.ps1 guard 3 checks the log
   for evidence that key passes actually fired.
 
+  describe() reads only name and description - it NEVER calls a factory.
+  A stage whose composer module does not exist therefore prints as LIVE
+  and fails mid-conversion. tests/pipeline/test_every_stage_has_a_call_site.py
+  constructs every factory for exactly that reason.
+
 CURRENT STATE
-  All eight stages are LIVE. Every direct composer call for these passes
+  All nine stages are LIVE. Every direct composer call for these passes
   has been removed from conversion_pipeline.py and
   conversion_layout_steps.py.
 
@@ -97,6 +102,13 @@ def _move_alignment():
     return MoveAlignmentComposer()
 
 
+def _statement_layout():
+    from converter.composers.statement_layout_composer import (
+        StatementLayoutComposer,
+    )
+    return StatementLayoutComposer()
+
+
 def _unnecessary_comments():
     from converter.composers.unnecessary_comments_cleanup_composer import (
         UnnecessaryCommentsCleanupComposer,
@@ -149,6 +161,13 @@ PIPELINE: tuple[Stage, ...] = (
         "move_alignment",
         "[LIVE] Align TO across runs of MOVE statements",
         _move_alignment,
+    ),
+    # Must follow move_alignment: the blank lands against final text.
+    # Must precede the resequence: the inserted line needs a number.
+    composer_stage(
+        "statement_layout",
+        "[LIVE] Blank line before a paragraph header",
+        _statement_layout,
     ),
     composer_stage(
         "cleanup_final_comments",
