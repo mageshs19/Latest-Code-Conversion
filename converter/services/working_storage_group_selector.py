@@ -1,22 +1,3 @@
-# LOCATION: converter/services/working_storage_group_selector.py
-# ACTION: CREATE NEW FILE
-"""Chooses a SAFE 01 group for generated working-storage fields.
-
-A generated counter must never be added to a record layout. Adding a
-field to a fixed-length record shifts every byte after it, silently
-corrupting the output file.
-
-An 01 group is a record layout when any of these hold:
-
-  * it is declared under FD / FILE SECTION,
-  * it is the operand of WRITE / READ / REWRITE / RELEASE / RETURN,
-  * it appears as WRITE ... FROM <name> or READ ... INTO <name>,
-  * it is the target of MOVE SPACES / ZEROES TO <name>.
-
-When no safe group exists the selector reports that a dedicated group
-must be created. It never guesses.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -39,19 +20,30 @@ from patterns.structural_safety_patterns import (
 )
 
 COMMENT_PREFIXES = ("*", "/")
+PICTURE_TOKENS = (" PIC ", " PIC(", " PICTURE ", " PICTURE(")
 
 
 @dataclass
 class WorkingStorageGroup:
     name: str = ""
     header_index: int = -1
+    first_child_index: int = -1
     last_child_index: int = -1
     child_level: str = ""
     is_record_layout: bool = False
+    is_elementary: bool = False
+
+    @property
+    def has_children(self) -> bool:
+        return self.first_child_index >= 0 and bool(self.child_level)
 
     @property
     def is_safe(self) -> bool:
         return bool(self.name) and not self.is_record_layout
+
+    @property
+    def can_take_child(self) -> bool:
+        return self.is_safe and not self.is_elementary
 
     @property
     def insert_index(self) -> int:
@@ -69,9 +61,25 @@ class WorkingStorageLayout:
     def safe_groups(self) -> list[WorkingStorageGroup]:
         return [group for group in self.groups if group.is_safe]
 
+    def usable_groups(self) -> list[WorkingStorageGroup]:
+        return [group for group in self.groups if group.can_take_child]
+
+    def named(self, names) -> WorkingStorageGroup | None:
+        wanted = [str(name or "").upper() for name in (names or ())]
+        for name in wanted:
+            for group in self.groups:
+                if group.name.upper() == name and group.can_take_child:
+                    return group
+        return None
+
+    def childless_safe(self) -> list[WorkingStorageGroup]:
+        return [
+            group for group in self.groups
+            if group.is_safe and not group.can_take_child
+        ]
+
 
 class WorkingStorageGroupSelector:
-    """Maps WORKING-STORAGE and classifies every 01 group."""
 
     def __init__(
         self,
@@ -79,7 +87,6 @@ class WorkingStorageGroupSelector:
     ) -> None:
         self.fixed_format = fixed_format or FixedFormatLineService()
 
-    # ---------------------------------------------------------- public
     def analyze(self, lines: list[str]) -> WorkingStorageLayout:
         layout = WorkingStorageLayout()
         record_names = self._record_layout_names(lines)
@@ -123,6 +130,7 @@ class WorkingStorageGroupSelector:
                     name=name,
                     header_index=index,
                     is_record_layout=name in record_names,
+                    is_elementary=self._has_picture(body),
                 )
                 layout.groups.append(current)
                 continue
@@ -130,6 +138,8 @@ class WorkingStorageGroupSelector:
             child = SUBORDINATE_LEVEL_PATTERN.match(body)
             if child and current is not None:
                 current.last_child_index = index
+                if current.first_child_index < 0:
+                    current.first_child_index = index
                 if not current.child_level:
                     current.child_level = child.group("level")
 
@@ -139,11 +149,16 @@ class WorkingStorageGroupSelector:
         return layout
 
     def select(self, lines: list[str]) -> WorkingStorageGroup | None:
-        """The LAST safe work group, or None when one must be created."""
-        safe = self.analyze(lines).safe_groups()
-        return safe[-1] if safe else None
+        usable = self.analyze(lines).usable_groups()
+        return usable[-1] if usable else None
 
-    # -------------------------------------------------------- helpers
+    def select_named(
+        self,
+        lines: list[str],
+        names,
+    ) -> WorkingStorageGroup | None:
+        return self.analyze(lines).named(names)
+
     def _record_layout_names(self, lines: list[str]) -> set[str]:
         names: set[str] = set()
         in_file_section = False
@@ -183,6 +198,11 @@ class WorkingStorageGroupSelector:
             return str(self.fixed_format.logical(line) or "").strip()
         except Exception:  # noqa: BLE001
             return str(line or "").strip()
+
+    @staticmethod
+    def _has_picture(body: str) -> bool:
+        text = f" {str(body or '').upper()} "
+        return any(token in text for token in PICTURE_TOKENS)
 
     @staticmethod
     def _is_comment(body: str) -> bool:

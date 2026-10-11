@@ -250,3 +250,62 @@ TIMESTAMP_NOTE = (
     "No program-specific customization needed. Copy the paragraph into "
     "any program and call it whenever current timestamp is needed."
 )
+
+TIMESTAMP_WORKING_STORAGE_LINES = (
+    TIMESTAMP_TS_SYSTEM_STRUCTURE + TIMESTAMP_TS_TIMESTAMP_STRUCTURE
+)
+
+# The flat TS-SYSTEM with a trailing FILLER X(13) is NOT the standard.
+# The reference nests the date under DA-SYS and the time under HR-SYS
+# so a caller can move a whole date or a whole time in one statement.
+EMIT_TIMESTAMP_SYSTEM_FILLER = False
+
+
+# ---- Sentence shape -------------------------------------------------
+#
+# CORRECTION - every line above carries a period.
+#
+# The reference punctuates the FIRST move and nothing after, closing
+# the paragraph with a lone period:
+#
+#     MOVE FUNCTION CURRENT-DATE            TO TS-SYSTEM.
+#     MOVE CC OF TS-SYSTEM                  TO CC OF TS-TIMESTAMP
+#     ...
+#     DISPLAY 'TIMESTAMP: ' TS-TIMESTAMP
+#     .
+#
+# A period on every line is legal but is not the house style, and the
+# generated output already follows the reference - which means
+# TIMESTAMP_CONVERSION_LINES is NOT the live constant. Find the second
+# owner before editing either:
+#
+#     grep -rn "MOVE FUNCTION CURRENT-DATE" --include=*.py .
+TIMESTAMP_FIRST_LINE_CARRIES_PERIOD = True
+TIMESTAMP_PARAGRAPH_TERMINATOR = "."
+
+EMIT_TIMESTAMP_DISPLAY = True
+TIMESTAMP_DISPLAY_LINE = "DISPLAY 'TIMESTAMP: ' TS-TIMESTAMP"
+
+
+# ---- Who calls it ---------------------------------------------------
+#
+# CORRECTION - 600-GET-TIMESTAMP was performed TWICE:
+#
+#     PERFORM 100-INITIALIZE.
+#     PERFORM 600-GET-TIMESTAMP.      <- mainline
+#     ...
+#     100-INITIALIZE.
+#         PERFORM 600-GET-TIMESTAMP.  <- and again here
+#
+# The mainline performs 100-INITIALIZE, which performs the timestamp.
+# The second call captures the same instant and reads as a defect.
+#
+# 100-INITIALIZE OWNS the startup call. A pass that wants a timestamp
+# at another point performs the paragraph explicitly at that point.
+TIMESTAMP_CALL_OWNER_PARAGRAPH = "100-INITIALIZE"
+EMIT_MAINLINE_TIMESTAMP_CALL = False
+
+TIMESTAMP_MESSAGES["duplicate_call_suppressed"] = (
+    "Timestamp: {paragraph} already performs {target}; the mainline "
+    "call was not inserted."
+)

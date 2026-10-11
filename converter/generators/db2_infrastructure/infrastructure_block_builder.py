@@ -130,12 +130,23 @@ class InfrastructureBlockBuilder:
         ]
 
     def _declarations_section(self, specs: list[CursorSpec]) -> list[str]:
+        """Every DECLARE, with only the final one closing the sentence.
+
+        The manual reference closes each declaration with a bare
+        END-EXEC and the LAST one with END-EXEC. - one COBOL sentence
+        for the whole block. render() has always supported this through
+        is_last; nothing computed it, so the default True gave every
+        declaration a period.
+        """
         lines: list[str] = [
             "",
             *self._marker_lines(DB2_CURSOR_DECLARATIONS_MARKER),
         ]
-        for spec in specs:
-            lines.extend(self.declares.build(spec))
+        total = len(specs)
+        for index, spec in enumerate(specs):
+            lines.extend(
+                self.declares.build(spec, is_last=index == total - 1)
+            )
             lines.append("")
 
         return lines

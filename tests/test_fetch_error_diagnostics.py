@@ -77,12 +77,25 @@ def _when_other_block(bodies: list[str]) -> list[str]:
 # ---------------------------------------------------------------------
 # Order is fixed by the manual reference
 # ---------------------------------------------------------------------
-def test_sql_location_is_still_the_first_statement(paragraphs):
-    """CHK-09.05 / CHK-20.07 read the FIRST statement of the branch."""
+def test_the_error_text_is_the_first_statement(paragraphs):
+    """The reference sets SQL-LOCATION at paragraph entry, not here."""
     block = _when_other_block(_fetch(paragraphs, HOSTS))
 
-    assert block[0].endswith("TO SQL-LOCATION")
+    assert block[0].startswith("DISPLAY 'ERROR WHILE FETCHING")
 
+
+def test_the_error_branch_does_not_restate_sql_location(paragraphs):
+    block = _when_other_block(_fetch(paragraphs, HOSTS))
+
+    assert not any(body.endswith("TO SQL-LOCATION") for body in block)
+
+
+def test_sql_location_is_set_once_at_paragraph_entry(paragraphs):
+    bodies = _fetch(paragraphs, HOSTS)
+    moves = [b for b in bodies if b.endswith("TO SQL-LOCATION")]
+
+    assert len(moves) == 1
+    assert bodies.index(moves[0]) < bodies.index("EXEC SQL")
 
 def test_perform_sqlerror_is_still_the_last_statement(paragraphs):
     block = _when_other_block(_fetch(paragraphs, HOSTS))
@@ -142,17 +155,16 @@ def test_an_unqualified_host_is_skipped_not_guessed(paragraphs):
     block = _when_other_block(_fetch(paragraphs, ["WS-UNQUALIFIED-FIELD"]))
 
     assert not any("WS-UNQUALIFIED-FIELD" in body for body in block)
-    assert block[0].endswith("TO SQL-LOCATION")
+    assert block[0].startswith("DISPLAY 'ERROR WHILE FETCHING")
     assert block[-1] == f"PERFORM {SQL_ERROR}"
 
 
 def test_no_hosts_leaves_the_generic_branch_intact(paragraphs):
     block = _when_other_block(_fetch(paragraphs, []))
 
-    assert block[0].endswith("TO SQL-LOCATION")
     assert any("ERROR WHILE FETCHING" in body for body in block)
     assert block[-1] == f"PERFORM {SQL_ERROR}"
-
+    assert len(block) == 2
 
 # ---------------------------------------------------------------------
 # Open and close are untouched

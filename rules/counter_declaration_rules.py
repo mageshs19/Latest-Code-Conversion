@@ -67,6 +67,11 @@ COUNTER_DECLARATION_MESSAGES = {
     "skipped_no_anchor": (
         "Counters: no {anchor} statement found; end-of-run totals skipped."
     ),
+        "no_references": (
+        "Counters: no counter increment found in the PROCEDURE "
+        "DIVISION ({examined} line(s) examined); nothing declared and "
+        "no end-of-run totals emitted."
+    ),
 }
 # LOCATION: rules/counter_declaration_rules.py
 # ACTION: APPEND at the end of the file

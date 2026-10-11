@@ -1,42 +1,41 @@
-# LOCATION: tests/test_condition_scanner_measures_multiline.py
-# ACTION: REPLACE ENTIRE FILE
-"""Condition measurement, and the scope at which it is allowed to decide.
+"""Condition measurement, and what the measurement is used for.
 
 REGRESSION 1 - a dangling boolean operator closed a condition
 --------------------------------------------------------------
-condition_end_index() inspected only the NEXT line's first word, so
-
-    IF (HELP-DA-CPTAFS-479BFAS < DA-ARCH-YMD  AND
-    HELP-DA-CPTAFS-479BFAS NOT = '00000000') OR
-    (HELP-DA-CRFMAS-479BFAS < DA-ARCH-YMD AND
-    HELP-DA-CPTAFS-479BFAS = '00000000')
-
-measured as ONE line. OutputWriteGuard then allowed an extraction that
-cut the IF away from its own condition tail:
-
-    IF (HELP-DA-CPTAFS-479BFAS < DA-ARCH-YMD  AND
-       PERFORM WRITE-FORM-REC
-    END-IF.
-    ...
-    WRITE-FORM-REC.
-       HELP-DA-CPTAFS-479BFAS NOT = '00000000') OR
+condition_end_index() inspected only the NEXT line's first word, so a
+four-line compound condition measured as ONE line. An extraction then
+cut the IF away from its own condition tail.
 
 REGRESSION 2 - the guard decided PROGRAM-WIDE
 ----------------------------------------------
-The fix for regression 1 over-corrected. blocks_extraction() refused
-every extraction in a program when ANY PROCEDURE DIVISION IF carried a
-multi-line condition. VMDZ4420 carried three two-line business status
-tests in the same paragraph as its write block; the write block's own
-guard, IF WS-STATUS = 'C', is one line and safe to cut. Three of six
-programs lost WRITE-<record> and WS-NB-OUTPUT-COUNT.
+blocks_extraction() refused every extraction in a program when ANY
+PROCEDURE DIVISION IF carried a multi-line condition. The decision is
+now blocks_candidate(), scoped to one candidate. blocks_extraction()
+survives as MEASUREMENT only.
 
-The decision is now blocks_candidate(), scoped to one candidate.
-blocks_extraction() survives as MEASUREMENT only - the tests below name
-it that way so the distinction cannot be lost again.
+REGRESSION 3 - a multi-line guard was refused instead of positioned
+--------------------------------------------------------------------
+Scoping the veto to one candidate was still a veto. A write block whose
+OWN guard spans lines - the normal shape on a converted program - was
+abandoned, so no WRITE-<record> paragraph was built and
+WS-NB-OUTPUT-COUNT, which is emitted at the call site that extraction
+creates, never came into existence. VMDZ7200 produced one counter where
+the manual reference carries two.
+
+The measurement is now the CUT POSITION:
+
+    body_start = condition_end_index(lines, if_index) + 1
+
+Nothing is ever split, so nothing has to be refused. Refusal survives
+for the one case that cannot be positioned: a condition whose end
+cannot be determined at all.
 """
 
 import pytest
 
+from converter.composers.output_write.output_write_block_finder import (
+    CandidateBlock,
+)
 from converter.composers.output_write.output_write_guard import (
     OutputWriteGuard,
 )
@@ -58,6 +57,14 @@ def fixed(seq: str, body: str, right: str) -> str:
     """One 80-column fixed-format record."""
     assert len(body) <= 65
     return seq + " " + body.ljust(65) + right
+
+
+def bodies_of(text: str) -> list[str]:
+    return [
+        line[7:72].strip()
+        for line in text.splitlines()
+        if len(line) > 7 and line[7:72].strip()
+    ]
 
 
 HEADER = [
@@ -91,7 +98,6 @@ def test_a_four_line_condition_measures_four(scanner):
 
 
 def test_a_line_ending_on_and_never_closes_the_condition(scanner):
-    """The defect in one assertion."""
     lines = HEADER + FOUR_LINE
     if_index = len(HEADER)
 
@@ -99,7 +105,6 @@ def test_a_line_ending_on_and_never_closes_the_condition(scanner):
 
 
 def test_a_single_line_condition_still_measures_one(scanner):
-    """The fix must not make every condition look multi-line."""
     lines = HEADER + [
         fixed("002600", "    IF WS-FLAG = " + Y_FLAG, "02600000"),
         fixed("002610", "       ADD 1 TO WS-TELLER", "02610000"),
@@ -113,13 +118,6 @@ def test_a_single_line_condition_still_measures_one(scanner):
 # The program-wide methods MEASURE. They never decide.
 # =====================================================================
 def test_the_guard_measures_a_multi_line_condition():
-    """blocks_extraction() reports; it does not refuse.
-
-    Renamed from test_the_guard_refuses_extraction_for_this_program.
-    The old name asserted a contract that no longer holds: a multi-line
-    condition anywhere in the program no longer blocks extraction. See
-    test_an_unrelated_multi_line_condition_does_not_block_a_candidate.
-    """
     text = "\n".join(HEADER + FOUR_LINE) + "\n"
 
     assert OutputWriteGuard().blocks_extraction(text) is True
@@ -146,12 +144,10 @@ def test_the_guard_measures_a_single_line_condition():
 UNRELATED_MULTILINE_THEN_SAFE_WRITE = [
     fixed("001750", " PROCEDURE DIVISION.", "01750000"),
     fixed("002290", " VERWERK-VMBEVEF.", "02290000"),
-    # Two-line business status test. No WRITE anywhere in it.
     fixed("002300", "    IF CT-RKTEVPR-479EVEF = " + QUOTE + "0060" + QUOTE + " AND", "02300000"),
     fixed("002310", "    WS-STATUS NOT = " + D_FLAG, "02310000"),
     fixed("002320", "       MOVE " + C_FLAG + " TO WS-STATUS", "02320000"),
     fixed("002330", "    END-IF.", "02330000"),
-    # The real write block. Its own guard is ONE line and safe to cut.
     fixed("002340", "    IF WS-STATUS = " + C_FLAG, "02340000"),
     fixed("002350", "       INITIALIZE UITRECORD", "02350000"),
     fixed("002360", "       MOVE WS-NR-CIO-CRE TO UIT-NR-CIO-CRE", "02360000"),
@@ -163,12 +159,6 @@ UNRELATED_MULTILINE_THEN_SAFE_WRITE = [
 
 
 def test_an_unrelated_multi_line_condition_does_not_block_a_candidate():
-    """The defect that cost three programs their WRITE paragraph.
-
-    A two-line status test sits in the same paragraph as the write
-    block. The write block's own guard is one line. The old
-    program-wide gate refused the whole program.
-    """
     text = "\n".join(UNRELATED_MULTILINE_THEN_SAFE_WRITE) + "\n"
 
     out = OutputWriteParagraphComposer().compose(text)
@@ -179,18 +169,17 @@ def test_an_unrelated_multi_line_condition_does_not_block_a_candidate():
 
 
 def test_the_unrelated_condition_is_left_exactly_as_written():
-    """Extraction moves lines. It never edits a condition."""
     text = "\n".join(UNRELATED_MULTILINE_THEN_SAFE_WRITE) + "\n"
 
     out = OutputWriteParagraphComposer().compose(text)
-    bodies = [line[7:72].strip() for line in out.splitlines() if len(line) > 7]
+    bodies = bodies_of(out)
 
     assert "IF CT-RKTEVPR-479EVEF = " + QUOTE + "0060" + QUOTE + " AND" in bodies
     assert "WS-STATUS NOT = " + D_FLAG in bodies
 
 
 # =====================================================================
-# Rule A1 still holds where it actually applies
+# REGRESSION 3 - a multi-line guard is POSITIONED, not refused
 # =====================================================================
 OWN_GUARD_SPANS_LINES = [
     fixed("001750", " PROCEDURE DIVISION.", "01750000"),
@@ -205,32 +194,144 @@ OWN_GUARD_SPANS_LINES = [
     fixed("002670", "    CONTINUE.", "02670000"),
 ]
 
+CONDITION_LINES = (
+    "IF (HELP-DA-CPTAFS-479BFAS < DA-ARCH-YMD  AND",
+    "HELP-DA-CPTAFS-479BFAS NOT = " + ZERO8 + ")",
+)
 
-def test_a_candidate_whose_own_guard_spans_lines_is_still_refused():
-    """Narrowing the scope must not weaken rule A1.
 
-    Here the ONLY candidate both contains the WRITE and carries a
-    two-line condition. Cutting at if_index + 1 would strand the
-    condition tail, so extraction must refuse.
-    """
+def test_a_candidate_whose_own_guard_spans_lines_is_now_extracted():
+    """The cut moved past the condition, so nothing has to be refused."""
     text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+
+    out = OutputWriteParagraphComposer().compose(text)
+
+    assert "WRITE-FORM-REC." in out
+    assert "PERFORM WRITE-FORM-REC" in out
+    assert out.count("WRITE FORM-REC FROM REC-FORM") == 1
+
+
+def test_every_condition_line_stays_at_the_call_site():
+    text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+    bodies = bodies_of(OutputWriteParagraphComposer().compose(text))
+
+    call = bodies.index("PERFORM WRITE-FORM-REC")
+    paragraph = bodies.index("WRITE-FORM-REC.")
+
+    for fragment in CONDITION_LINES:
+        position = bodies.index(fragment)
+        assert position < call, fragment
+        assert position < paragraph, fragment
+
+
+def test_the_extracted_body_starts_after_the_condition():
+    text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+    bodies = bodies_of(OutputWriteParagraphComposer().compose(text))
+
+    paragraph = bodies.index("WRITE-FORM-REC.")
+
+    assert bodies[paragraph + 1] == "INITIALIZE REC-FORM"
+
+
+def test_no_dangling_boolean_operator_survives():
+    text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+
+    for body in bodies_of(OutputWriteParagraphComposer().compose(text)):
+        assert not body.upper().startswith("AND ")
+        assert not body.upper().startswith("OR ")
+
+
+def test_the_counter_increment_lands_at_the_call_site():
+    text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+    bodies = bodies_of(OutputWriteParagraphComposer().compose(text))
+
+    call = bodies.index("PERFORM WRITE-FORM-REC")
+    counter = bodies.index("ADD 1 TO WS-NB-OUTPUT-COUNT")
+    paragraph = bodies.index("WRITE-FORM-REC.")
+
+    assert call < counter < paragraph
+
+
+def test_the_extraction_is_reported_with_the_source_paragraph():
+    text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+
+    composer = OutputWriteParagraphComposer()
+    composer.compose(text)
+    joined = " ".join(composer.messages)
+
+    assert "BEHANDELING" in joined
+    assert "WRITE-FORM-REC" in joined
+
+
+def test_extraction_is_idempotent():
+    text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+
+    once = OutputWriteParagraphComposer().compose(text)
+    twice = OutputWriteParagraphComposer().compose(once)
+
+    assert once == twice
+
+
+# =====================================================================
+# Refusal survives for the one case that cannot be positioned
+# =====================================================================
+def _unresolvable_program() -> list[str]:
+    """A condition longer than CONDITION_SCAN_LIMIT never resolves."""
+    lines = [
+        fixed("001750", " PROCEDURE DIVISION.", "01750000"),
+        fixed("002290", " BEHANDELING.", "02290000"),
+        fixed("002300", "    IF WS-A = " + Y_FLAG + " AND", "02300000"),
+    ]
+    for step in range(30):
+        lines.append(
+            fixed(
+                "0024{0:02d}".format(step),
+                "    WS-B = " + Y_FLAG + " AND",
+                "0024{0:02d}00".format(step),
+            )
+        )
+    lines.append(fixed("002500", "       INITIALIZE REC-FORM", "02500000"))
+    lines.append(
+        fixed("002510", "       WRITE FORM-REC FROM REC-FORM", "02510000")
+    )
+    lines.append(fixed("002520", "    END-IF.", "02520000"))
+    return lines
+
+
+def test_an_unresolvable_condition_is_still_refused():
+    text = "\n".join(_unresolvable_program()) + "\n"
 
     composer = OutputWriteParagraphComposer()
     out = composer.compose(text)
 
     assert "WRITE-FORM-REC." not in out
-    assert "PERFORM WRITE-FORM-REC" not in out
     assert out.count("WRITE FORM-REC FROM REC-FORM") == 1
 
 
 def test_the_refusal_is_reported_with_the_source_paragraph():
     """A refusal with no diagnostic is worse than no guard at all."""
-    text = "\n".join(OWN_GUARD_SPANS_LINES) + "\n"
+    text = "\n".join(_unresolvable_program()) + "\n"
 
     composer = OutputWriteParagraphComposer()
     composer.compose(text)
-
     joined = " ".join(composer.messages)
 
     assert "BEHANDELING" in joined
-    assert "2 lines" in joined or "spans 2" in joined
+    assert "could not be resolved" in joined
+
+
+def test_an_unresolved_block_falls_back_to_the_safe_body_start():
+    """body_start must never be nonsense when the condition is unknown."""
+    block = CandidateBlock(if_index=5, end_index=12, condition_end=-1)
+
+    assert block.has_resolved_condition is False
+    assert block.body_start == 6
+    assert block.condition_line_count == 0
+
+
+def test_a_resolved_block_cuts_after_the_condition():
+    block = CandidateBlock(if_index=5, end_index=12, condition_end=8)
+
+    assert block.has_resolved_condition is True
+    assert block.body_start == 9
+    assert block.condition_line_count == 4

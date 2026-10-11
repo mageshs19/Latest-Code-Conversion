@@ -130,3 +130,76 @@ PROCEDURE_INDENT_MESSAGES = {
 }
 
 ENFORCE_AREA_ALIGNMENT_REFLOW = False
+
+# ACTION: APPEND at the end of the file
+
+# ---- Lines that keep the indent they arrived with --------------------
+#
+# CORRECTION A - the EXEC SQL body was FLATTENED.
+#
+#     if stack and stack[-1].kind == BLOCK_KIND_SQL:
+#         return stack[-1].body_indent, stack
+#
+# Every line between EXEC SQL and END-EXEC was forced to the frame's
+# body indent (column 14), so a generated FETCH came out as
+#
+#       INTO :DCLDZBEFFTV.CO-IDPRKSK-479BEFF     <- must be column 15
+#       , :DCLDZBEFFTV.NS-IRMOSTK-479BEFF        <- must be column 18
+#
+# The host list stopped forming a column and the comma sat under the
+# INTO keyword instead of under the first host. SQL clause positions -
+# INTO 15, comma 18, WHERE 14, AND 16, QUERYNO 21 - are fixed by the
+# manual reference and set by the generator. They are CLAUSE positions,
+# not nesting depth, and this pass cannot reconstruct them.
+PRESERVE_SQL_BODY_INDENT = True
+
+# CORRECTION B - a continuation was re-indented as a statement.
+#
+# A fixed-format statement may continue onto the next line with NO
+# indicator, provided the break falls between two complete words. Only
+# the '-' indicator form was recognised, so a word-boundary
+# continuation looked like a statement and was pushed to Area B:
+#
+#     DISPLAY 'CT-RKT-PROD = ' CT-RKTPROD-479BEFF
+#                              OF DCLDZBEFFTV      <- aligned
+#   became
+#     DISPLAY 'CT-RKT-PROD = ' CT-RKTPROD-479BEFF
+#     OF DCLDZBEFFTV                               <- Area B
+#
+# and every wrapped MOVE lost its alignment the same way.
+RESPECT_STATEMENT_CONTINUATIONS = True
+
+# Returned by the resolver when a line must keep its own indent.
+# -1 is not a legal body indent, so it cannot collide with one.
+PRESERVE_INDENT = -1
+
+# A line OPENING with one of these continues the statement above it.
+CONTINUATION_OPENERS = (
+    "OF ", "IN ", "TO ", "FROM ", "INTO ", "GIVING ",
+    "AND ", "OR ", "NOT ", "THRU ", "THROUGH ", "UNTIL ",
+    ",", "'",
+)
+
+# A line ENDING on one of these cannot end a statement; its operand is
+# on the next physical line.
+CONTINUATION_TRAILERS = frozenset({
+    "TO", "OF", "IN", "FROM", "INTO", "GIVING",
+    "AND", "OR", "NOT", "THRU", "THROUGH",
+    ",", "=", ">", "<", ">=", "<=",
+})
+
+# Verbs that always START a statement, so a line opening with one is
+# never a continuation however it reads.
+STATEMENT_VERBS = frozenset({
+    "ACCEPT", "ADD", "CALL", "CLOSE", "COMPUTE", "CONTINUE",
+    "DELETE", "DISPLAY", "DIVIDE", "EVALUATE", "EXEC", "EXIT",
+    "GO", "GOBACK", "IF", "INITIALIZE", "INSPECT", "MERGE",
+    "MOVE", "MULTIPLY", "OPEN", "PERFORM", "READ", "RELEASE",
+    "RETURN", "REWRITE", "SEARCH", "SET", "SORT", "START",
+    "STOP", "STRING", "SUBTRACT", "UNSTRING", "WRITE",
+})
+
+PROCEDURE_INDENT_MESSAGES["preserved"] = (
+    "Procedure indent: preserved {count} line(s) carrying their own "
+    "clause or continuation alignment."
+)

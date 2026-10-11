@@ -52,6 +52,12 @@ SW_STATUS_D_DECLARATION = (
 
 WS_DB2_FLAGS_GROUP = " 01  WS-DB2-FEEDBACK-FLAGS."
 
+REMOVE_GENERATED_NARRATION_COMMENTS = True
+NARRATION_COMMENT_PREFIXES = ("*DB2: ",)
+NARRATION_COMMENT_KEEP_PREFIXES = ("*DB2-KEEP",)
+
+REMOVE_STRANDED_SECTION_BANNERS = True
+STRANDED_BANNER_LOOKAHEAD = 6
 
 # =========================================================================
 # Scanning
@@ -246,6 +252,14 @@ CLEANUP_MESSAGES = {
     "paragraph_terminated": (
         "Cleanup: closed unterminated sentence in paragraph "
         "{paragraph}."
+    ),
+     "removed_narration_comment": (
+        "Cleanup: removed {count} generated *DB2: narration "
+        "comment(s); the conversion log reports the same facts."
+    ),
+    "removed_stranded_banner": (
+        "Cleanup: removed {count} comment banner(s) left pointing at "
+        "a paragraph that no longer follows them."
     ),
 }
 

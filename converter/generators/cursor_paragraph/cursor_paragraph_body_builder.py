@@ -6,7 +6,7 @@ This class owns no COBOL layout literals: every token, indent and
 template lives in rules/cursor_paragraph_rules.py. Only dynamic values
 (cursor name, paragraph name, host variables) are substituted here.
 
-REFACTOR - one 600-line class became six collaborators.
+REFACTOR - one 600-line class became seven collaborators.
 
     cursor_line_geometry.py      does a body line fit the window
     cursor_host_reference.py     one host parser, three spellings
@@ -14,6 +14,15 @@ REFACTOR - one 600-line class became six collaborators.
     cursor_sql_location.py       MOVE ... TO SQL-LOCATION
     cursor_error_branch.py       WHEN OTHER through the period
     cursor_statement_blocks.py   header, EXEC SQL wrapper, INTO
+    cursor_fetch_paragraph.py    the FETCH body and its three decisions
+
+WHY FETCH MOVED OUT
+
+OPEN and CLOSE are one fixed shape each - header, EXEC SQL, one WHEN
+ZERO line, the error branch. FETCH makes THREE decisions: whether to
+count the row, what to report on failure, whether to prime the host
+group. Those decisions and their corrections now live in one file each
+side of the seam, so a change to counting cannot disturb OPEN.
 
 The public surface is UNCHANGED - open_paragraph, fetch_paragraph,
 close_paragraph, sqlcode_error_tail, sql_location_move,
@@ -27,25 +36,7 @@ PARENT's column name, so the data-name exists in two DCLGEN groups and
 the bare form is a not-unique reference the compiler rejects. There is
 now ONE DISPLAY renderer for both diagnostic paths.
 
-CORRECTION 2 - the refactor DROPPED the fetched-column fallback.
-
-fetch_paragraph() forwarded `where_conditions` and nothing else. A
-cursor with no resolved WHERE therefore reached ErrorBranchBuilder with
-both key lists empty and produced an error branch that identifies NO
-ROW AT ALL. The operator gets a cursor name and nothing to look the
-failure up by.
-
-Three cases, decided here and nowhere else:
-
-    PARENT cursor      cursor name only. It is the driver; there is no
-                       driving key to report. This is what the manual
-                       reference shows at 720-FETCH.
-    CHILD, WHERE known report the driving key - the manual reference
-                       shape at 820-FETCH.
-    CHILD, no WHERE    report the leading FETCHED columns, so the row
-                       is still identifiable.
-
-CORRECTION 3 - the diagnostic LABEL was the DCLGEN host name.
+CORRECTION 2 - the diagnostic LABEL was the DCLGEN host name.
 
     DISPLAY 'CT-RKTPROD-479BEFF : ' CT-RKTPROD-479BEFF
 
@@ -61,19 +52,26 @@ renderer falls back to the host name and REPORTS every fallback, so an
 unwired build is visible in the conversion log instead of silently
 producing the old output.
 
+OWNERSHIP
+
+ONE SqlLocationBuilder and ONE ErrorBranchBuilder are constructed here
+and INJECTED into the fetch builder. Two copies would be two places for
+an indent to drift.
+
 MESSAGES
 
 `messages` exposes the label-resolution diagnostics. The generator must
-drain it; an unreported fallback is the exact failure this correction
+drain it; an unreported fallback is the exact failure CORRECTION 2
 exists to end.
 """
 
 from __future__ import annotations
 
-from converter.generators.counter_generator import CounterGenerator
-from converter.generators.cursor_paragraph import cursor_host_reference as hosts
 from converter.generators.cursor_paragraph.cursor_error_branch import (
     ErrorBranchBuilder,
+)
+from converter.generators.cursor_paragraph.cursor_fetch_paragraph import (
+    FetchParagraphBuilder,
 )
 from converter.generators.cursor_paragraph.cursor_key_diagnostics import (
     KeyDiagnosticsBuilder,
@@ -89,26 +87,16 @@ from converter.generators.cursor_paragraph.join_key_label_resolver import (
 )
 from rules.cursor_paragraph_rules import (
     CLOSE_STATEMENT_TEMPLATE,
-    CURSOR_EOC_SUFFIX,
     CURSOR_NOT_EOC_SUFFIX,
-    ENFORCE_FETCH_PROLOGUE,
     ERROR_CLOSE_TEMPLATE,
-    ERROR_FETCH_TEMPLATE,
     ERROR_OPEN_TEMPLATE,
-    FETCH_STATEMENT_TEMPLATE,
-    IND_SQL_BODY,
     IND_STATEMENT,
     IND_WHEN,
     IND_WHEN_BODY,
-    INITIALIZE_HOST_GROUP_TEMPLATE,
     OPEN_STATEMENT_TEMPLATE,
-    SET_EOC_TEMPLATE,
     SET_NOT_EOC_TEMPLATE,
     TOKEN_CONTINUE,
-    TOKEN_END_EXEC,
     TOKEN_EVALUATE_SQLCODE,
-    TOKEN_EXEC_SQL,
-    TOKEN_WHEN_100,
     TOKEN_WHEN_ZERO,
 )
 
@@ -120,7 +108,7 @@ class CursorParagraphBodyBuilder:
         self.sql_location = SqlLocationBuilder()
         self.blocks = StatementBlockBuilder(self.sql_location)
 
-        # CORRECTION 3 - constructed bare, so the diagnostic label had
+        # CORRECTION 2 - constructed bare, so the diagnostic label had
         # nothing but the DCLGEN host name to print. Sheet Mapping is
         # the authority for the COBOL field name; DCLGEN is the
         # authority for the host variable. They are different facts.
@@ -133,6 +121,14 @@ class CursorParagraphBodyBuilder:
             diagnostics=self.diagnostics,
         )
 
+        # INJECTED, not constructed inside. One sql_location, one
+        # error_branch, shared by all three paragraph shapes.
+        self.fetch_builder = FetchParagraphBuilder(
+            blocks=self.blocks,
+            sql_location=self.sql_location,
+            error_branch=self.error_branch,
+        )
+
     @property
     def messages(self) -> list[str]:
         """Label-resolution diagnostics. The generator must drain this."""
@@ -140,7 +136,7 @@ class CursorParagraphBodyBuilder:
 
     def reset(self) -> None:
         """Clear per-program diagnostics."""
-        self.label_resolver.messages = []
+        self.label_resolver.reset()
 
     # ------------------------------------------------------------------
     # OPEN
@@ -177,7 +173,7 @@ class CursorParagraphBodyBuilder:
         return lines
 
     # ------------------------------------------------------------------
-    # FETCH
+    # FETCH - delegated. See cursor_fetch_paragraph.py.
     # ------------------------------------------------------------------
     def fetch_paragraph(
         self,
@@ -189,85 +185,16 @@ class CursorParagraphBodyBuilder:
         table_name: str = "",
         is_parent_cursor: bool = False,
     ) -> list[str]:
-        """FETCH paragraph body.
-
-        DB2 leaves the host variables UNCHANGED on SQLCODE 100 or a
-        negative code, so without the INITIALIZE the DCLGEN group still
-        holds the PREVIOUS row and every downstream MOVE copies stale
-        values into the output record. The group is derived from the
-        FETCH INTO list itself, so it is always the group this very
-        statement writes into.
-        """
-        lines = self.blocks.header(paragraph_name)
-
-        if ENFORCE_FETCH_PROLOGUE:
-            group = hosts.group_of(host_variables)
-            if group:
-                lines.append(
-                    IND_STATEMENT
-                    + INITIALIZE_HOST_GROUP_TEMPLATE.format(group=group)
-                )
-
-        lines.append(
-            IND_STATEMENT
-            + SET_NOT_EOC_TEMPLATE.format(
-                cursor=cursor_name,
-                suffix=CURSOR_NOT_EOC_SUFFIX,
-            )
+        """FETCH paragraph body. Signature retained for every caller."""
+        return self.fetch_builder.build(
+            cursor_name=cursor_name,
+            paragraph_name=paragraph_name,
+            host_variables=host_variables,
+            sql_error_paragraph=sql_error_paragraph,
+            where_conditions=where_conditions,
+            table_name=table_name,
+            is_parent_cursor=is_parent_cursor,
         )
-        lines.append(self.sql_location.statement(paragraph_name))
-        lines.append("")
-
-        lines.append(f"{IND_STATEMENT}{TOKEN_EXEC_SQL}")
-        lines.append(
-            f"{IND_SQL_BODY}"
-            f"{FETCH_STATEMENT_TEMPLATE.format(cursor=cursor_name)}"
-        )
-        lines.extend(self.blocks.into_lines(host_variables))
-        lines.append(f"{IND_SQL_BODY}{TOKEN_END_EXEC}")
-        lines.append("")
-
-        lines.append(f"{IND_STATEMENT}{TOKEN_EVALUATE_SQLCODE}")
-        lines.append(f"{IND_WHEN}{TOKEN_WHEN_ZERO}")
-
-        if table_name:
-            counter = CounterGenerator()
-            name = counter.counter_name_for_table(table_name)
-            lines.append(f"{IND_WHEN_BODY}{counter.increment(name)}")
-
-        lines.append(f"{IND_WHEN_BODY}{TOKEN_CONTINUE}")
-        lines.append(f"{IND_WHEN}{TOKEN_WHEN_100}")
-        lines.append(
-            IND_WHEN_BODY
-            + SET_EOC_TEMPLATE.format(
-                cursor=cursor_name,
-                suffix=CURSOR_EOC_SUFFIX,
-            )
-        )
-
-        # ---- row identity. See CORRECTION 2.
-        #
-        # A PARENT cursor is the driver and reports the cursor name
-        # only. A CHILD reports its driving key, or - with no WHERE
-        # resolved - the fetched columns, so the branch never comes out
-        # unable to identify the failing row.
-        driving_key = None if is_parent_cursor else (where_conditions or None)
-        fetched_hosts = (
-            None
-            if is_parent_cursor or driving_key
-            else (host_variables or None)
-        )
-
-        lines.extend(
-            self.error_branch.build(
-                error_text=ERROR_FETCH_TEMPLATE.format(cursor=cursor_name),
-                sql_error_paragraph=sql_error_paragraph,
-                paragraph_name=paragraph_name,
-                where_conditions=driving_key,
-                fetched_hosts=fetched_hosts,
-            )
-        )
-        return lines
 
     # ------------------------------------------------------------------
     # CLOSE

@@ -1,50 +1,14 @@
-# LOCATION: rules/structural_safety_rules.py
-# ACTION: REPLACE ENTIRE FILE
-"""Structural safety rules for generated COBOL.
-
-Constants only. No regex, no runtime logic, no program / paragraph /
-record / table / cursor / host variable names.
-
-WHY THIS EXISTS
----------------
-Three passes move or insert lines: the output-write extraction, the
-counter declaration and the layout composer. Each was written against one
-program shape. On an older program they produced source the compiler
-rejects:
-
-  A1. an IF whose CONDITION spans lines was split across two paragraphs,
-  A2. a whole-record MOVE survived after the record's copybook was
-      removed, leaving an undefined data-name,
-  A4. a duplicate statement was left after a paragraph EXIT, unreachable
-      and outside any paragraph,
-  A5. a counter was declared INSIDE the 01 output record, shifting every
-      byte of a fixed-length record.
-
-Every rule here makes a pass REFUSE rather than guess. Refusing leaves
-working COBOL and a diagnostic; guessing produces source that will not
-compile.
-"""
-
 from __future__ import annotations
 
-# =====================================================================
-# A1 - condition integrity
-# =====================================================================
-# An extraction must never cut between the IF keyword and the end of its
-# condition. Multi-line conditions are normal in hand-written COBOL.
 ENFORCE_CONDITION_INTEGRITY = True
-
-# Lines scanned forward looking for the end of a condition.
 CONDITION_SCAN_LIMIT = 24
 
-# Tokens that continue a condition onto the next line.
 CONDITION_CONTINUATION_TOKENS = (
     "AND",
     "OR",
     "NOT",
 )
 
-# A statement verb proves the condition has ended.
 CONDITION_TERMINATING_VERBS = (
     "ACCEPT", "ADD", "CALL", "CLOSE", "COMPUTE", "CONTINUE", "DELETE",
     "DISPLAY", "DIVIDE", "ELSE", "END-IF", "EVALUATE", "EXEC", "EXIT",
@@ -53,9 +17,6 @@ CONDITION_TERMINATING_VERBS = (
     "STOP", "STRING", "SUBTRACT", "UNSTRING", "WRITE",
 )
 
-# =====================================================================
-# A2 - orphaned whole-record references
-# =====================================================================
 ENFORCE_ORPHANED_RECORD_GUARD = True
 
 ORPHANED_RECORD_MARKER_TEMPLATE = (
@@ -64,9 +25,6 @@ ORPHANED_RECORD_MARKER_TEMPLATE = (
 )
 ORPHANED_LINE_PREFIX = "*DB2-KEEP "
 
-# =====================================================================
-# A4 - unreachable statements
-# =====================================================================
 ENFORCE_UNREACHABLE_STATEMENT_GUARD = True
 
 UNREACHABLE_MARKER = (
@@ -79,37 +37,32 @@ PARAGRAPH_EXIT_WORDS = (
     "STOP RUN",
 )
 
-# ---- blast radius cap
-#
-# Real unreachable code after a paragraph EXIT is one or two stray lines.
-# A guard that fires dozens of times has lost sync with the paragraph
-# structure - a converter defect, not a program defect. When the cap is
-# exceeded the WHOLE pass is reverted and reported, so a tracking bug can
-# never comment out working code.
 MAX_UNREACHABLE_STATEMENTS = 3
 
-# =====================================================================
-# A5 - counter group placement
-# =====================================================================
-# A counter may only join an existing 01 group when that group is provably
-# a work area. Anything written, read into, or moved as a whole is a
-# record layout and must never gain a field.
 ENFORCE_SAFE_COUNTER_GROUP = True
-
-# Reusing a business group is technically safe but semantically noisy:
-# a row counter inside 01 WS-DATUMS reads as a date field. The generated
-# group is deterministic and reviewable, so it is preferred outright.
 PREFER_GENERATED_COUNTER_GROUP = True
+
+UNIFY_GENERATED_FIELD_GROUP = True
+
+PREFERRED_WORK_GROUP_NAMES = (
+    "WS-TE-WORK",
+)
+
+GENERATED_FIELD_GROUP_NAME = "WS-DB2-GENERATED"
+GENERATED_FIELD_GROUP_ALIASES = (
+    "WS-DB2-GENERATED",
+    "WS-DB2-COUNTERS",
+)
+GENERATED_FIELD_GROUP_TEMPLATE = "01  {name}."
+GENERATED_FIELD_GROUP_MARKER = "DB2 GENERATED WORKING STORAGE"
+GENERATED_FIELD_CHILD_INDENT = "    "
+GENERATED_FIELD_CHILD_LEVEL = "10"
 
 GENERATED_COUNTER_GROUP_NAME = "WS-DB2-COUNTERS"
 GENERATED_COUNTER_GROUP_TEMPLATE = "01  {name}."
 GENERATED_COUNTER_GROUP_MARKER = "DB2 GENERATED ROW COUNTERS"
-
-# Body indent for children of a generated 01 group.
-# 4 spaces from column 8 lands the level number in Area B (column 12).
 GENERATED_COUNTER_CHILD_INDENT = "    "
 
-# Verbs that prove an 01 group is a record layout, not a work area.
 RECORD_LAYOUT_VERBS = (
     "WRITE",
     "READ",
@@ -118,21 +71,15 @@ RECORD_LAYOUT_VERBS = (
     "RETURN",
 )
 
-# =====================================================================
-# Diagnostics
-# =====================================================================
 STRUCTURAL_SAFETY_MESSAGES = {
-    # ---- A1
     "extraction_refused": (
         "Structural safety: output write extraction refused - the guard "
         "condition spans {count} lines and cannot be split."
     ),
-    # ---- A2
     "orphaned_record_commented": (
         "Structural safety: commented whole-record reference to {record}; "
         "the IDMS layout no longer exists."
     ),
-    # ---- A4
     "unreachable_commented": (
         "Structural safety: commented {count} unreachable statement(s) "
         "after a paragraph EXIT."
@@ -142,7 +89,6 @@ STRUCTURAL_SAFETY_MESSAGES = {
         "lines, above the limit of {limit}; the pass was reverted and no "
         "line was commented."
     ),
-    # ---- A5
     "counter_group_created": (
         "Structural safety: created {group} for generated row counters."
     ),
@@ -153,10 +99,58 @@ STRUCTURAL_SAFETY_MESSAGES = {
         "Structural safety: {group} is a record layout; counters were not "
         "declared inside it."
     ),
+    "field_group_reused": (
+        "Structural safety: generated fields share work group {group}."
+    ),
+    "field_group_created": (
+        "Structural safety: created {group} for generated working-storage "
+        "fields."
+    ),
+    "field_group_childless": (
+        "Structural safety: {group} declares no subordinate entry and "
+        "cannot take a generated field."
+    ),
+    "extraction_refused_block": (
+        "Structural safety: output write extraction skipped for the block "
+        "in {source}; its guard condition spans {count} lines and cannot "
+        "be split. Other candidates were still considered."
+    ),
+        "field_group_no_section": (
+        "Structural safety: no WORKING-STORAGE SECTION found; no "
+        "generated field group was created."
+    ),
+        "extraction_condition_unresolved": (
+        "Structural safety: the guard condition in {source} could not be "
+        "resolved; the output write block was left in place."
+    ),
 }
 
-STRUCTURAL_SAFETY_MESSAGES["extraction_refused_block"] = (
-    "Structural safety: output write extraction skipped for the block in "
-    "{source}; its guard condition spans {count} lines and cannot be "
-    "split. Other candidates were still considered."
-)
+__all__ = [
+    "CONDITION_CONTINUATION_TOKENS",
+    "CONDITION_SCAN_LIMIT",
+    "CONDITION_TERMINATING_VERBS",
+    "ENFORCE_CONDITION_INTEGRITY",
+    "ENFORCE_ORPHANED_RECORD_GUARD",
+    "ENFORCE_SAFE_COUNTER_GROUP",
+    "ENFORCE_UNREACHABLE_STATEMENT_GUARD",
+    "GENERATED_COUNTER_CHILD_INDENT",
+    "GENERATED_COUNTER_GROUP_MARKER",
+    "GENERATED_COUNTER_GROUP_NAME",
+    "GENERATED_COUNTER_GROUP_TEMPLATE",
+    "GENERATED_FIELD_CHILD_INDENT",
+    "GENERATED_FIELD_CHILD_LEVEL",
+    "GENERATED_FIELD_GROUP_ALIASES",
+    "GENERATED_FIELD_GROUP_MARKER",
+    "GENERATED_FIELD_GROUP_NAME",
+    "GENERATED_FIELD_GROUP_TEMPLATE",
+    "MAX_UNREACHABLE_STATEMENTS",
+    "ORPHANED_LINE_PREFIX",
+    "ORPHANED_RECORD_MARKER_TEMPLATE",
+    "PARAGRAPH_EXIT_WORDS",
+    "PREFERRED_WORK_GROUP_NAMES",
+    "PREFER_GENERATED_COUNTER_GROUP",
+    "RECORD_LAYOUT_VERBS",
+    "STRUCTURAL_SAFETY_MESSAGES",
+    "UNIFY_GENERATED_FIELD_GROUP",
+    "UNREACHABLE_MARKER",
+]

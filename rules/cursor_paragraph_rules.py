@@ -48,9 +48,8 @@ This module carried two template families for the same DISPLAY block:
     JOIN_KEY_DISPLAY_TEMPLATE  = "DISPLAY '{label} = ' {host}"   w=13
     FETCH_KEY_DISPLAY_TEMPLATE = "DISPLAY '{label} : ' {host}"   w=18
 
-with two switches, EMIT_JOIN_KEY_DIAGNOSTICS and
-EMIT_FETCH_KEY_DIAGNOSTICS, for one block. The FETCH_KEY family was
-live, so the generated program carried
+with two switches for one block. The FETCH_KEY family was live, so the
+generated program carried
 
     DISPLAY 'CT-RKTPROD-479BEFF : ' CT-RKTPROD-479BEFF
 
@@ -90,6 +89,36 @@ CORRECTION 4 - THE LABEL WIDTH WAS A MAGIC NUMBER
 13 in one family, 18 in the other. Both truncate or over-pad depending
 on the program. The width is now the widest label in THAT branch, so
 the hosts form a column without a constant that can be wrong.
+
+
+CORRECTION 5 - AN APPEND BLOCK LANDED BELOW THE CLOSING MARKER
+---------------------------------------------------------------
+Four constants were pasted after the "NO CONSTANT MAY BE ADDED BELOW
+THIS LINE" comment:
+
+    COUNT_PARENT_FETCH_ONLY = True
+    DEBUG_BODY_INDENT = " " * (COLUMN_STATEMENT - BODY_FIRST_COLUMN - 1)
+    COLUMN_SQL_INTO = 15          <- ALREADY declared above
+    COLUMN_SQL_INTO_NEXT = 18     <- ALREADY declared above
+    IND_SQL_INTO = ...            <- ALREADY declared above
+    IND_SQL_INTO_NEXT = ...       <- ALREADY declared above
+
+Two defects followed.
+
+  a. DEBUG_BODY_INDENT subtracted one for the 'D' indicator. The 'D'
+     occupies column 7; the body still begins at column 8, so the
+     indicator is not part of the body and must not be deducted. Three
+     spaces put DISPLAY at column 11, inside AREA A:
+
+         003860D   DISPLAY '710-OPEN-DZBEFFC1.'      column 11  WRONG
+         003880D    DISPLAY '710-OPEN-DZBEFFC1.'     column 12  right
+
+  b. The four INTO names were assigned TWICE. Python keeps the LAST
+     assignment, so the geometry section read as authoritative while
+     the append was live. The values happened to match, so nothing
+     broke - which is precisely how the QUERYNO 254-vs-119 divergence
+     began. Every constant is now declared exactly once, in its own
+     section, and nothing follows the closing marker.
 """
 
 from __future__ import annotations
@@ -131,11 +160,11 @@ SQL_LOCATION_NUMBER_PAD = "    "
 
 # The error branch does NOT restate SQL-LOCATION.
 #
-# REGRESSION 2 guarded against a STALE value: a paragraph that sets it
-# at entry, runs other statements, then fails. A GENERATED cursor
-# paragraph has nothing in between - entry MOVE, EXEC SQL, EVALUATE - so
-# the WHEN OTHER move is always identical to the entry move and adds a
-# line the manual reference does not carry.
+# The original guard protected against a STALE value: a paragraph that
+# sets it at entry, runs other statements, then fails. A GENERATED
+# cursor paragraph has nothing in between - entry MOVE, EXEC SQL,
+# EVALUATE - so the WHEN OTHER move is always identical to the entry
+# move and adds a line the manual reference does not carry.
 #
 # The ENTRY move remains mandatory. Set True only if a pass starts
 # inserting statements between paragraph entry and the EXEC SQL.
@@ -147,6 +176,8 @@ ENFORCE_SQL_LOCATION_IN_ERROR_BRANCH = False
 # Target COLUMN first, indent DERIVED from it. Never hand-type an indent
 # string: a retyped space count is invisible in review and shifts a
 # whole generated block.
+#
+# Columns 1-6 left sequence, column 7 indicator, columns 8-72 body.
 # =====================================================================
 BODY_FIRST_COLUMN = 8
 BODY_LAST_COLUMN = 72
@@ -193,6 +224,35 @@ CURSOR_NOT_EOC_SUFFIX = "-NOT-EOC"
 CURSOR_FLAG_TEMPLATE = "WS-{cursor}-FLAG"
 
 # =====================================================================
+# Row counter inside the FETCH paragraph
+# =====================================================================
+# Only the PARENT cursor's FETCH increments a row counter.
+#
+# The manual reference VMDZ4420 counts 720-FETCH (parent) and does NOT
+# count 820-FETCH (child):
+#
+#     720-FETCH-DZBEFFC1          <- parent
+#         WHEN ZERO
+#              ADD 1 TO WS-NB-BEFF-COUNT
+#              PERFORM HOOFDVERWERKING
+#
+#     820-FETCH-DZEVEFC1          <- child
+#         WHEN ZERO
+#              PERFORM VERWERK-VMBEVEF
+#
+# A child row is a detail of a parent row that has ALREADY been counted,
+# so a per-child counter is always larger than the number of units of
+# work and answers no question an operator asks. WS-NB-EVEF-COUNT was
+# declared, incremented and displayed, and meant nothing.
+#
+# The reference carries exactly TWO counters: one parent cursor, plus
+# WS-NB-OUTPUT-COUNT from the output-write pass. Never one per cursor.
+#
+# Set False only if a site wants a counter per cursor. Expect one extra
+# declared field and one extra total line per child cursor.
+COUNT_PARENT_FETCH_ONLY = True
+
+# =====================================================================
 # Generated statement templates
 # =====================================================================
 SQL_LOCATION_NUMBER_TEMPLATE = "MOVE {number}{pad}TO {field}"
@@ -230,6 +290,15 @@ EMIT_PARAGRAPH_BANNERS = True
 EMIT_DEBUG_TRACE_LINES = True
 DEBUG_INDICATOR = "D"
 DEBUG_TRACE_TEMPLATE = "DISPLAY '{paragraph}.'"
+
+# The 'D' occupies column 7, the INDICATOR. The body still starts at
+# column 8, so the trace body takes the FULL statement offset to reach
+# column 12. The indicator is not part of the body and must not be
+# subtracted from it. See CORRECTION 5a.
+#
+#     003880D    DISPLAY '710-OPEN-DZBEFFC1.'
+#            ^col 7      ^col 12
+DEBUG_BODY_INDENT = " " * (COLUMN_STATEMENT - BODY_FIRST_COLUMN)
 
 # Sentinel prefix used to mark a body line that must carry the 'D'
 # indicator in column 7. The fixed-format writer strips it.
@@ -271,6 +340,12 @@ KEY_DIAGNOSTIC_LIMIT = 5
 KEY_BODY_END_COLUMN = BODY_LAST_COLUMN
 
 KEY_HOST_TEMPLATE = "{field} OF {group}"
+
+SKIP_UNQUALIFIED_KEY_HOSTS = True
+WRAP_KEY_DISPLAY = True
+KEY_DISPLAY_LITERAL_TEMPLATE = "DISPLAY '{label} = '"
+COLUMN_KEY_CONTINUATION = 24
+IND_KEY_CONTINUATION = " " * (COLUMN_KEY_CONTINUATION - BODY_FIRST_COLUMN)
 
 KEY_DIAGNOSTIC_MESSAGES = {
     "emitted": (
@@ -349,5 +424,6 @@ DIAG_NO_HOST_VARIABLES_TEMPLATE = (
 )
 
 # NO CONSTANT MAY BE ADDED BELOW THIS LINE. An append lands here, and an
-# append is exactly what produced the duplicate template family this
-# file just had removed.
+# append is exactly what produced the duplicate template family and the
+# duplicate INTO geometry this file has now had removed TWICE. A new
+# constant belongs in its subject section above.

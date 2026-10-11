@@ -98,7 +98,7 @@ class CursorDeclareBuilder:
     # =================================================================
     # Public entry point
     # =================================================================
-    def build(self, spec: CursorSpec) -> list[str]:
+    def build(self, spec: CursorSpec, is_last: bool = True) -> list[str]:
         if not spec.cursor_name:
             return self.refusal.no_cursor_name()
 
@@ -134,6 +134,7 @@ class CursorDeclareBuilder:
             columns=columns,
             conditions=conditions,
             order_by=order_by,
+            is_last=is_last,
         )
 
         self.diagnostics.log(
