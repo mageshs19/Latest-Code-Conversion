@@ -69,6 +69,7 @@ STATEMENT_LAYOUT_MESSAGES = {
         "Statement layout: every paragraph header was already separated."
     ),
 }
+PROCEDURE_DIVISION_TOKEN = "PROCEDURE DIVISION"
 
 # NO CONSTANT MAY BE ADDED BELOW THIS LINE.
 
@@ -82,4 +83,5 @@ __all__ = [
     "SQL_BLOCK_START",
     "SQL_BLOCK_END",
     "STATEMENT_LAYOUT_MESSAGES",
+    "PROCEDURE_DIVISION_TOKEN",
 ]

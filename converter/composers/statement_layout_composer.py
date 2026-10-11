@@ -34,6 +34,7 @@ from rules.statement_layout_rules import (
     SQL_BLOCK_END,
     SQL_BLOCK_START,
     STATEMENT_LAYOUT_MESSAGES,
+    PROCEDURE_DIVISION_TOKEN,
 )
 
 BLANK_BODY = ""
@@ -74,9 +75,16 @@ class StatementLayoutComposer:
         output: list[str] = []
         inserted = 0
         in_sql = False
+        in_procedure = False  
 
         for line in lines:
             in_sql = self._track_sql(line, in_sql)
+            
+            if not in_procedure:                                # <-- ADD
+                if PROCEDURE_DIVISION_TOKEN in self._body(line).upper():
+                    in_procedure = True
+                output.append(line)
+                continue
 
             if in_sql or not self._is_paragraph_header(line):
                 output.append(line)
