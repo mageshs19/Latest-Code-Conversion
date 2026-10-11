@@ -15,7 +15,7 @@ WARNING
   for evidence that key passes actually fired.
 
 CURRENT STATE
-  All seven stages are LIVE. Every direct composer call for these passes
+  All eight stages are LIVE. Every direct composer call for these passes
   has been removed from conversion_pipeline.py and
   conversion_layout_steps.py.
 
@@ -41,6 +41,11 @@ from converter.pipeline.stage import Stage, composer_stage
 # ---------------------------------------------------------------------
 # Factories. Imports are local so a broken composer cannot stop this
 # module from importing, and so the registry stays cheap to load.
+#
+# A factory takes NO arguments and returns an object exposing
+#   .compose(text) -> str
+#   .messages      -> list[str]
+# composer_stage() does the document plumbing.
 # ---------------------------------------------------------------------
 
 def _cursor_order_cleanup():
@@ -83,6 +88,13 @@ def _procedure_indent():
         ProcedureIndentNormalizer,
     )
     return ProcedureIndentNormalizer()
+
+
+def _move_alignment():
+    from converter.composers.move_alignment_composer import (
+        MoveAlignmentComposer,
+    )
+    return MoveAlignmentComposer()
 
 
 def _unnecessary_comments():
@@ -129,6 +141,14 @@ PIPELINE: tuple[Stage, ...] = (
         "normalise_procedure_indent",
         "[LIVE] Move PROCEDURE DIVISION statements to Area B",
         _procedure_indent,
+    ),
+    # Must follow normalise_procedure_indent: runs form on settled
+    # indents. Must precede the resequence: joining a split MOVE removes
+    # a physical line and leaves a gap in columns 1-6 / 73-80.
+    composer_stage(
+        "move_alignment",
+        "[LIVE] Align TO across runs of MOVE statements",
+        _move_alignment,
     ),
     composer_stage(
         "cleanup_final_comments",

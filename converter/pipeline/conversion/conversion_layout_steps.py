@@ -315,7 +315,29 @@ class ConversionLayoutSteps:
         )
         validation_messages.extend(doc.messages)
         return doc.cobol
-        
+    #
+    # 7b. MOVE alignment
+    #
+    def align_moves(
+        self,
+        *,
+        converted_cobol: str,
+        validation_messages: list[str],
+    ) -> str:
+        """Align TO across runs of MOVE statements.
+
+        MIGRATED - registered as 'move_alignment'.
+
+        Must follow normalize_indentation: runs form on settled columns.
+        Must precede resequence: joining a split MOVE removes a physical
+        line and leaves a gap in columns 1-6 / 73-80.
+        """
+        from converter.pipeline.run import run_stage
+        from converter.pipeline.stage import Document
+
+        doc = run_stage("move_alignment", Document(cobol=converted_cobol))
+        validation_messages.extend(doc.messages)
+        return doc.cobol    
     # =================================================================
     # 8. Final resequence
     # =================================================================

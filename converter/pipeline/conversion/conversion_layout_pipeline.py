@@ -138,6 +138,10 @@ class ConversionLayoutPipeline:
             converted_cobol=converted_cobol,
             validation_messages=validation_messages,
         )
+        converted_cobol = self.steps.align_moves(
+            converted_cobol=converted_cobol,
+            validation_messages=validation_messages,
+        )
         converted_cobol = steps.resequence(converted_cobol)
         
         # Final cleanup: remove unnecessary comments from fixed-format output
