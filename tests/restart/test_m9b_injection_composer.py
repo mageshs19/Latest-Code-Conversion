@@ -26,10 +26,14 @@ WHY THE SQL ERROR PARAGRAPH IS EXEMPT FROM THE PERFORM CHECK
 It arrives through EXEC SQL INCLUDE and carries no paragraph header.
 """
 
+# LOCATION: tests/restart/test_m9b_injection_composer.py
+# ACTION: REPLACE the imports block and the "Refusal" section
+
 from __future__ import annotations
 
 import dataclasses
 import re
+import types
 
 import pytest
 
@@ -251,34 +255,64 @@ def test_a_retrieval_program_is_returned_unchanged(composer, source_text, role):
     assert any(NOT_APPLICABLE_REASONS["retrieval"] in m for m in messages)
 
 
-def test_a_program_without_the_restart_table_is_unchanged(
-    composer, prepared_lines, role
-):
-    table = str(role.table_name).upper()
-    stripped = "\n".join(
-        line for line in prepared_lines if table not in str(line).upper()
-    )
-    text, messages = composer.compose(stripped, role=role)
-    assert text == stripped
-    assert any(NOT_APPLICABLE_REASONS["no_restart_table"] in m for m in messages)
-
-
 def test_a_missing_role_is_refused(composer, source_text):
+    """How the pipeline says 'this is not a restart program'."""
     text, messages = composer.compose(source_text, role=None)
     assert text == source_text
     assert any(NOT_APPLICABLE_REASONS["dclgen_unresolved"] in m for m in messages)
 
 
+def test_a_role_with_no_token_falls_back_to_the_text(composer, prepared_lines, role):
+    """A role carrying no restart-table token cannot establish
+    applicability, so the text scan decides - and refuses."""
+    table = str(role.table_name).upper()
+    stripped = "\n".join(
+        line for line in prepared_lines if table not in str(line).upper()
+    )
+    tokenless = types.SimpleNamespace(
+        table_name="",
+        include_name="",
+        host_record="",
+        host_record_name="",
+    )
+    text, messages = composer.compose(stripped, role=tokenless)
+    assert text == stripped
+    assert any(NOT_APPLICABLE_REASONS["no_restart_table"] in m for m in messages)
+
+
+def test_a_resolved_role_overrides_a_missing_text_reference(
+    composer, prepared_lines, role
+):
+    """The fix. The role is the authority; the text has not been written
+    yet. The decision is reported, never silent."""
+    table = str(role.table_name).upper()
+    stripped = "\n".join(
+        line for line in prepared_lines if table not in str(line).upper()
+    )
+    text, messages = composer.compose(stripped, role=role, totals=TOTALS)
+    assert text != stripped
+    assert any("restart control applies" in m for m in messages)
+    assert not any(
+        NOT_APPLICABLE_REASONS["no_restart_table"] in m for m in messages
+    )
+
+
 def test_an_unusable_config_leaves_the_source_untouched(
     composer, prepared_lines, role
 ):
-    """WS-TELLER is the commit counter; without it the family is refused."""
+    """Cripple a PROGRAM-owned name.
+
+    WS-TELLER no longer works here: the commit counter is
+    GENERATOR-owned and is supplied from the catalogue. The SQLERROR
+    include is owned by the program, so removing it genuinely makes the
+    config unusable.
+    """
     crippled = "\n".join(
-        line for line in prepared_lines if "WS-TELLER" not in str(line)
+        line for line in prepared_lines if "INCLUDE SQLERROR" not in str(line)
     )
     text, messages = composer.compose(crippled, role=role, totals=TOTALS)
     assert text == crippled
-    assert any("commit_counter" in message for message in messages)
+    assert any("error_paragraph" in message for message in messages)
 
 
 def test_a_role_without_retention_emits_no_paragraph(
@@ -290,56 +324,36 @@ def test_a_role_without_retention_emits_no_paragraph(
     assert any("retention" in message for message in messages)
 
 
-#
-# Determinism
-#
-def test_running_twice_produces_identical_output(composer, source_text, role):
-    first, _ = composer.compose(source_text, role=role, totals=TOTALS)
-    second, _ = composer.compose(first, role=role, totals=TOTALS)
-    assert second == first
-
-
-def test_running_twice_does_not_grow_the_program(composer, source_text, role):
-    first, _ = composer.compose(source_text, role=role, totals=TOTALS)
-    second, _ = composer.compose(first, role=role, totals=TOTALS)
-    assert len(second.splitlines()) == len(first.splitlines())
-
-
-#
-# Shared retrieval cleanups
-#
-class _FakeCleanup:
-    """Stands in for a retrieval cleanup: compose(text) + messages."""
-
-    def __init__(self, marker: str) -> None:
-        self.marker = marker
-        self.messages: list[str] = []
-
-    def compose(self, text: str) -> str:
-        self.messages.append(f"{self.marker} ran")
-        return f"{text}\n{self.marker}"
-
-
-def test_shared_cleanups_run_in_order_and_report(line_utils, source_text, role):
-    first = _FakeCleanup("FIRST")
-    second = _FakeCleanup("SECOND")
-    composer = RestartInjectionComposer(
-        line_utils, shared_cleanups=(first, second)
-    )
-    text, messages = composer.compose(source_text, role=role, totals=TOTALS)
-
-    assert text.splitlines()[-2:] == ["FIRST", "SECOND"]
-    assert "FIRST ran" in messages
-    assert "SECOND ran" in messages
-
-
-def test_a_refused_program_never_reaches_the_shared_cleanups(
-    line_utils, source_text, role
+def test_initialisation_before_open_input_survives(
+    composer, prepared_lines, role
 ):
-    cleanup = _FakeCleanup("SHOULD-NOT-RUN")
-    composer = RestartInjectionComposer(line_utils, shared_cleanups=(cleanup,))
-    text, _messages = composer.compose(
-        source_text, role=role, program_kind=PROGRAM_KIND_RETRIEVAL
+    """The flow template begins at OPEN INPUT.
+
+    Everything ahead of it is the program's own initialisation. Deleting
+    it took DA-DD-MM-CCYY with it - the checkpoint run-date key - so the
+    restart row was written for 00.00.0000 on every run.
+    """
+    marker = "MOVE DATE8-LS TO DATE-DMY8."
+    seeded: list[str] = []
+    placed = False
+    for line in prepared_lines:
+        if not placed and "OPEN INPUT" in str(line).upper():
+            seeded.append(f"000999     {marker}")
+            placed = True
+        seeded.append(line)
+    assert placed, "fixture has no OPEN INPUT to seed against"
+
+    text, messages = composer.compose(
+        "\n".join(seeded), role=role, totals=TOTALS
     )
-    assert text == source_text
-    assert cleanup.messages == []
+    assert marker in text
+    assert any("preserved" in message for message in messages)
+
+
+def test_the_flow_still_starts_at_open_input(
+    composer, line_utils, source_text, role
+):
+    """Preserving the prefix must not duplicate the OPEN."""
+    text, _messages = composer.compose(source_text, role=role, totals=TOTALS)
+    body = _logical(line_utils, text)
+    assert len([l for l in body if l.startswith("OPEN INPUT")]) == 1

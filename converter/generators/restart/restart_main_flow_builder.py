@@ -79,11 +79,26 @@ class RestartMainFlowBuilder:
     # Public surface
     # -----------------------------------------------------------------
 
-    def build(self, totals: Sequence[str] = ()) -> tuple[str, ...]:
+    def build(
+        self,
+        totals: Sequence[str] = (),
+        *,
+        suppress_open: bool = False,
+        suppress_prime_read: bool = False,
+    ) -> tuple[str, ...]:
         """The mainline lines, or an empty tuple when refused.
 
-        `totals` are the end-of-run DISPLAY lines produced by the shared
-        counter composer. They are spliced in unchanged.
+        `totals` are the end-of-run DISPLAY lines produced by the
+        shared counter composer. They are spliced in unchanged.
+
+        SUPPRESSION
+
+        The template is the SHAPE of a mainline, not a claim about what
+        the program lacks. When OPEN INPUT or the priming PERFORM of
+        the reader already exist OUTSIDE the region the composer is
+        replacing - typically in an initialisation paragraph - writing
+        them again opens the file twice and reads the first record
+        twice. The caller measures; this method obeys and reports.
         """
         self.messages = []
 
@@ -91,17 +106,55 @@ class RestartMainFlowBuilder:
             return ()
 
         values = self.config.placeholders()
+        prime_read = f"PERFORM {self.config.names.read_paragraph}."
         lines: list[str] = []
+        dropped: list[str] = []
 
         for raw in MAIN_FLOW_TEMPLATE:
             if raw.strip() == TOTALS_MARKER:
                 lines.extend(str(line) for line in totals)
                 continue
-            lines.append(raw.format(**values))
+
+            rendered = raw.format(**values)
+            body = " ".join(rendered.strip().upper().split())
+
+            if suppress_open and body.startswith(OPEN_PREFIX):
+                dropped.append(rendered.strip())
+                continue
+            if suppress_prime_read and body == prime_read.upper():
+                dropped.append(rendered.strip())
+                continue
+
+            lines.append(rendered)
+
+        lines = self._collapse_blanks(lines)
+
+        for statement in dropped:
+            self.messages.append(
+                f"Restart main flow: suppressed '{statement}'; the "
+                "program already carries it outside the replaced region."
+            )
 
         self._report(lines, totals)
         return tuple(lines)
 
+    @staticmethod
+    def _collapse_blanks(lines: list[str]) -> list[str]:
+        """One separator, never two.
+
+        Dropping a statement leaves its blank behind. The template's
+        separator count is part of its contract, so it is restored
+        here rather than left to drift.
+        """
+        out: list[str] = []
+        for line in lines:
+            if not line.strip() and (not out or not out[-1].strip()):
+                continue
+            out.append(line)
+        while out and not out[-1].strip():
+            out.pop()
+        return out
+    
     def statements(self, totals: Sequence[str] = ()) -> tuple[str, ...]:
         """The mainline with blank separator lines removed."""
         return tuple(

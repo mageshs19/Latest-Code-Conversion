@@ -297,18 +297,24 @@ class MoveAlignmentComposer:
 
             run, consumed = self._run_from(items, index)
 
-            if len(run) >= MIN_RUN_SIZE:
+            # The gate counts STATEMENTS, not list entries. _run_from
+            # admits interior Passthrough items, so len(run) asks a
+            # different question from _render_run's own MIN_RUN_SIZE
+            # test and the two can disagree. One question, one count.
+            movable = sum(
+                1 for entry in run if isinstance(entry, MoveStatement)
+            )
+
+            if movable >= MIN_RUN_SIZE:
                 lines = self._render_run(run)
                 if lines is not None:
                     output.extend(lines)
                     runs += 1
-                    statements += len(run)
+                    statements += movable
                     index += consumed
                     continue
 
-            for statement in run:
-                output.extend(self._render_plain(statement))
-
+            output.extend(self._render_unaligned(run))
             index += consumed
 
         if runs:
@@ -416,9 +422,61 @@ class MoveAlignmentComposer:
             + f"{TOKEN_TO} {move.receivers[0]}"
             + move.terminator
         )
+    def _render_unaligned(self, run: list) -> list[str]:
+        """A run the aligner refused, or one too short to align.
 
-    def _render_plain(self, move: MoveStatement) -> list[str]:
-        """One MOVE, unaligned. Multi-receiver spills to further lines."""
+        WHY THIS METHOD EXISTS
+
+        _run_from admits INTERIOR Passthrough items by design - a WHEN,
+        an ELSE or a nested condition must not break the visual table -
+        and pops only TRAILING ones. Every list reaching here is
+        therefore HETEROGENEOUS.
+
+        A Passthrough is a LINE, not a statement: it carries .line and
+        nothing else. _render_plain is typed to MoveStatement and reads
+        .prefix, .receivers, .terminator and .templates. Handing it a
+        Passthrough raised
+
+            AttributeError: 'Passthrough' object has no attribute 'prefix'
+
+        _render_run was made type-aware; its fallback twin never was, so
+        only the REFUSAL path was fatal - which is why one program
+        logged 'aligned TO across 9 run(s)' and four logged an
+        AttributeError in the same session.
+
+        converter/pipeline/run.py catches that exception OUTSIDE the run
+        loop, so one bad run discarded the whole pass, every alignment
+        already computed with it, and reported the loss as one [error]
+        line among eighty warnings.
+        """
+        out: list[str] = []
+        for entry in run:
+            if isinstance(entry, Passthrough):
+                out.append(entry.line)
+                continue
+            out.extend(self._render_plain(entry))
+        return out
+
+    def _render_plain(self, move) -> list[str]:
+        """One MOVE, unaligned. Multi-receiver spills to further lines.
+
+        SECOND GUARD, DELIBERATELY.
+
+        _render_unaligned already filters Passthrough items out. This
+        test is the net under it: a Passthrough arriving here is a
+        CALLER defect, not a COBOL defect, and must cost one reported
+        line rather than the whole pass. The first version of this
+        method had no such test, and converter/pipeline/run.py turned
+        the resulting AttributeError into one [error] line among eighty
+        warnings while the stage silently returned the document
+        unchanged.
+        """
+        if not isinstance(move, MoveStatement):
+            self.messages.append(
+                MOVE_ALIGNMENT_MESSAGES["passthrough_refused"]
+            )
+            return [getattr(move, "line", "")]
+
         head = (
             f"{move.prefix} {TOKEN_TO} {move.receivers[0]}"
             + (move.terminator if move.is_single_receiver else "")
@@ -455,8 +513,7 @@ class MoveAlignmentComposer:
                 return [line for line in move.templates]
             lines.append(built)
 
-        return lines
-
+        return lines        
     #
     # Helpers
     #

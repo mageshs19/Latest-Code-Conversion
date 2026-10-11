@@ -67,6 +67,45 @@ wrap_body() refused any statement needing more than two physical lines, so
 long generated bodies were silently skipped. wrap_body_lines() wraps into N
 lines. wrap_body() keeps its original two-line contract for existing callers.
 
+CORRECTION 5 - the INDICATOR was discarded on a free-form line
+---------------------------------------------------------------
+CORRECTION 3 fixed "one sequence present". It left the case where NEITHER
+is present:
+
+    if not left and not right:
+        return clean_body        # the indicator never reached the output
+
+Every generator that builds a line BEFORE the final resequencer runs hits
+this path, because the reference line it copies its geometry from carries
+no sequence numbers yet. A COMMENT built that way silently lost its '*':
+
+    counter_line_factory.comment() -> build(left="", "*", title, right="")
+                                   -> "DB2 GENERATED WORKING STORAGE"
+
+and the resequencer then prepended a sequence number and a BLANK indicator,
+putting the banner into WORKING-STORAGE as
+
+    000870     DB2 GENERATED WORKING STORAGE
+    000880 01  WS-DB2-GENERATED.
+
+The first line is not a data description and will not compile. The helper
+that called build() was correct; the loss happened here.
+
+A free-form line now keeps a non-blank indicator as its leading character:
+
+    build("", "*", "DB2 GENERATED WORKING STORAGE", "")
+        -> "*DB2 GENERATED WORKING STORAGE"
+
+which is the form the final resequencer already promotes into column 7 -
+exactly how DB2_GENERATED_TIMESTAMP_MARKER has always rendered correctly.
+A BLANK indicator still returns the bare body, so no existing caller that
+passes " " (or nothing) changes behaviour.
+
+WIDTH IS UNAFFECTED
+The width check still measures the BODY. The indicator occupies column 7,
+not part of columns 8-72, so prepending it cannot push a legal body over
+the window.
+
 Migration note: any caller that relied on build() truncating must switch to
 replace_body_wrapped() or pre-check with body_fits().
 """
@@ -301,6 +340,17 @@ class FixedFormatLineService:
     # ------------------------------------------------------------------
     # Building
     # ------------------------------------------------------------------
+    def normalize_indicator(self, indicator: str) -> str:
+        """One valid column-7 character. Anything unrecognised becomes blank.
+
+        Exposed so a caller can ask what build() will use without building
+        a line to find out.
+        """
+        marker = str(indicator or "")[:1] or self.BLANK_INDICATOR
+        if marker not in self.VALID_INDICATORS:
+            return self.BLANK_INDICATOR
+        return marker
+
     def build(
         self,
         left_sequence: str,
@@ -308,7 +358,7 @@ class FixedFormatLineService:
         body: str,
         right_sequence: str,
     ) -> str:
-        """Assemble one 80-column line.
+        """Assemble one 80-column line, or a free-form line when unsequenced.
 
         Raises BodyOverflowError rather than truncating. Silent truncation
         destroys COBOL source; a caller must decide to skip or to wrap.
@@ -317,6 +367,11 @@ class FixedFormatLineService:
         side is padded, so a short source line keeps its left sequence
         instead of losing it. The final resequencer rewrites columns 1-6 and
         73-80 afterwards.
+
+        When NEITHER sequence is present the result is FREE-FORM: there is
+        no column 7 to write into, so a non-blank indicator is carried as
+        the leading character and the resequencer promotes it. Returning the
+        body alone threw the indicator away - see CORRECTION 5.
         """
         clean_body = str(body or "").rstrip()
 
@@ -329,12 +384,14 @@ class FixedFormatLineService:
         left = str(left_sequence or "")
         right = str(right_sequence or "")
 
-        if not left and not right:
-            return clean_body
+        # Resolved BEFORE the free-form branch. It used to be resolved
+        # after, which is how the indicator came to be discarded.
+        marker = self.normalize_indicator(indicator)
 
-        marker = str(indicator or "")[:1] or self.BLANK_INDICATOR
-        if marker not in self.VALID_INDICATORS:
-            marker = self.BLANK_INDICATOR
+        if not left and not right:
+            if marker == self.BLANK_INDICATOR:
+                return clean_body
+            return f"{marker}{clean_body}"
 
         padded_left = left.rjust(self.LEFT_SEQUENCE_WIDTH)[
             : self.LEFT_SEQUENCE_WIDTH
@@ -402,6 +459,10 @@ class FixedFormatLineService:
 
         Total function: never raises, never truncates. A rewrite that cannot
         be represented is simply not applied.
+
+        A free-form line splits to an EMPTY indicator, which normalises to
+        blank, so CORRECTION 5 does not change this path: the body is still
+        returned on its own.
         """
         left, indicator, _old_body, right = self.split(line)
         rebuilt = self.build_or_none(left, indicator, new_body, right)
@@ -482,6 +543,11 @@ class FixedFormatLineService:
         Returns an empty list when the statement still does not fit within
         max_lines, so the caller can skip the rewrite rather than emit
         corrupt source.
+
+        A body that already fits comes back as a SINGLE element. An earlier
+        version refused that case with `if len(bodies) < 2: return []`,
+        which made every short rewrite a no-op; wrap_body() still enforces
+        the two-line contract for the callers that want it.
         """
         limit = max_lines if max_lines is not None else self.WRAP_MAX_LINES
         clean_body = str(body or "").rstrip()
@@ -527,7 +593,11 @@ class FixedFormatLineService:
             remaining = remaining[len(taken) :]
             is_first = False
 
-        #if len(bodies) < 2:
-        #   return []
-
         return bodies
+
+
+__all__ = [
+    "BodyOverflowError",
+    "FixedFormatLineService",
+    "glue_qualifier_connectors",
+]

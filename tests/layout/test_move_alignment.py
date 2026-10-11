@@ -323,7 +323,30 @@ def test_excessive_padding_is_refused():
     assert _to_column(out[0]) != _to_column(out[1])
     assert any("filler blanks" in message for message in composer.messages)
 
+def test_a_refused_run_with_an_interior_line_does_not_crash():
+    """Heterogeneous AND refused - the combination that silently
+    disabled the whole pass for a session.
 
+    The interior line sits at a DIFFERENT indent on purpose. At the
+    SAME indent it would break the run (see
+    test_a_statement_at_the_same_indent_breaks_the_run) and the run
+    would never become heterogeneous - which is how the first version
+    of this test passed through the defect it was written to catch.
+
+    The two sources are the pair from test_excessive_padding_is_refused,
+    so the refusal is guaranteed and this test adds exactly one
+    variable: the interior Passthrough.
+    """
+    out, composer = _compose([
+        _fixed("     MOVE A TO T1"),
+        _fixed("   WHEN OTHER"),
+        _fixed("     MOVE A-SOURCE-NAME-THAT-IS-VERY-LONG-INDEED TO T2"),
+    ])
+
+    assert any("WHEN OTHER" in body for body in out)
+    assert any("filler blanks" in message for message in composer.messages)
+    assert not any("[error]" in message for message in composer.messages)
+    
 def test_the_sentence_terminator_survives():
     out, _ = _compose([
         _fixed("     MOVE A-LONGER-SOURCE-NAME TO B"),

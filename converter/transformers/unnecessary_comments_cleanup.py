@@ -1,3 +1,6 @@
+# LOCATION: converter/transformers/unnecessary_comments_cleanup.py
+# ACTION: REPLACE ENTIRE FILE
+
 """Remove unnecessary comment blocks from generated COBOL programs.
 
 Removes:
@@ -9,6 +12,44 @@ Preserves:
 - Comments explaining active business logic
 - Comments marking DB2-KEEP sections
 - Single meaningful comments
+
+CORRECTION 1 - the keep marker was never recognised in fixed format
+
+DB2_KEEP_PATTERN was
+
+    r"^\\s*\\*\\s*DB2-KEEP"
+
+which demands optional whitespace then '*'. A fixed-format marker is
+
+    002420*DB2-KEEP: VMBWCEF has no DB2 layout after conversion.
+
+and begins with six DIGITS, so it never matched. _is_comment_line()
+already understood fixed format, so the line WAS collected into a
+block - and then removed, because _should_remove_comment_block() tests
+
+    if "no db2" in block_text
+
+and the marker's own wording is "has NO DB2 layout". The guard's
+decision record deleted itself, taking the commented statement with it:
+
+    MOVE SPACES TO VMBWCEF          <- vanished without trace
+
+StructuralSafetyComposer promises "COMMENT-ONLY, never deletes". This
+pass was breaking that promise one stage later.
+
+CORRECTION 2 - the keep check was per LINE, not per BLOCK
+
+Even recognised, a marker only protected its own line and stopped block
+collection. A block whose SECOND line carries the marker could still
+lose its first. A keep marker makes the whole run a DECISION RECORD:
+some other pass wrote "I could not convert this, here it is for
+review". None of it is noise, and the refusal is now reported so the
+decision is visible rather than silent.
+
+THE INVARIANT
+
+    A pass that removes comments must never remove a comment another
+    pass wrote as a decision record.
 """
 
 from __future__ import annotations
@@ -36,9 +77,20 @@ class UnnecessaryCommentsCleanup:
         flags=re.IGNORECASE | re.MULTILINE,
     )
 
+    # Matches a keep marker in BOTH line formats - see CORRECTION 1:
+    #
+    #   *DB2-KEEP ...            free form
+    #      *DB2-KEEP ...         free form, indented
+    #   002420*DB2-KEEP ...      fixed format, indicator in column 7
+    #   002420 *DB2-KEEP ...     fixed format, blank indicator
     DB2_KEEP_PATTERN = re.compile(
-        r"^\s*\*\s*DB2-KEEP",
+        r"^\s*(?:\d{6})?\s*\*\s*DB2-KEEP",
         flags=re.IGNORECASE | re.MULTILINE,
+    )
+
+    KEPT_BLOCK_MESSAGE = (
+        "Kept comment block at lines {start}-{end}; it carries a "
+        "DB2-KEEP marker and is a decision record, not noise."
     )
 
     def __init__(self) -> None:
@@ -67,23 +119,30 @@ class UnnecessaryCommentsCleanup:
 
             # Check if this is a comment line
             if self._is_comment_line(line):
-                # Check if it's a DB2-KEEP comment (preserve these)
-                if self.DB2_KEEP_PATTERN.search(line):
-                    result.append(line)
-                    i += 1
-                    continue
-
                 # Identify start of comment block
                 block_start = i
                 block_lines = [line]
 
-                # Collect consecutive comment lines
+                # Collect consecutive comment lines. The block is NOT
+                # cut at a keep marker any more: a marker protects the
+                # whole run, so the run has to be seen whole first.
                 j = i + 1
                 while j < len(lines) and self._is_comment_line(lines[j]):
-                    if self.DB2_KEEP_PATTERN.search(lines[j]):
-                        break
                     block_lines.append(lines[j])
                     j += 1
+
+                # CORRECTION 2 - a keep marker anywhere in the block
+                # makes the entire block a decision record.
+                if self._block_has_keep_marker(block_lines):
+                    result.extend(block_lines)
+                    if len(block_lines) > 1:
+                        self.messages.append(
+                            self.KEPT_BLOCK_MESSAGE.format(
+                                start=block_start + 1, end=j
+                            )
+                        )
+                    i = j
+                    continue
 
                 # Check if this block should be removed
                 if self._should_remove_comment_block(block_lines, lines, j):
@@ -103,9 +162,15 @@ class UnnecessaryCommentsCleanup:
 
         return "\n".join(result)
 
+    def _block_has_keep_marker(self, block_lines: list[str]) -> bool:
+        """True when any line in the block is a keep marker."""
+        return any(
+            self.DB2_KEEP_PATTERN.search(line) for line in block_lines
+        )
+
     def _is_comment_line(self, line: str) -> bool:
         """Check if line is a pure comment line.
-        
+
         Handles two formats:
         1. With line numbers: columns 1-6 are line numbers, column 7 is indicator
            (standard COBOL fixed format)
@@ -113,26 +178,32 @@ class UnnecessaryCommentsCleanup:
         """
         if not line or len(line) < 1:
             return False
-        
+
         # Format 1: with line numbers (position 7 = column 6, 0-indexed)
         if len(line) >= 7 and line[6] == "*":
             return True
-        
+
         # Format 2: without line numbers (position 1 = column 0)
         if line[0] == "*":
             return True
-        
+
         # Format 3: with leading spaces then asterisk
         stripped = line.lstrip()
         if stripped.startswith("*"):
             return True
-        
+
         return False
 
     def _should_remove_comment_block(
         self, block_lines: list[str], all_lines: list[str], block_end: int
     ) -> bool:
-        """Determine if a comment block should be removed."""
+        """Determine if a comment block should be removed.
+
+        Never reached for a block carrying a keep marker - that test
+        runs first, in the caller. The "no db2" test below is broad
+        enough to match a keep marker's own wording, which is how the
+        decision record deleted itself.
+        """
         block_text = "\n".join(block_lines).lower()
 
         # Remove if it describes manual mapping work
@@ -219,3 +290,6 @@ class UnnecessaryCommentsCleanup:
         keywords = ["move", "if", "perform", "add", "do", "end-if", "else", "until"]
         count = sum(1 for kw in keywords if kw in text)
         return count >= 3
+
+
+__all__ = ["UnnecessaryCommentsCleanup"]

@@ -122,6 +122,10 @@ MOVE_ALIGNMENT_MESSAGES = {
         "Move alignment: run left unaligned; alignment would need "
         "{padding} filler blanks, over the {limit} limit."
     ),
+    "passthrough_refused": (
+        "Move alignment: a non-MOVE line reached the plain renderer; "
+        "the line was emitted verbatim."
+    ),
 }
 
 # NO CONSTANT MAY BE ADDED BELOW THIS LINE. An append lands here, and a
