@@ -1,0 +1,36 @@
+******************************************************************
+* DCLGEN TABLE(DZ.DZ01RSTV)                                      *
+*        LIBRARY(ES.BDB2.VIEW.COB.TST(DZ01RSTV))                 *
+*        ACTION(REPLACE)                                         *
+*        LANGUAGE(COBOL)                                         *
+*        APOST                                                   *
+*        DBCSDELIM(NO)                                           *
+* ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+******************************************************************
+   EXEC SQL DECLARE DZ01RSTV TABLE
+   ( NM_ID_RS_PROGRAM               CHAR(8) NOT NULL,
+	 NB_ID_RS_PHASE                 SMALLINT NOT NULL,
+	 DA_CR_RS                       DATE NOT NULL,
+	 CO_ID_RS                       CHAR(1) NOT NULL,
+	 NB_DAY_RS                      SMALLINT NOT NULL,
+	 TE_CH_RS_DATA                  VARCHAR(4000) NOT NULL
+   ) END-EXEC.
+******************************************************************
+* COBOL DECLARATION FOR TABLE DZ.DZ01RSTV                        *
+******************************************************************
+01  DCLDZ01RSTV.
+   10 NM-ID-RS-PROGRAM     PIC X(8).
+   10 NB-ID-RS-PHASE       PIC S9(4) USAGE COMP-5.
+   10 DA-CR-RS             PIC X(10).
+   10 CO-ID-RS             PIC X(1).
+   10 NB-DAY-RS            PIC S9(4) USAGE COMP-5.
+   10 TE-CH-RS-DATA.
+	  49 TE-CH-RS-DATA-LEN
+		 PIC S9(4) USAGE COMP-5.
+	  49 TE-CH-RS-DATA-TEXT
+		 PIC X(4000).
+******************************************************************
+* THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 6       *
+******************************************************************
+
+

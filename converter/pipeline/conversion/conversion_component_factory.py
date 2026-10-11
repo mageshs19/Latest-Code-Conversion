@@ -19,6 +19,10 @@ from converter.composers.final_cobol_fix_composer import (
 from converter.composers.fixed_format_composer import FixedFormatComposer
 from converter.composers.manual_layout_composer import ManualLayoutComposer
 from converter.composers.manual_style_preserver import ManualStylePreserver
+from converter.composers.restart.restart_line_utils import RestartLineUtils
+from converter.composers.restart.restart_stage_adapter import (
+    RestartStageAdapter,
+)
 from converter.composers.retrieval_commit_cleanup_composer import (
     RetrievalCommitCleanupComposer,
 )
@@ -132,6 +136,38 @@ class ConversionComponentFactory:
     UPDATE program and the COMMIT is KEPT. Removing a COMMIT a program
     needs is a data-integrity defect; keeping one it does not need is a
     cosmetic divergence.
+
+    CORRECTION 3 - the restart adapter was handed self.line_utils
+    -------------------------------------------------------------
+    The first restart wiring read
+
+        composers["restart_injection"] = RestartStageAdapter(
+            self.line_utils, ...
+        )
+
+    and every conversion died with
+
+        AttributeError: 'ConversionService' object has no attribute
+        'line_utils'
+
+    There is no shared line utility on this class, and there never was:
+    each composer constructs its own (CobolCleanupLineUtils,
+    FixedFormatLineService, CursorFlowLineFormatter). The restart
+    modules additionally need is_comment(), which NO production class
+    exposes - only the test stand-in did, so wiring any of them directly
+    would have failed on the first comment line of a real program.
+
+    RestartLineUtils wraps the shared FixedFormatLineService and supplies
+    the two methods the restart package calls, exactly as
+    converter/composers/cursor_close_guarantee/line_utils.py wraps
+    CursorFlowLineFormatter for its own package. One definition of a
+    logical line, one adapter, no duplicated geometry.
+
+    The adapter's `context` is None here on purpose: the restart context
+    is RUN-scoped (program kind, DCLGEN role, retention, totals) and is
+    set by the layout pipeline immediately before the pass runs. Storing
+    it on a factory-built object would let one program's context leak
+    into the next in a batch run.
 
     LRF (Logical Record Facility)
     -----------------------------
@@ -263,7 +299,7 @@ class ConversionComponentFactory:
             host_variable_resolver=resolvers["host_variable"],
             sql_error_generator=sql_error_generator,
         )
-        
+
         # Setup LRF host variable population support
         try:
             setup_lrf_host_variable_population(
@@ -275,7 +311,7 @@ class ConversionComponentFactory:
         except Exception:  # noqa: BLE001
             # Silently fail; LRF support is optional
             pass
-        
+
         timestamp_generator = TimestampGenerator(
             mapping_repository=repositories["mapping"],
             table_name_resolver=resolvers["table_name"],
@@ -337,7 +373,6 @@ class ConversionComponentFactory:
             ),
         }
 
-
     def _apply_commit_policy(
         self,
         *,
@@ -370,6 +405,7 @@ class ConversionComponentFactory:
                 emit=is_update,
             )
         )
+
     # ------------------------------------------------------------------
     # Composers
     # ------------------------------------------------------------------
@@ -386,6 +422,7 @@ class ConversionComponentFactory:
             self._cleanup_composers(repositories, resolvers, conversion_input)
         )
         composers.update(self._update_composers(repositories, resolvers))
+        composers.update(self._restart_composers(repositories, resolvers))
         composers.update(self._final_fix_composers())
         return composers
 
@@ -443,6 +480,26 @@ class ConversionComponentFactory:
                 dclgen_repository=repositories["dclgen"],
                 table_name_resolver=resolvers["table_name"],
                 host_variable_resolver=resolvers["host_variable"],
+            ),
+        }
+
+    def _restart_composers(self, repositories, resolvers) -> dict[str, object]:
+        """Restart control injection for an update program.
+
+        RestartLineUtils wraps the shared fixed-format service: no
+        production class exposes both logical() and is_comment(). See
+        CORRECTION 3 in the class docstring.
+
+        `context` stays None here. It is RUN-scoped and is set by the
+        layout pipeline immediately before the pass, so one program's
+        context cannot leak into the next in a batch run.
+        """
+        return {
+            "restart_injection": RestartStageAdapter(
+                RestartLineUtils(),
+                context=None,
+                mapping_repository=repositories["mapping"],
+                table_name_resolver=resolvers["table_name"],
             ),
         }
 

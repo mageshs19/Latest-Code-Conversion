@@ -15,6 +15,25 @@ from converter.validators.mapping_scope_filter import (
 )
 from converter.validators.mapping_validator import MappingValidator
 
+# Module path of the resolver that turns DCLGEN columns into a restart
+# DclgenRoleInfo. Imported lazily and REPORTED when absent, so a wrong
+# path names itself instead of crashing a conversion.
+RESTART_DCLGEN_MODULE = "converter.postprocess.update_restart_dclgen_resolver"
+RESTART_DCLGEN_CLASS = "UpdateRestartDclgenResolver"
+
+# When a metadata-driven restart context exists, the LEGACY restart
+# generator stands down. Two generators writing restart infrastructure
+# into one program injected the DZ01RSTV DCLGEN twice, which duplicates
+# every data name in the group - a hard compile error.
+#
+# Set False to run both and compare output. The log states which
+# generator owned each program either way.
+GATE_LEGACY_RESTART_GENERATOR = False
+LEGACY_RESTART_SKIPPED = (
+    "Restart: legacy paragraph generator skipped; the metadata-driven "
+    "restart pass owns this program."
+)
+
 
 class ConversionPipeline:
     """Runs the CONTENT phase of the IDMS->DB2 conversion.
@@ -24,10 +43,10 @@ class ConversionPipeline:
     dclgen_repository); validation messages are appended to the passed-in
     list.
 
-    The FINISHING phase - layout, paragraph extraction, counters, indent and
-    resequencing - lives in ConversionLayoutPipeline. That split keeps the
-    two concerns testable in isolation: this class decides WHAT the program
-    says, that class decides HOW it is laid out.
+    The FINISHING phase - layout, paragraph extraction, counters, restart
+    control, indent and resequencing - lives in ConversionLayoutPipeline.
+    That split keeps the two concerns testable in isolation: this class
+    decides WHAT the program says, that class decides HOW it is laid out.
 
     Pass-ordering contracts (content phase)
     ---------------------------------------
@@ -57,6 +76,28 @@ class ConversionPipeline:
 
     Steps 2 through 8 are owned by ConversionLayoutPipeline and documented
     there.
+
+    RESTART CONTEXT
+    ---------------
+    The restart pass is run by the FINISHING phase, but its context can
+    only be built HERE: finish() receives text and messages, never the
+    conversion input, the DCLGEN columns or the program kind. The context
+    is therefore built from the EXPANDED source - the checkpoint record
+    is IDMS syntax and must be seen before it is converted away - and
+    handed to ConversionLayoutPipeline through its constructor.
+
+    TWO RESTART GENERATORS, ONE OWNER
+    ---------------------------------
+    ``SelectParagraphGenerator`` is the LEGACY restart path. It hardcodes
+    the restart table, column and host names because it never reads a
+    DCLGEN, and it injects its own DZ01RSTV include and working storage.
+    The metadata-driven pass (restart_injection, step 5b of the finishing
+    phase) resolves every name from Sheet Mapping, DCLGEN and the program
+    source instead.
+
+    Running both duplicated the DZ01RSTV include - and therefore every
+    data name in DCLDZ01RSTV. The legacy generator now stands down
+    whenever a restart context exists, and says so.
 
     REGISTRY MIGRATION
     ------------------
@@ -95,6 +136,82 @@ class ConversionPipeline:
         doc = run_stage(name, Document(cobol=converted_cobol))
         validation_messages.extend(doc.messages)
         return doc.cobol
+
+    # ------------------------------------------------------------------
+    # Restart context
+    # ------------------------------------------------------------------
+    def _restart_dclgen_resolver(self, validation_messages: list[str]):
+        """The resolver that turns DCLGEN columns into a restart role.
+
+        Imported lazily and by NAME. A wrong path is reported with the
+        path it tried and the conversion continues without restart,
+        instead of aborting every program in the batch.
+        """
+        try:
+            module = __import__(
+                RESTART_DCLGEN_MODULE, fromlist=[RESTART_DCLGEN_CLASS]
+            )
+            return getattr(module, RESTART_DCLGEN_CLASS)()
+        except Exception as exc:  # noqa: BLE001
+            validation_messages.append(
+                "Restart context: the restart DCLGEN resolver was not "
+                f"available at {RESTART_DCLGEN_MODULE}."
+                f"{RESTART_DCLGEN_CLASS} ({type(exc).__name__}: {exc}); "
+                "no restart control will be injected."
+            )
+            return None
+
+    def _restart_context(
+        self,
+        *,
+        conversion_input: ConversionInput,
+        source_text: str,
+        validation_messages: list[str],
+    ):
+        """Build the run-scoped restart context, or None with a reason."""
+        from converter.resolvers.restart_context_builder import (
+            RestartContextBuilder,
+        )
+
+        builder = RestartContextBuilder(
+            dclgen_resolver=self._restart_dclgen_resolver(validation_messages),
+        )
+        context, messages = builder.build(
+            source_text=source_text,
+            dclgen_columns=conversion_input.dclgen_columns,
+            is_update=self._program_is_update(conversion_input),
+        )
+        validation_messages.extend(messages)
+        return context
+
+    def _apply_legacy_restart_generator(
+        self,
+        *,
+        converted_cobol: str,
+        conversion_input: ConversionInput,
+        operations: list,
+        generators: dict,
+        restart_context,
+        validation_messages: list[str],
+    ) -> str:
+        """The LEGACY restart path, run only when nothing better can.
+
+        It hardcodes the restart table, its columns and its host names,
+        and injects its own DZ01RSTV include. When the metadata-driven
+        pass has a context, running this one as well injects the DCLGEN
+        twice and duplicates every data name in the group.
+        """
+        if GATE_LEGACY_RESTART_GENERATOR and restart_context is not None:
+            validation_messages.append(LEGACY_RESTART_SKIPPED)
+            return converted_cobol
+
+        converted_cobol, select_messages = generators["select_paragraph"].apply(
+            cobol_text=converted_cobol,
+            program_id=conversion_input.target_program_id,
+            operations=operations,
+        )
+        validation_messages.extend(select_messages)
+        return converted_cobol
 
     # ------------------------------------------------------------------
     # Entry point
@@ -166,6 +283,19 @@ class ConversionPipeline:
         )
 
         # ------------------------------------------------------------------
+        # Restart context
+        #
+        # Built from the EXPANDED source, BEFORE statement transformation:
+        # the checkpoint record is IDMS syntax (STORE / FIND CURRENT /
+        # MODIFY) and the converter is about to remove it.
+        # ------------------------------------------------------------------
+        restart_context = self._restart_context(
+            conversion_input=conversion_input,
+            source_text=source_text,
+            validation_messages=validation_messages,
+        )
+
+        # ------------------------------------------------------------------
         # IDMS -> DB2 statement transformation
         # ------------------------------------------------------------------
         converted_cobol, transform_messages, operations = transformers[
@@ -228,14 +358,16 @@ class ConversionPipeline:
         )
 
         # ------------------------------------------------------------------
-        # Restart table SQL paragraphs (UPDATE programs: SELECT, UPDATE, INSERT)
+        # LEGACY restart paragraphs - gated. See _apply_legacy_restart_generator.
         # ------------------------------------------------------------------
-        converted_cobol, select_messages = generators["select_paragraph"].apply(
-            cobol_text=converted_cobol,
-            program_id=conversion_input.target_program_id,
+        converted_cobol = self._apply_legacy_restart_generator(
+            converted_cobol=converted_cobol,
+            conversion_input=conversion_input,
             operations=operations,
+            generators=generators,
+            restart_context=restart_context,
+            validation_messages=validation_messages,
         )
-        validation_messages.extend(select_messages)
 
         # ------------------------------------------------------------------
         # Safe cleanup passes
@@ -270,6 +402,7 @@ class ConversionPipeline:
             composers=composers,
             resolvers=resolvers,
             component_messages=self._component_messages,
+            restart_context=restart_context,
         ).finish(
             converted_cobol=converted_cobol,
             original_idms_text=source_text,
@@ -342,13 +475,14 @@ class ConversionPipeline:
         validation_messages.extend(cursor_messages)
 
         # Apply LRF host variable population
-        if hasattr(generators["cursor_paragraph"], "augment_lrf_procedure_division"):
+        if hasattr(
+            generators["cursor_paragraph"], "augment_lrf_procedure_division"
+        ):
             converted_cobol, lrf_messages = generators[
                 "cursor_paragraph"
             ].augment_lrf_procedure_division(converted_cobol)
             validation_messages.extend(lrf_messages)
 
-        # ------------------------------------------------------------------
         # ------------------------------------------------------------------
         # Flow-Bucket Orchestration - REMOVED 10-10-2026
         #

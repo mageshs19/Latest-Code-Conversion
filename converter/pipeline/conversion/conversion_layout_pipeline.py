@@ -4,12 +4,23 @@
 """Finishing phase of the IDMS->DB2 conversion.
 
 Takes converted COBOL whose CONTENT is final and decides how it is laid
-out: sequencing, paragraph extraction, counters, comment blocks,
-structural safety, Area-B indentation and the final resequence.
+out: sequencing, paragraph extraction, counters, restart control,
+comment blocks, structural safety, Area-B indentation and the final
+resequence.
 
 This class owns the ORDERING CONTRACT only. Each pass lives in
 ConversionLayoutSteps, so a pass can be tested in isolation and the order
 can be read in one screen.
+
+CORRECTION - inject_restart_control was called TWICE
+
+    The pass ran once after declare_counters and again after
+    normalize_indentation. The composer is idempotent so the text
+    survived, but the second call violated the ordering contract: the
+    generated paragraphs must be indented, separated and resequenced
+    WITH everything else, not after the indent pass has already run.
+    It also emitted every restart diagnostic twice, which makes a log
+    unreadable and a duplicated defect look like two defects.
 """
 
 from __future__ import annotations
@@ -57,6 +68,22 @@ class ConversionLayoutPipeline:
        step 3, which is what emits the increment, and BEFORE step 7 so the
        generated DISPLAY lines are indented with everything else.
 
+    5b. ``RestartStageAdapter`` injects the restart family into an UPDATE
+       program that keeps a checkpoint: legacy cleanup, mainline, reader,
+       business paragraph and the eight restart paragraphs.
+
+       MUST run AFTER step 5 - the mainline splices the totals that pass
+       produced. MUST run BEFORE step 7 - the generated paragraphs carry
+       relative indent only and have to be aligned, separated and
+       resequenced with everything else.
+
+       EXACTLY ONCE. A second call re-runs the whole injection on
+       already-laid-out text and duplicates every diagnostic.
+
+       A retrieval program, a program with no checkpoint record, or one
+       whose restart role is incomplete is returned unchanged WITH a
+       reason. Half a restart family is worse than none.
+
     6. ``UnmappedRecordBlockComposer`` comments record-level blocks that
        have no usable DB2 column mapping. Runs after every content pass so
        it never comments code another pass still needs to read.
@@ -70,12 +97,13 @@ class ConversionLayoutPipeline:
        else.
 
     7. ``ProcedureIndentNormalizer`` re-anchors Area B, covering the
-       paragraph created in step 3, the totals added in step 5 and the
-       comments added in step 6b.
+       paragraph created in step 3, the totals added in step 5, the
+       restart paragraphs added in step 5b and the comments added in
+       step 6b.
 
     8. ``FinalSequenceResequencerService`` rewrites columns 1-6 and 73-80,
-       correcting the placeholder sequence numbers cloned in steps 3, 5
-       and 6b.
+       correcting the placeholder sequence numbers cloned in steps 3, 5,
+       5b and 6b.
     """
 
     def __init__(
@@ -85,7 +113,12 @@ class ConversionLayoutPipeline:
         resolvers: dict,
         component_messages: Callable[[object], list[str]],
         steps: ConversionLayoutSteps | None = None,
+        restart_context=None,
     ) -> None:
+        # Run-scoped. Built by ConversionPipeline, which can see the
+        # source, the DCLGEN columns and the program kind; finish() can
+        # see none of those.
+        self.restart_context = restart_context
         self.steps = steps or ConversionLayoutSteps(
             composers=composers,
             resolvers=resolvers,
@@ -124,6 +157,14 @@ class ConversionLayoutPipeline:
             converted_cobol=converted_cobol,
             validation_messages=validation_messages,
         )
+
+        # 5b. Restart control. ONCE, here - see the class docstring.
+        converted_cobol = steps.inject_restart_control(
+            converted_cobol=converted_cobol,
+            validation_messages=validation_messages,
+            restart_context=self.restart_context,
+        )
+
         converted_cobol = steps.comment_unmapped_blocks(
             converted_cobol=converted_cobol,
             original_idms_text=original_idms_text,
@@ -138,36 +179,37 @@ class ConversionLayoutPipeline:
             converted_cobol=converted_cobol,
             validation_messages=validation_messages,
         )
-        converted_cobol = self.steps.align_moves(
+        converted_cobol = steps.align_moves(
             converted_cobol=converted_cobol,
             validation_messages=validation_messages,
         )
-        converted_cobol = self.steps.separate_paragraphs(
+        converted_cobol = steps.separate_paragraphs(
             converted_cobol=converted_cobol,
             validation_messages=validation_messages,
         )
         converted_cobol = steps.resequence(converted_cobol)
-        
+
         # Final cleanup: remove unnecessary comments from fixed-format output
         converted_cobol = steps.cleanup_final_comments(
             converted_cobol=converted_cobol,
             validation_messages=validation_messages,
         )
-        
-        # Apply production COBOL standards (centralized initialization, organized WORKING-STORAGE)
+
+        # Production COBOL standards (centralized initialization,
+        # organized WORKING-STORAGE).
         try:
             enhancement_pipeline = ConverterEnhancementPipeline(
                 converted_cobol,
-                program_id=None
+                program_id=None,
             )
-            production_ready_program = enhancement_pipeline.execute()
-            converted_cobol = production_ready_program
+            converted_cobol = enhancement_pipeline.execute()
         except Exception as exc:  # noqa: BLE001
             validation_messages.append(
                 f"Enhancement pipeline FAILED and was skipped: "
                 f"{type(exc).__name__}: {exc}"
             )
+
         return converted_cobol
-    
+
 
 __all__ = ["ConversionLayoutPipeline"]

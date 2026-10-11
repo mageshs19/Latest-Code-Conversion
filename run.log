@@ -1,0 +1,1617 @@
+[None] Cursor scoped initialization made no change
+
+Retrieval Batch Summary
+-----------------------
+Program Folder   : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program
+Program Count    : 6
+Output Folder    : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Output
+
+Retrieval DB2 COBOL generation completed.
+Input program: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM1BD526.cbl
+Output file created: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Output\VMDZ1526_11-10-2026_225643.cbl
+
+Input Summary
+-------------
+Project Root       : C:\VSCode\Latest\Latest-Code_Conversion
+SRC Directory      : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion
+Sheet Mapping Rows : 840
+DCLGEN Columns     : 193
+Copybook Fields    : 1349
+LRF Subschema Records : 3
+COBOL Text Length  : 20992
+Target PROGRAM-ID  : VMDZ1526
+
+Selected Input Files
+--------------------
+Sheet Mapping       : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+IDMS COBOL Source   : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM1BD526.cbl
+DCLGEN Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+Copybook Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+LRF Subschema Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+
+Validation Messages
+-------------------
+- LRF expansion: FIRST VMBTL07-R01 WHERE ALL-VMBEVEF-BY-VMBEFF expanded to VMBEVEF WITHIN VMBEFF-VMBEVEF.
+- LRF expansion: rewrote 3 LR-STATUS condition(s) to the IDMS end-of-set token.
+- LRF expansion: expanded 1 statement(s), skipped 0.
+- Mapping scope: DZ01FFTB carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping validation: DB2 column mapping is missing. Table=DZ01RSTV
+- Mapping scope: 1 of 2 mapping gap(s) relate to tables this program does not reference.
+- Restart context: checkpoint record FFRECAB found in the source.
+- Restart context: built for DZ01RSTV with a retention of 7 day(s).
+- Compiler option: replaced 'CBL NOSQL' with CBL ARITH(EXTEND).
+- Program flow analyzer: Sheet Mapping rows received: 840
+- Program flow analyzer: DCLGEN columns received: 193
+- Program flow analyzer: paragraphs detected: 18
+- Program flow analyzer: cursor loops detected: 1
+- Program flow analyzer: output writes detected: 0
+- Program flow analyzer: IDMS update verbs detected: 4
+- Program flow analyzer: DB2 date usages detected: 5
+- Program flow analyzer: no table resolver supplied; cursor names are derived from the record name and may not match the generated cursor.
+- Program flow analyzer: no DB2 table resolved for VMBEVEF; cursor name and paragraph names were derived from the RECORD and will not match the generated cursor.
+- Program flow analyzer: loop sample: record=VMBEVEF, set=VMBEFF_VMBEVEF, type=cursor, cursor=VMBEVEF-C1
+- Qualified field rewrite: CT-RK-TPROD OF VMBEFF -> CT-RKTPROD-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NS-DB-STOCK OF VMBEFF -> NS-DBSTK-479BEFF OF DCLDZBEFFTV
+- Field reference: rewritten statement exceeded column 72 and was wrapped onto 1 line(s).
+- Qualified field rewrite: CO-IDPRKB-STOCK OF VMBEFF -> CO-IDPRKSK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NS-IRMO-STOCK OF VMBEFF -> NS-IRMOSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: DA-UBSECIS-STOCK OF VMBEFF -> DA-UBSECIS-479BEFF OF DCLDZBEFFTV
+- Field reference: rewritten statement exceeded column 72 and was wrapped onto 2 line(s).
+- Qualified field rewrite: NR-ID-ISSUE OF VMBEFF -> NR-IDISSUE-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NR-CD-ISSUE OF VMBEFF -> NR-CDISSUE-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: DA-CR-EVENT-PROD OF VMBEVEF -> DA-CREVTPD-479EVEF OF DCLDZEVEFTV
+- Qualified field rewrite: CT-RK-TEVPR OF VMBEVEF -> CT-RKTEVPR-479EVEF OF DCLDZEVEFTV
+- Qualified field rewrite: CT-RK-TGDSV OF VMBEVEF -> CT-RKTGDSV-479EVEF OF DCLDZEVEFTV
+- Bare field rewrite: NR-ID-GOOD -> NR-IDGOOD-479EVEF OF DCLDZEVEFTV
+- Bare field rewrite: NS-DB-STOCK -> NS-DBSTK-479BEFF OF DCLDZBEFFTV
+- Field usage analyzer: records with usage detected: 3
+- Field usage analyzer: record=FFRECAB, condition=0, output=0, move_source=0, move_target=2, dclgen=0
+- Field usage analyzer: record=VMBEFF, condition=0, output=0, move_source=0, move_target=1, dclgen=5
+- Field usage analyzer: record=VMBEVEF, condition=0, output=0, move_source=0, move_target=1, dclgen=4
+- DB2 infrastructure: DCLGEN includes selected: DZEVEFTV
+- DB2 infrastructure: generated infrastructure block inserted.
+- Cursor ORDER BY cleanup: pass disabled; ORDER BY is retained on every cursor (manual reference VMDZ7200 orders its root cursor).
+- DB2 cursor paragraphs: generated 1 cursor paragraph set(s).
+- [LRF-POPULATOR] no_lrf_markers
+- Cursor flow: found 1 inline loop(s) and 0 span loop(s).
+- Cursor flow: no cursor loop was converted, so generated fetch calls were retained.
+- Cursor close guarantee: candidate business paragraph 800-TEST-FFRECAB for cursor DZEVEFC1 references neither its DCLGEN group nor a nested cursor; binding refused.
+- Cursor close guarantee: could not identify the business paragraph for cursor DZEVEFC1; WHEN ZERO left unchanged.
+- Cursor close guarantee: cursor DZEVEFC1 had no driving loop; emitted PERFORM 720-FETCH-DZEVEFC1 UNTIL DZEVEFC1-EOC and PERFORM 730-CLOSE-DZEVEFC1.
+- DB2 date compare: no DB2 DATE host is compared in this program.
+- Structural safety: WS-DZEVEFC1-FLAG declares no subordinate entry and cannot take a generated field.
+- Structural safety: created WS-DB2-GENERATED for generated working-storage fields.
+- Timestamp: declared CS-PROGRAM as a level 10 inside WS-DB2-GENERATED.
+- Timestamp: added the timestamp working-storage block.
+- Timestamp: generated the 600-GET-TIMESTAMP paragraph.
+- Timestamp: added PERFORM 600-GET-TIMESTAMP at the start of the mainline.
+- Timestamp generator: timestamp working storage and paragraph ensured.
+- Added WS-SWITCHES, WS-RESTART-REC, and counters to WORKING-STORAGE
+- Added DZ01RSTV restart table include
+- Added 700-RESTART-CONTROL
+- Added 700-SELECT-DZ01RSTV
+- Added 700-UPDATE-DZ01RSTV
+- Added 700-INSERT-DZ01RSTV
+- Added 810-JOB-IS-RESTART handler paragraph
+- Added 820-WRITE-RESTART-REC handler paragraph
+- Added 800-PROCESS-COMMIT handler paragraph
+- Cleanup: removed redundant CONTINUE after removed IDMS statement.
+- Cleanup: removed residual IDMS conversion comment noise.
+- Cleanup: added missing DCLGEN include DZ01RSTV.
+- Cleanup: added missing DCLGEN include DZBEFFTV.
+- DB2 date output: no DB2 DATE host is moved to an output date field (580 line(s) examined). Nothing to convert.
+- Cleanup: closed unterminated sentence in paragraph 210-STORE-EFF.
+- Removed 1 generated DB2 marker comment(s).
+- Retrieval cleanup: program is an update program; COMMIT kept.
+- DB2 date output: no DB2 DATE host is moved to an output date field (585 line(s) examined). Nothing to convert.
+- Record materialisation: ZERO has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: DATE8-LS is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: SPACES has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: NR-CIO-FORM-AS-R is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: DA-CREA-FORM-AS-R is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: CT-OPD-FORM-AS-R is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: CT-OPG-FORM-AS-R is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: 7 whole-record move(s) examined, 0 materialised, 7 left for manual review.
+- Record materialisation: 7 record(s) refused - ZERO (no mapping); DATE8-LS (not a record); SPACES (no mapping); NR-CIO-FORM-AS-R (not a record); DA-CREA-FORM-AS-R (not a record); CT-OPD-FORM-AS-R (not a record). The whole-record MOVE was left in place and will be commented by the structural safety pass.
+- Structural safety: generated fields share work group WS-DB2-GENERATED.
+- Counters: declared WS-NB-EVEF-COUNT in WS-DB2-GENERATED.
+- Counters: added 1 end-of-run total display line(s).
+- Restart role: built from Sheet Mapping table DZ01RSTV, 16 DCLGEN entry(ies) and a site retention of 7 day(s).
+- Restart resolver: record_name unresolved; refused to invent a value.
+- Restart resolver: read_paragraph unresolved; refused to invent a value.
+- Restart resolver: abend_module = USERABEN
+- Restart resolver: commit_counter = WS-TELLER
+- Restart resolver: eof_condition = EOF
+- Restart resolver: error_paragraph = SQLERROR
+- Restart resolver: file_name = INFIL
+- Restart resolver: input_counter = WS-NB-INPUT-UPD-I
+- Restart resolver: input_save_area = WS-INPUT-KASBONS
+- Restart resolver: not_eof_condition = NOT-EOF
+- Restart resolver: process_paragraph = 200-VERWERK-INFIL
+- Restart resolver: program_constant = CS-PROGRAM
+- Restart resolver: read_count_field = NB-READ
+- Restart resolver: read_count_size = 15
+- Restart resolver: restart_key_field = KY-RESTART
+- Restart resolver: restart_key_size = 1200
+- Restart resolver: restart_record = WS-RESTART-REC
+- Restart resolver: run_date_field = DA-DD-MM-CCYY
+- Restart injection: record_name unresolved; no restart family emitted.
+- Restart injection: read_paragraph unresolved; no restart family emitted.
+- Unmapped record block: commented all lines for FFRECAB (record-level Option B).
+- Structural safety: commented whole-record reference to VMBEFF; the IDMS layout no longer exists.
+- Procedure indent: normalized 102 statement line(s) to Area B.
+- Procedure indent: preserved 65 line(s) carrying their own clause or continuation alignment.
+- Move alignment: run left unaligned; the aligned form does not fit columns 8-72.
+- Move alignment: aligned TO across 4 run(s), 21 statement(s).
+- Move alignment: joined 8 MOVE statement(s) that had been split across two lines.
+- Statement layout: inserted 3 blank line(s) before a paragraph header.
+- Removed comment block at lines 373-376
+- Removed comment block at lines 402-404
+- Removed comment block at lines 445-447
+- Removed comment block at lines 486-489
+
+Diagnostics
+-----------
+- START LOAD INPUTS
+- Sheet Mapping folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet
+- Sheet Mapping selected: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+- Sheet Mapping rows: 840
+- Sheet Mapping file name: field mapping for idms to db2_final v 1.0_manual.csv
+- Sheet Mapping file size bytes: 80424
+- CSV/text decoded length: 80421
+- CSV/text sample: Cobol Recrd IDMS,Cobol Zone,IDMS Key,IDMS PIC Clause,Length of Field Bytes,Field end position,DB2 key,New DB2 Record ,New DB2_Field name,New DB2 DataType,Hopex Expression Type,Remarks,Relation,Reference Field Name (Copybook),Reference Field PIC Clause,Cross Application DB2 table,Cross Application DB2 Field Name,Cross Appln DB2 DataType,,Basetype\r\nVMBFC,   02  KY-VMBFC.,,,9,9,,,,,,,,,,,,,,\r\nVMBFC, 03 CT-RK-TGDSV,CALC,PIC X(4 ),4,13,Primary Key,DZMBFCTB,CT_RKTGDSC_479MBFC,CHAR(4),Identifiier(*) NR
+- CSV detected headers: ['Cobol Recrd IDMS', 'Cobol Zone', 'IDMS Key', 'IDMS PIC Clause', 'Length of Field Bytes', 'Field end position', 'DB2 key', 'New DB2 Record', 'New DB2_Field name', 'New DB2 DataType', 'Hopex Expression Type', 'Remarks', 'Relation', 'Reference Field Name (Copybook)', 'Reference Field PIC Clause', 'Cross Application DB2 table', 'Cross Application DB2 Field Name', 'Cross Appln DB2 DataType', '', 'Basetype']
+- CSV parsed useful rows: 840
+- Sheet Mapping populated Cobol Record IDMS rows: 835
+- Sheet Mapping populated source field rows: 630
+- Sheet Mapping populated DB2 table rows: 617
+- Sheet Mapping populated DB2 column rows: 560
+- Sheet Mapping useful source-to-target rows: 370
+- DCLGEN file count: 7
+- DCLGEN 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+- DCLGEN 1 text length: 1750
+- DCLGEN 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+- DCLGEN 2 text length: 3874
+- DCLGEN 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+- DCLGEN 3 text length: 7342
+- DCLGEN 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+- DCLGEN 4 text length: 12328
+- DCLGEN 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+- DCLGEN 5 text length: 3033
+- DCLGEN 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+- DCLGEN 6 text length: 1683
+- DCLGEN 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+- DCLGEN 7 text length: 1769
+- DCLGEN total columns: 193
+- DCLGEN input file count: 7
+- DCLGEN file 1 input length: 1750
+- DCLGEN file 1: resolved table name: DZ01RSTV
+- DCLGEN file 1: DECLARE section 1 parsed SQL columns: 6
+- DCLGEN file 1: COBOL host field scan found 5 field(s).
+- DCLGEN file 1: SQL columns parsed: 6
+- DCLGEN file 1: COBOL host fields parsed: 5
+- DCLGEN file 1: merged DCLGEN columns: 6
+- DCLGEN file 1 parsed columns: 6
+- DCLGEN file 2 input length: 3874
+- DCLGEN file 2: resolved table name: DZBEFFTV
+- DCLGEN file 2: DECLARE section 1 parsed SQL columns: 22
+- DCLGEN file 2: COBOL host field scan found 22 field(s).
+- DCLGEN file 2: SQL columns parsed: 22
+- DCLGEN file 2: COBOL host fields parsed: 22
+- DCLGEN file 2: merged DCLGEN columns: 22
+- DCLGEN file 2 parsed columns: 22
+- DCLGEN file 3 input length: 7342
+- DCLGEN file 3: resolved table name: DZBFARTV
+- DCLGEN file 3: DECLARE section 1 parsed SQL columns: 51
+- DCLGEN file 3: COBOL host field scan found 51 field(s).
+- DCLGEN file 3: SQL columns parsed: 51
+- DCLGEN file 3: COBOL host fields parsed: 51
+- DCLGEN file 3: merged DCLGEN columns: 51
+- DCLGEN file 3 parsed columns: 51
+- DCLGEN file 4 input length: 12328
+- DCLGEN file 4: resolved table name: DZBFASTV
+- DCLGEN file 4: DECLARE section 1 parsed SQL columns: 89
+- DCLGEN file 4: COBOL host field scan found 89 field(s).
+- DCLGEN file 4: SQL columns parsed: 89
+- DCLGEN file 4: COBOL host fields parsed: 89
+- DCLGEN file 4: merged DCLGEN columns: 89
+- DCLGEN file 4 parsed columns: 89
+- DCLGEN file 5 input length: 3033
+- DCLGEN file 5: resolved table name: DZEVEFTV
+- DCLGEN file 5: DECLARE section 1 parsed SQL columns: 16
+- DCLGEN file 5: COBOL host field scan found 16 field(s).
+- DCLGEN file 5: SQL columns parsed: 16
+- DCLGEN file 5: COBOL host fields parsed: 16
+- DCLGEN file 5: merged DCLGEN columns: 16
+- DCLGEN file 5 parsed columns: 16
+- DCLGEN file 6 input length: 1683
+- DCLGEN file 6: resolved table name: DZSIASTV
+- DCLGEN file 6: DECLARE section 1 parsed SQL columns: 4
+- DCLGEN file 6: COBOL host field scan found 4 field(s).
+- DCLGEN file 6: SQL columns parsed: 4
+- DCLGEN file 6: COBOL host fields parsed: 4
+- DCLGEN file 6: merged DCLGEN columns: 4
+- DCLGEN file 6 parsed columns: 4
+- DCLGEN file 7 input length: 1769
+- DCLGEN file 7: resolved table name: DZWCEFTV
+- DCLGEN file 7: DECLARE section 1 parsed SQL columns: 5
+- DCLGEN file 7: COBOL host field scan found 5 field(s).
+- DCLGEN file 7: SQL columns parsed: 5
+- DCLGEN file 7: COBOL host fields parsed: 5
+- DCLGEN file 7: merged DCLGEN columns: 5
+- DCLGEN file 7 parsed columns: 5
+- DCLGEN total parsed columns: 193
+- Copybook file count: 7
+- Copybook 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+- Copybook 1 text length: 3078
+- Copybook 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+- Copybook 2 text length: 5330
+- Copybook 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+- Copybook 3 text length: 32308
+- Copybook 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+- Copybook 4 text length: 26404
+- Copybook 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+- Copybook 5 text length: 115948
+- Copybook 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+- Copybook 6 text length: 133824
+- Copybook 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+- Copybook 7 text length: 1420
+- Copybook total fields: 1349
+- Copybook files: logical copybook lines parsed: 2049
+- Copybook files: copybook fields parsed: 1349 (data fields: 1347, 88-condition names: 2, FILLER skipped: 431)
+- IDMS COBOL source file: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM1BD526.cbl
+- IDMS COBOL source text length: 20992
+- Derived target PROGRAM-ID: VMDZ1526
+- LRF folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\LRF
+- LRF file count: 3
+- LRF 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+- LRF 1 text length: 3746
+- LRF 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+- LRF 2 text length: 30098
+- LRF 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+- LRF 3 text length: 6516
+- LRF logical records parsed: 3
+- LRF logical records parsed: 3
+- LRF paths parsed for VMBTL03-R01: 6
+- LRF paths parsed for VMBTL06-R01: 61
+- LRF paths parsed for VMBTL07-R01: 11
+- LRF logical records in scope for this program: 3 (VMBTL03-R01, VMBTL06-R01, VMBTL07-R01)
+- Renamed source copybook references to derived DB2 names: VMBD205I -> VMDZ205I.
+
+Retrieval DB2 COBOL generation completed.
+Input program: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM1BD567.cbl
+Output file created: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Output\VMDZ1567_11-10-2026_225644.cbl
+
+Input Summary
+-------------
+Project Root       : C:\VSCode\Latest\Latest-Code_Conversion
+SRC Directory      : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion
+Sheet Mapping Rows : 840
+DCLGEN Columns     : 193
+Copybook Fields    : 1349
+LRF Subschema Records : 3
+COBOL Text Length  : 14760
+Target PROGRAM-ID  : VMDZ1567
+
+Selected Input Files
+--------------------
+Sheet Mapping       : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+IDMS COBOL Source   : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM1BD567.cbl
+DCLGEN Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+Copybook Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+LRF Subschema Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+
+Validation Messages
+-------------------
+- Mapping scope: DZ01FFTB carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping validation: DB2 column mapping is missing. Table=DZ01RSTV
+- Mapping scope: 1 of 2 mapping gap(s) relate to tables this program does not reference.
+- Restart context: checkpoint record FFRECAB found in the source.
+- Restart context: built for DZ01RSTV with a retention of 7 day(s).
+- Compiler option: replaced 'CBL NOSQL' with CBL ARITH(EXTEND).
+- Program flow analyzer: Sheet Mapping rows received: 840
+- Program flow analyzer: DCLGEN columns received: 193
+- Program flow analyzer: paragraphs detected: 7
+- Program flow analyzer: cursor loops detected: 0
+- Program flow analyzer: output writes detected: 0
+- Program flow analyzer: IDMS update verbs detected: 4
+- Program flow analyzer: DB2 date usages detected: 3
+- Program flow analyzer: no table resolver supplied; cursor names are derived from the record name and may not match the generated cursor.
+- Qualified field rewrite: CT-RK-TGOOD OF VMBFAR -> CT-TGDSERV-479BFAR OF DCLDZBFARTV
+- Field reference: rewritten statement exceeded column 72 and was wrapped onto 1 line(s).
+- Qualified field rewrite: NR-CIO-FORM-AS OF VMBFAR -> NR-CIOFMAS-479BFAR OF DCLDZBFARTV
+- Qualified field rewrite: DA-CR-FORM-AS OF VMBFAR -> DA-CRFMAS-479BFAR OF DCLDZBFARTV
+- Qualified field rewrite: NR-ID-FORM-AS OF VMBFAR -> NR-IDFMAS-479BFAR OF DCLDZBFARTV
+- Field reference: rewritten statement exceeded column 72 and was wrapped onto 2 line(s).
+- Qualified field rewrite: CT-OPG-FORM-AS OF VMBFAR -> CT-OPGFMAS-479BFAR OF DCLDZBFARTV
+- Qualified field rewrite: CT-OPD-FORM-AS OF VMBFAR -> CT-OPDFMAS-479BFAR OF DCLDZBFARTV
+- Field usage analyzer: records with usage detected: 2
+- Field usage analyzer: record=FFRECAB, condition=0, output=0, move_source=0, move_target=6, dclgen=0
+- Field usage analyzer: record=VMBFAR, condition=0, output=0, move_source=0, move_target=0, dclgen=8
+- DB2 infrastructure: no operation-specific DCLGEN includes resolved.
+- DB2 infrastructure: generated infrastructure block inserted.
+- Cursor ORDER BY cleanup: pass disabled; ORDER BY is retained on every cursor (manual reference VMDZ7200 orders its root cursor).
+- DB2 cursor paragraphs: no cursor operations found.
+- [LRF-POPULATOR] no_lrf_markers
+- Cursor flow: found 1 inline loop(s) and 0 span loop(s).
+- Cursor flow: no cursor loop was converted, so generated fetch calls were retained.
+- Cursor close guarantee: no_cursor_paragraphs {}
+- DB2 date compare: no DB2 DATE host is compared in this program.
+- Structural safety: created WS-DB2-GENERATED for generated working-storage fields.
+- Timestamp: declared CS-PROGRAM as a level 10 inside WS-DB2-GENERATED.
+- Timestamp: replaced 1 hardcoded PROGRAM-NAME move(s) with CS-PROGRAM.
+- Timestamp: added the timestamp working-storage block.
+- Timestamp: generated the 600-GET-TIMESTAMP paragraph.
+- Timestamp: added PERFORM 600-GET-TIMESTAMP at the start of the mainline.
+- Timestamp generator: timestamp working storage and paragraph ensured.
+- Added WS-SWITCHES, WS-RESTART-REC, and counters to WORKING-STORAGE
+- Added DZ01RSTV restart table include
+- Added 700-RESTART-CONTROL
+- Added 700-SELECT-DZ01RSTV
+- Added 700-UPDATE-DZ01RSTV
+- Added 700-INSERT-DZ01RSTV
+- Added 810-JOB-IS-RESTART handler paragraph
+- Added 820-WRITE-RESTART-REC handler paragraph
+- Added 800-PROCESS-COMMIT handler paragraph
+- Added audit field MOVEs
+- Cleanup: removed redundant CONTINUE after removed IDMS statement.
+- Cleanup: removed residual IDMS conversion comment noise.
+- Cleanup: added missing DCLGEN include DZ01RSTV.
+- Cleanup: added missing DCLGEN include DZBFARTV.
+- DB2 date output: no DB2 DATE host is moved to an output date field (449 line(s) examined). Nothing to convert.
+- Removed comment block at lines 187-191
+- Mapping gap: source field 'VMBFAR' in record VMBFAR has no deterministic DB2 column. Manual mapping required.
+- Update SQL cleanup: resolved bare MOVE target through Sheet Mapping and DCLGEN.
+- Mapping gap: source field 'DA-CCYYMMDD' in record VMBFAR has no deterministic DB2 column. Manual mapping required.
+- Mapping gap: source field 'DA-DD-MM-CCYY' in record VMBFAR has no deterministic DB2 column. Manual mapping required.
+- Update SQL cleanup: rewrote MODIFY UPDATE to changed field plus update audit fields.
+- Retrieval cleanup: program is an update program; COMMIT kept.
+- DB2 date output: no DB2 DATE host is moved to an output date field (456 line(s) examined). Nothing to convert.
+- Record materialisation: DATE8-LS is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: CS-PROGRAM has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: ZERO has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: SPACES has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: ZEROES has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: DATE-YMD8 has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: 6 whole-record move(s) examined, 0 materialised, 6 left for manual review.
+- Record materialisation: 6 record(s) refused - DATE8-LS (not a record); CS-PROGRAM (no mapping); ZERO (no mapping); SPACES (no mapping); ZEROES (no mapping); DATE-YMD8 (no mapping). The whole-record MOVE was left in place and will be commented by the structural safety pass.
+- Counters: no counter increment found in the PROCEDURE DIVISION (457 line(s) examined); nothing declared and no end-of-run totals emitted.
+- Restart role: built from Sheet Mapping table DZ01RSTV, 16 DCLGEN entry(ies) and a site retention of 7 day(s).
+- Restart resolver: abend_module = USERABEN
+- Restart resolver: commit_counter = WS-TELLER
+- Restart resolver: eof_condition = EOF
+- Restart resolver: error_paragraph = SQLERROR
+- Restart resolver: file_name = OPERATIES
+- Restart resolver: input_counter = WS-NB-INPUT-UPD-I
+- Restart resolver: input_save_area = WS-INPUT-KASBONS
+- Restart resolver: not_eof_condition = NOT-EOF
+- Restart resolver: process_paragraph = VERWERKING
+- Restart resolver: program_constant = CS-PROGRAM
+- Restart resolver: read_count_field = NB-READ
+- Restart resolver: read_count_size = 15
+- Restart resolver: read_paragraph = READ-FLAT-FILE
+- Restart resolver: record_name = VMBD205I
+- Restart resolver: restart_key_field = KY-RESTART
+- Restart resolver: restart_key_size = 1200
+- Restart resolver: restart_record = WS-RESTART-REC
+- Restart resolver: run_date_field = DA-DD-MM-CCYY
+- Restart: checkpoint payload measured at 1215 byte(s) from the restart record layout.
+- Legacy cleanup: removed paragraph 700-RESTART-CONTROL (20 line(s)) so it can be regenerated.
+- Legacy cleanup: removed paragraph 700-SELECT-DZ01RSTV (33 line(s)) so it can be regenerated.
+- Legacy cleanup: removed paragraph 700-UPDATE-DZ01RSTV (21 line(s)) so it can be regenerated.
+- Legacy cleanup: removed paragraph 700-INSERT-DZ01RSTV (26 line(s)) so it can be regenerated.
+- Legacy cleanup: paragraph 710-JOB-IS-RESTART not present.
+- Legacy cleanup: paragraph 720-WRITE-RESTART-REC not present.
+- Legacy cleanup: removed paragraph 800-PROCESS-COMMIT (27 line(s)) so it can be regenerated.
+- Legacy cleanup: paragraph 810000-CALL-USERABEN not present.
+- Legacy cleanup: legacy declaration CTR-REC is still referenced; left in place.
+- Legacy cleanup: removed legacy abend marker STOP01.
+- Restart: removed 129 legacy restart line(s).
+- Restart storage: WS-SWITCHES is already declared; left unchanged.
+- Restart storage: HELP-VARIABLE is already declared; left unchanged.
+- Restart storage: WS-DATE-CONVERSION is already declared; left unchanged.
+- Restart storage: every group is already declared; nothing inserted.
+- Restart main flow: performed 700-RESTART-CONTROL before the first read.
+- Restart main flow: performed 800-PROCESS-COMMIT before CLOSE OPERATIES.
+- Restart main flow: STOP RUN. is the last statement.
+- Restart main flow: no totals supplied; none written.
+- Restart injection: the mainline carries no paragraph header; using the statements that follow PROCEDURE DIVISION.
+- Restart: injected 700-RESTART-CONTROL into the mainline.
+- Restart: injected 800-PROCESS-COMMIT before CLOSE.
+- Restart: injected STOP RUN before PROCEDURE DIVISION.
+- Read paragraph: rendered READ-FLAT-FILE with the four checkpoint statements.
+- Restart injection: VERWERKING: repairing lines 212-270 (58 line(s)).
+- Restart injection: VERWERKING: scope lines handed to the injector = ['IF DA-CCYYMMDD = ZERO OR DA-CCYYMMDD = SPACES', 'END-IF', 'EVALUATE SQLCODE', 'END-EVALUATE', 'IF CTR-REC > 99', 'END-IF.']
+- Process paragraph: removed 1 per-record COMMIT block; the checkpoint paragraph owns the unit of work.
+- Process paragraph: kept END-IF; 1 scope(s) were open before it.
+- Process paragraph: kept END-EVALUATE; 1 scope(s) were open before it.
+- Process paragraph: removed the existing trailing PERFORM READ-FLAT-FILE; the appended tail supplies it. Leaving both would read two records per iteration.
+- Process paragraph: appended the commit test and the tail PERFORM READ-FLAT-FILE.
+- Restart SQL: generated 3 paragraph(s) for DZ01RSTV.
+- Restart flow: generated 5 paragraph(s).
+- Restart: generated 8 paragraph(s).
+- Unmapped record block: commented all lines for FFRECAB (record-level Option B).
+- Structural safety: commented whole-record reference to VMBFAR; the IDMS layout no longer exists.
+- Structural safety: commented whole-record reference to VMBD205I; the IDMS layout no longer exists.
+- Procedure indent: normalized 125 statement line(s) to Area B.
+- Procedure indent: preserved 65 line(s) carrying their own clause or continuation alignment.
+- Move alignment: aligned TO across 1 run(s), 9 statement(s).
+- Statement layout: inserted 1 blank line(s) before a paragraph header.
+- Removed comment block at lines 213-216
+- Removed comment block at lines 259-264
+
+Diagnostics
+-----------
+- START LOAD INPUTS
+- Sheet Mapping folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet
+- Sheet Mapping selected: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+- Sheet Mapping rows: 840
+- Sheet Mapping file name: field mapping for idms to db2_final v 1.0_manual.csv
+- Sheet Mapping file size bytes: 80424
+- CSV/text decoded length: 80421
+- CSV/text sample: Cobol Recrd IDMS,Cobol Zone,IDMS Key,IDMS PIC Clause,Length of Field Bytes,Field end position,DB2 key,New DB2 Record ,New DB2_Field name,New DB2 DataType,Hopex Expression Type,Remarks,Relation,Reference Field Name (Copybook),Reference Field PIC Clause,Cross Application DB2 table,Cross Application DB2 Field Name,Cross Appln DB2 DataType,,Basetype\r\nVMBFC,   02  KY-VMBFC.,,,9,9,,,,,,,,,,,,,,\r\nVMBFC, 03 CT-RK-TGDSV,CALC,PIC X(4 ),4,13,Primary Key,DZMBFCTB,CT_RKTGDSC_479MBFC,CHAR(4),Identifiier(*) NR
+- CSV detected headers: ['Cobol Recrd IDMS', 'Cobol Zone', 'IDMS Key', 'IDMS PIC Clause', 'Length of Field Bytes', 'Field end position', 'DB2 key', 'New DB2 Record', 'New DB2_Field name', 'New DB2 DataType', 'Hopex Expression Type', 'Remarks', 'Relation', 'Reference Field Name (Copybook)', 'Reference Field PIC Clause', 'Cross Application DB2 table', 'Cross Application DB2 Field Name', 'Cross Appln DB2 DataType', '', 'Basetype']
+- CSV parsed useful rows: 840
+- Sheet Mapping populated Cobol Record IDMS rows: 835
+- Sheet Mapping populated source field rows: 630
+- Sheet Mapping populated DB2 table rows: 617
+- Sheet Mapping populated DB2 column rows: 560
+- Sheet Mapping useful source-to-target rows: 370
+- DCLGEN file count: 7
+- DCLGEN 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+- DCLGEN 1 text length: 1750
+- DCLGEN 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+- DCLGEN 2 text length: 3874
+- DCLGEN 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+- DCLGEN 3 text length: 7342
+- DCLGEN 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+- DCLGEN 4 text length: 12328
+- DCLGEN 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+- DCLGEN 5 text length: 3033
+- DCLGEN 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+- DCLGEN 6 text length: 1683
+- DCLGEN 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+- DCLGEN 7 text length: 1769
+- DCLGEN total columns: 193
+- DCLGEN input file count: 7
+- DCLGEN file 1 input length: 1750
+- DCLGEN file 1: resolved table name: DZ01RSTV
+- DCLGEN file 1: DECLARE section 1 parsed SQL columns: 6
+- DCLGEN file 1: COBOL host field scan found 5 field(s).
+- DCLGEN file 1: SQL columns parsed: 6
+- DCLGEN file 1: COBOL host fields parsed: 5
+- DCLGEN file 1: merged DCLGEN columns: 6
+- DCLGEN file 1 parsed columns: 6
+- DCLGEN file 2 input length: 3874
+- DCLGEN file 2: resolved table name: DZBEFFTV
+- DCLGEN file 2: DECLARE section 1 parsed SQL columns: 22
+- DCLGEN file 2: COBOL host field scan found 22 field(s).
+- DCLGEN file 2: SQL columns parsed: 22
+- DCLGEN file 2: COBOL host fields parsed: 22
+- DCLGEN file 2: merged DCLGEN columns: 22
+- DCLGEN file 2 parsed columns: 22
+- DCLGEN file 3 input length: 7342
+- DCLGEN file 3: resolved table name: DZBFARTV
+- DCLGEN file 3: DECLARE section 1 parsed SQL columns: 51
+- DCLGEN file 3: COBOL host field scan found 51 field(s).
+- DCLGEN file 3: SQL columns parsed: 51
+- DCLGEN file 3: COBOL host fields parsed: 51
+- DCLGEN file 3: merged DCLGEN columns: 51
+- DCLGEN file 3 parsed columns: 51
+- DCLGEN file 4 input length: 12328
+- DCLGEN file 4: resolved table name: DZBFASTV
+- DCLGEN file 4: DECLARE section 1 parsed SQL columns: 89
+- DCLGEN file 4: COBOL host field scan found 89 field(s).
+- DCLGEN file 4: SQL columns parsed: 89
+- DCLGEN file 4: COBOL host fields parsed: 89
+- DCLGEN file 4: merged DCLGEN columns: 89
+- DCLGEN file 4 parsed columns: 89
+- DCLGEN file 5 input length: 3033
+- DCLGEN file 5: resolved table name: DZEVEFTV
+- DCLGEN file 5: DECLARE section 1 parsed SQL columns: 16
+- DCLGEN file 5: COBOL host field scan found 16 field(s).
+- DCLGEN file 5: SQL columns parsed: 16
+- DCLGEN file 5: COBOL host fields parsed: 16
+- DCLGEN file 5: merged DCLGEN columns: 16
+- DCLGEN file 5 parsed columns: 16
+- DCLGEN file 6 input length: 1683
+- DCLGEN file 6: resolved table name: DZSIASTV
+- DCLGEN file 6: DECLARE section 1 parsed SQL columns: 4
+- DCLGEN file 6: COBOL host field scan found 4 field(s).
+- DCLGEN file 6: SQL columns parsed: 4
+- DCLGEN file 6: COBOL host fields parsed: 4
+- DCLGEN file 6: merged DCLGEN columns: 4
+- DCLGEN file 6 parsed columns: 4
+- DCLGEN file 7 input length: 1769
+- DCLGEN file 7: resolved table name: DZWCEFTV
+- DCLGEN file 7: DECLARE section 1 parsed SQL columns: 5
+- DCLGEN file 7: COBOL host field scan found 5 field(s).
+- DCLGEN file 7: SQL columns parsed: 5
+- DCLGEN file 7: COBOL host fields parsed: 5
+- DCLGEN file 7: merged DCLGEN columns: 5
+- DCLGEN file 7 parsed columns: 5
+- DCLGEN total parsed columns: 193
+- Copybook file count: 7
+- Copybook 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+- Copybook 1 text length: 3078
+- Copybook 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+- Copybook 2 text length: 5330
+- Copybook 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+- Copybook 3 text length: 32308
+- Copybook 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+- Copybook 4 text length: 26404
+- Copybook 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+- Copybook 5 text length: 115948
+- Copybook 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+- Copybook 6 text length: 133824
+- Copybook 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+- Copybook 7 text length: 1420
+- Copybook total fields: 1349
+- Copybook files: logical copybook lines parsed: 2049
+- Copybook files: copybook fields parsed: 1349 (data fields: 1347, 88-condition names: 2, FILLER skipped: 431)
+- IDMS COBOL source file: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM1BD567.cbl
+- IDMS COBOL source text length: 14760
+- Derived target PROGRAM-ID: VMDZ1567
+- LRF folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\LRF
+- LRF file count: 3
+- LRF 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+- LRF 1 text length: 3746
+- LRF 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+- LRF 2 text length: 30098
+- LRF 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+- LRF 3 text length: 6516
+- LRF logical records parsed: 3
+- LRF logical records parsed: 3
+- LRF paths parsed for VMBTL03-R01: 6
+- LRF paths parsed for VMBTL06-R01: 61
+- LRF paths parsed for VMBTL07-R01: 11
+- LRF logical records in scope for this program: 3 (VMBTL03-R01, VMBTL06-R01, VMBTL07-R01)
+- Renamed source copybook references to derived DB2 names: VMBD205I -> VMDZ205I.
+
+Retrieval DB2 COBOL generation completed.
+Input program: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD302.cbl
+Output file created: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Output\VMDZ4302_11-10-2026_225645.cbl
+
+Input Summary
+-------------
+Project Root       : C:\VSCode\Latest\Latest-Code_Conversion
+SRC Directory      : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion
+Sheet Mapping Rows : 840
+DCLGEN Columns     : 193
+Copybook Fields    : 1349
+LRF Subschema Records : 3
+COBOL Text Length  : 27634
+Target PROGRAM-ID  : VMDZ4302
+
+Selected Input Files
+--------------------
+Sheet Mapping       : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+IDMS COBOL Source   : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD302.cbl
+DCLGEN Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+Copybook Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+LRF Subschema Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+
+Validation Messages
+-------------------
+- Mapping scope: DZ01FFTB carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: DZ01RSTV carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: 2 of 2 mapping gap(s) relate to tables this program does not reference.
+- Restart context: retrieval program; no restart context built.
+- Compiler option: replaced 'CBL NOCMPR2,NOFLAGMIG, OPTIMIZE' with CBL ARITH(EXTEND).
+- Program flow analyzer: Sheet Mapping rows received: 840
+- Program flow analyzer: DCLGEN columns received: 193
+- Program flow analyzer: paragraphs detected: 9
+- Program flow analyzer: cursor loops detected: 4
+- Program flow analyzer: output writes detected: 1
+- Program flow analyzer: IDMS update verbs detected: 0
+- Program flow analyzer: DB2 date usages detected: 5
+- Program flow analyzer: no table resolver supplied; cursor names are derived from the record name and may not match the generated cursor.
+- Program flow analyzer: no DB2 table resolved for VMBEFF; cursor name and paragraph names were derived from the RECORD and will not match the generated cursor.
+- Program flow analyzer: no DB2 table resolved for VMBEVEF; cursor name and paragraph names were derived from the RECORD and will not match the generated cursor.
+- Program flow analyzer: loop sample: record=VMBEFF, set=VMBWCEF_VMBEFF, type=cursor, cursor=VMBEFF-C1
+- Program flow analyzer: loop sample: record=VMBEVEF, set=VMBEFF_VMBEVEF, type=cursor, cursor=VMBEVEF-C1
+- Qualified field rewrite: CO-IDPRKB-STOCK OF VMBWCEF -> CO-IDISSUS-479WCEF OF DCLDZWCEFTV
+- Qualified field rewrite: NS-IRMO-STOCK OF VMBWCEF -> NS-IRMOS-479WCEF OF DCLDZWCEFTV
+- Qualified field rewrite: DA-UBSECIS-STOCK OF VMBWCEF -> DA-UBSECIS-479WCEF OF DCLDZWCEFTV
+- Bare field rewrite: NR-ID-GOOD -> NR-IDGOOD-479EVEF OF DCLDZEVEFTV
+- Qualified field rewrite: CT-RK-TEVPR OF VMBEVEF -> CT-RKTEVPR-479EVEF OF DCLDZEVEFTV
+- Field usage analyzer: records with usage detected: 2
+- Field usage analyzer: record=VMBEVEF, condition=1, output=0, move_source=0, move_target=0, dclgen=2
+- Field usage analyzer: record=VMBWCEF, condition=0, output=0, move_source=0, move_target=0, dclgen=3
+- DB2 infrastructure: DCLGEN includes selected: DZBEFFTV, DZEVEFTV
+- DB2 infrastructure: generated infrastructure block inserted.
+- Cursor ORDER BY cleanup: pass disabled; ORDER BY is retained on every cursor (manual reference VMDZ7200 orders its root cursor).
+- DB2 cursor paragraphs: generated 2 cursor paragraph set(s).
+- [LRF-POPULATOR] no_lrf_markers
+- Cursor flow: found 3 inline loop(s) and 0 span loop(s).
+- Cursor flow: no cursor loop was converted, so generated fetch calls were retained.
+- Cursor close guarantee: FETCH paragraph 720-FETCH-DZBEFFC1 now performs business paragraph VERWERK-EFFEKT.
+- Cursor close guarantee: inserted PERFORM 730-CLOSE-DZBEFFC1 after the DZBEFFC1 driving loop.
+- Cursor close guarantee: FETCH paragraph 820-FETCH-DZEVEFC1 now performs business paragraph NEXT-VMBEVEF.
+- Cursor close guarantee: inserted PERFORM 830-CLOSE-DZEVEFC1 after the DZEVEFC1 driving loop.
+- DB2 date compare: no DB2 DATE host is compared in this program.
+- Structural safety: INPUT-RECORD is a record layout; counters were not declared inside it.
+- Structural safety: UITREC is a record layout; counters were not declared inside it.
+- Structural safety: CS-VM9BC50T declares no subordinate entry and cannot take a generated field.
+- Structural safety: WS-DZBEFFC1-FLAG declares no subordinate entry and cannot take a generated field.
+- Structural safety: WS-DZEVEFC1-FLAG declares no subordinate entry and cannot take a generated field.
+- Structural safety: created WS-DB2-GENERATED for generated working-storage fields.
+- Timestamp: declared CS-PROGRAM as a level 10 inside WS-DB2-GENERATED.
+- Timestamp: replaced 1 hardcoded PROGRAM-NAME move(s) with CS-PROGRAM.
+- Timestamp: added the timestamp working-storage block.
+- Timestamp: generated the 600-GET-TIMESTAMP paragraph.
+- Timestamp: added PERFORM 600-GET-TIMESTAMP at the start of the mainline.
+- Timestamp generator: timestamp working storage and paragraph ensured.
+- Cleanup: removed redundant CONTINUE after removed IDMS statement.
+- Cleanup: removed residual IDMS conversion comment noise.
+- Cleanup: added missing DCLGEN include DZWCEFTV.
+- Output write placement: NEXT-VMBEVEF has no trailing IF ... WRITE ... END-IF block to relocate.
+- DB2 date output: no DB2 DATE host is moved to an output date field (549 line(s) examined). Nothing to convert.
+- Cleanup: closed unterminated sentence in paragraph (unnamed).
+- Removed 4 generated DB2 marker comment(s).
+- Retrieval cleanup: removed 1 COMMIT block(s); the program is read-only.
+- Output write: extracted record population from VERWERK-EFFEKT into paragraph WRITE-REFFEKT-O.
+- Output write: added WS-NB-OUTPUT-COUNT increment at the WRITE-REFFEKT-O call site.
+- DB2 date output: no DB2 DATE host is moved to an output date field (546 line(s) examined). Nothing to convert.
+- Record materialisation: LS-DA-DMY has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: CS-PROGRAM has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: SPACES has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: LAATSTE-CI has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: AM-CN-STOCK has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: I-CO-INTERNE has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: NR-ID-STOCK-CD has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: BC50O-CO-CURR-SECU has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: WS-DA-UE has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: NR-CI has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: CT-OPD has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: HULP-DA-UB-TRANSF has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: WS-DA-CYMD has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: WS-VM9BC50I has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: WS-VM9BC50T has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: 16 whole-record move(s) examined, 0 materialised, 16 left for manual review.
+- Record materialisation: 16 record(s) refused - LS-DA-DMY (no mapping); CS-PROGRAM (no mapping); SPACES (no mapping); LAATSTE-CI (no mapping); AM-CN-STOCK (no mapping); I-CO-INTERNE (no mapping). The whole-record MOVE was left in place and will be commented by the structural safety pass.
+- Structural safety: generated fields share work group WS-DB2-GENERATED.
+- Counters: declared WS-NB-OUTPUT-COUNT in WS-DB2-GENERATED.
+- Counters: added 1 end-of-run total display line(s).
+- Restart injection: Retrieval program is read-only; restart control not applied.
+- Structural safety: commented whole-record reference to VMBWCEF; the IDMS layout no longer exists.
+- Procedure indent: normalized 18 statement line(s) to Area B.
+- Procedure indent: preserved 26 line(s) carrying their own clause or continuation alignment.
+- Move alignment: aligned TO across 9 run(s), 42 statement(s).
+- Statement layout: inserted 2 blank line(s) before a paragraph header.
+- Removed 1 generated DB2 marker comment(s).
+- Removed comment block at lines 290-293
+
+Diagnostics
+-----------
+- START LOAD INPUTS
+- Sheet Mapping folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet
+- Sheet Mapping selected: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+- Sheet Mapping rows: 840
+- Sheet Mapping file name: field mapping for idms to db2_final v 1.0_manual.csv
+- Sheet Mapping file size bytes: 80424
+- CSV/text decoded length: 80421
+- CSV/text sample: Cobol Recrd IDMS,Cobol Zone,IDMS Key,IDMS PIC Clause,Length of Field Bytes,Field end position,DB2 key,New DB2 Record ,New DB2_Field name,New DB2 DataType,Hopex Expression Type,Remarks,Relation,Reference Field Name (Copybook),Reference Field PIC Clause,Cross Application DB2 table,Cross Application DB2 Field Name,Cross Appln DB2 DataType,,Basetype\r\nVMBFC,   02  KY-VMBFC.,,,9,9,,,,,,,,,,,,,,\r\nVMBFC, 03 CT-RK-TGDSV,CALC,PIC X(4 ),4,13,Primary Key,DZMBFCTB,CT_RKTGDSC_479MBFC,CHAR(4),Identifiier(*) NR
+- CSV detected headers: ['Cobol Recrd IDMS', 'Cobol Zone', 'IDMS Key', 'IDMS PIC Clause', 'Length of Field Bytes', 'Field end position', 'DB2 key', 'New DB2 Record', 'New DB2_Field name', 'New DB2 DataType', 'Hopex Expression Type', 'Remarks', 'Relation', 'Reference Field Name (Copybook)', 'Reference Field PIC Clause', 'Cross Application DB2 table', 'Cross Application DB2 Field Name', 'Cross Appln DB2 DataType', '', 'Basetype']
+- CSV parsed useful rows: 840
+- Sheet Mapping populated Cobol Record IDMS rows: 835
+- Sheet Mapping populated source field rows: 630
+- Sheet Mapping populated DB2 table rows: 617
+- Sheet Mapping populated DB2 column rows: 560
+- Sheet Mapping useful source-to-target rows: 370
+- DCLGEN file count: 7
+- DCLGEN 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+- DCLGEN 1 text length: 1750
+- DCLGEN 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+- DCLGEN 2 text length: 3874
+- DCLGEN 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+- DCLGEN 3 text length: 7342
+- DCLGEN 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+- DCLGEN 4 text length: 12328
+- DCLGEN 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+- DCLGEN 5 text length: 3033
+- DCLGEN 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+- DCLGEN 6 text length: 1683
+- DCLGEN 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+- DCLGEN 7 text length: 1769
+- DCLGEN total columns: 193
+- DCLGEN input file count: 7
+- DCLGEN file 1 input length: 1750
+- DCLGEN file 1: resolved table name: DZ01RSTV
+- DCLGEN file 1: DECLARE section 1 parsed SQL columns: 6
+- DCLGEN file 1: COBOL host field scan found 5 field(s).
+- DCLGEN file 1: SQL columns parsed: 6
+- DCLGEN file 1: COBOL host fields parsed: 5
+- DCLGEN file 1: merged DCLGEN columns: 6
+- DCLGEN file 1 parsed columns: 6
+- DCLGEN file 2 input length: 3874
+- DCLGEN file 2: resolved table name: DZBEFFTV
+- DCLGEN file 2: DECLARE section 1 parsed SQL columns: 22
+- DCLGEN file 2: COBOL host field scan found 22 field(s).
+- DCLGEN file 2: SQL columns parsed: 22
+- DCLGEN file 2: COBOL host fields parsed: 22
+- DCLGEN file 2: merged DCLGEN columns: 22
+- DCLGEN file 2 parsed columns: 22
+- DCLGEN file 3 input length: 7342
+- DCLGEN file 3: resolved table name: DZBFARTV
+- DCLGEN file 3: DECLARE section 1 parsed SQL columns: 51
+- DCLGEN file 3: COBOL host field scan found 51 field(s).
+- DCLGEN file 3: SQL columns parsed: 51
+- DCLGEN file 3: COBOL host fields parsed: 51
+- DCLGEN file 3: merged DCLGEN columns: 51
+- DCLGEN file 3 parsed columns: 51
+- DCLGEN file 4 input length: 12328
+- DCLGEN file 4: resolved table name: DZBFASTV
+- DCLGEN file 4: DECLARE section 1 parsed SQL columns: 89
+- DCLGEN file 4: COBOL host field scan found 89 field(s).
+- DCLGEN file 4: SQL columns parsed: 89
+- DCLGEN file 4: COBOL host fields parsed: 89
+- DCLGEN file 4: merged DCLGEN columns: 89
+- DCLGEN file 4 parsed columns: 89
+- DCLGEN file 5 input length: 3033
+- DCLGEN file 5: resolved table name: DZEVEFTV
+- DCLGEN file 5: DECLARE section 1 parsed SQL columns: 16
+- DCLGEN file 5: COBOL host field scan found 16 field(s).
+- DCLGEN file 5: SQL columns parsed: 16
+- DCLGEN file 5: COBOL host fields parsed: 16
+- DCLGEN file 5: merged DCLGEN columns: 16
+- DCLGEN file 5 parsed columns: 16
+- DCLGEN file 6 input length: 1683
+- DCLGEN file 6: resolved table name: DZSIASTV
+- DCLGEN file 6: DECLARE section 1 parsed SQL columns: 4
+- DCLGEN file 6: COBOL host field scan found 4 field(s).
+- DCLGEN file 6: SQL columns parsed: 4
+- DCLGEN file 6: COBOL host fields parsed: 4
+- DCLGEN file 6: merged DCLGEN columns: 4
+- DCLGEN file 6 parsed columns: 4
+- DCLGEN file 7 input length: 1769
+- DCLGEN file 7: resolved table name: DZWCEFTV
+- DCLGEN file 7: DECLARE section 1 parsed SQL columns: 5
+- DCLGEN file 7: COBOL host field scan found 5 field(s).
+- DCLGEN file 7: SQL columns parsed: 5
+- DCLGEN file 7: COBOL host fields parsed: 5
+- DCLGEN file 7: merged DCLGEN columns: 5
+- DCLGEN file 7 parsed columns: 5
+- DCLGEN total parsed columns: 193
+- Copybook file count: 7
+- Copybook 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+- Copybook 1 text length: 3078
+- Copybook 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+- Copybook 2 text length: 5330
+- Copybook 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+- Copybook 3 text length: 32308
+- Copybook 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+- Copybook 4 text length: 26404
+- Copybook 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+- Copybook 5 text length: 115948
+- Copybook 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+- Copybook 6 text length: 133824
+- Copybook 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+- Copybook 7 text length: 1420
+- Copybook total fields: 1349
+- Copybook files: logical copybook lines parsed: 2049
+- Copybook files: copybook fields parsed: 1349 (data fields: 1347, 88-condition names: 2, FILLER skipped: 431)
+- IDMS COBOL source file: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD302.cbl
+- IDMS COBOL source text length: 27634
+- Derived target PROGRAM-ID: VMDZ4302
+- LRF folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\LRF
+- LRF file count: 3
+- LRF 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+- LRF 1 text length: 3746
+- LRF 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+- LRF 2 text length: 30098
+- LRF 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+- LRF 3 text length: 6516
+- LRF logical records parsed: 3
+- LRF logical records parsed: 3
+- LRF paths parsed for VMBTL03-R01: 6
+- LRF paths parsed for VMBTL06-R01: 61
+- LRF paths parsed for VMBTL07-R01: 11
+- LRF logical records in scope for this program: 3 (VMBTL03-R01, VMBTL06-R01, VMBTL07-R01)
+
+Retrieval DB2 COBOL generation completed.
+Input program: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD310.cbl
+Output file created: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Output\VMDZ4310_11-10-2026_225646.cbl
+
+Input Summary
+-------------
+Project Root       : C:\VSCode\Latest\Latest-Code_Conversion
+SRC Directory      : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion
+Sheet Mapping Rows : 840
+DCLGEN Columns     : 193
+Copybook Fields    : 1349
+LRF Subschema Records : 3
+COBOL Text Length  : 27634
+Target PROGRAM-ID  : VMDZ4310
+
+Selected Input Files
+--------------------
+Sheet Mapping       : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+IDMS COBOL Source   : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD310.cbl
+DCLGEN Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+Copybook Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+LRF Subschema Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+
+Validation Messages
+-------------------
+- LRF expansion: FIRST VMBTL07-R01 WHERE ALL-VMBEVEF-BY-VMBEFF expanded to VMBEVEF WITHIN VMBEFF-VMBEVEF.
+- LRF expansion: NEXT VMBTL07-R01 WHERE ALL-VMBEVEF-BY-VMBEFF expanded to VMBEVEF WITHIN VMBEFF-VMBEVEF.
+- LRF expansion: rewrote 4 LR-STATUS condition(s) to the IDMS end-of-set token.
+- LRF expansion: expanded 2 statement(s), skipped 0.
+- Mapping scope: DZ01FFTB carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: DZ01RSTV carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: 2 of 2 mapping gap(s) relate to tables this program does not reference.
+- Restart context: retrieval program; no restart context built.
+- Compiler option: replaced 'CBL NOSQL' with CBL ARITH(EXTEND).
+- Program flow analyzer: Sheet Mapping rows received: 840
+- Program flow analyzer: DCLGEN columns received: 193
+- Program flow analyzer: paragraphs detected: 16
+- Program flow analyzer: cursor loops detected: 2
+- Program flow analyzer: output writes detected: 1
+- Program flow analyzer: IDMS update verbs detected: 0
+- Program flow analyzer: DB2 date usages detected: 11
+- Program flow analyzer: no table resolver supplied; cursor names are derived from the record name and may not match the generated cursor.
+- Program flow analyzer: no DB2 table resolved for VMBEVEF; cursor name and paragraph names were derived from the RECORD and will not match the generated cursor.
+- Program flow analyzer: loop sample: record=VMBEVEF, set=VMBEFF_VMBEVEF, type=cursor, cursor=VMBEVEF-C1
+- Qualified field rewrite: CT-RK-TPROD OF VMBEFF -> CT-RKTPROD-479BEFF OF DCLDZBEFFTV
+- Field reference: rewritten statement exceeded column 72 and was wrapped onto 1 line(s).
+- Qualified field rewrite: NS-DB-STOCK OF VMBEFF -> NS-DBSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NR-ID-GOOD OF VMBEVEF -> NR-IDGOOD-479EVEF OF DCLDZEVEFTV
+- Qualified field rewrite: NR-ID-ISSUE OF VMBEFF -> NR-IDISSUE-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NR-CD-ISSUE OF VMBEFF -> NR-CDISSUE-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: AM-CN-STOCK OF VMBEFF -> AM-CNSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NX-CPCRE-STOCK OF VMBEFF -> NX-CPCRESK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: AM-CND-STOCK OF VMBEFF -> AM-CNDSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: AM-INTER-STOCK OF VMBEFF -> AM-INTERSK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: CO-IDPRKB-STOCK OF VMBEFF -> CO-IDPRKSK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NS-IRMO-STOCK OF VMBEFF -> NS-IRMOSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: DA-UBSECIS-STOCK OF VMBEFF -> DA-UBSECIS-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: DA-CR-EVENT-PROD OF VMBEVEF -> DA-CREVTPD-479EVEF OF DCLDZEVEFTV
+- Qualified field rewrite: NX-CPAID-STOCK OF VMBEFF -> NX-CPAIDSK-479BEFF OF DCLDZBEFFTV
+- Field usage analyzer: records with usage detected: 2
+- Field usage analyzer: record=VMBEFF, condition=1, output=0, move_source=0, move_target=2, dclgen=12
+- Field usage analyzer: record=VMBEVEF, condition=0, output=0, move_source=0, move_target=0, dclgen=2
+- DB2 infrastructure: DCLGEN includes selected: DZEVEFTV
+- DB2 infrastructure: generated infrastructure block inserted.
+- Cursor ORDER BY cleanup: pass disabled; ORDER BY is retained on every cursor (manual reference VMDZ7200 orders its root cursor).
+- DB2 cursor paragraphs: generated 1 cursor paragraph set(s).
+- [LRF-POPULATOR] no_lrf_markers
+- Cursor flow: found 1 inline loop(s) and 0 span loop(s).
+- Cursor flow: no cursor loop was converted, so generated fetch calls were retained.
+- Cursor close guarantee: FETCH paragraph 720-FETCH-DZEVEFC1 now performs business paragraph MOVE-MUTATIES.
+- Cursor close guarantee: 720-FETCH-DZEVEFC1 already performs MOVE-MUTATIES; no change needed.
+- Cursor close guarantee: removed the orphan repeat PERFORM 720-FETCH-DZEVEFC1 left by the converted OBTAIN NEXT.
+- Cursor close guarantee: cursor DZEVEFC1 had no driving loop; emitted PERFORM 720-FETCH-DZEVEFC1 UNTIL DZEVEFC1-EOC and PERFORM 730-CLOSE-DZEVEFC1.
+- DB2 date compare: no DB2 DATE host is compared in this program.
+- Structural safety: WS-MUTATIES is a record layout; counters were not declared inside it.
+- Structural safety: W-DATE declares no subordinate entry and cannot take a generated field.
+- Structural safety: VOLGNUMMER declares no subordinate entry and cannot take a generated field.
+- Structural safety: COUNT-TREATED declares no subordinate entry and cannot take a generated field.
+- Structural safety: USERABEN declares no subordinate entry and cannot take a generated field.
+- Structural safety: CS-VM4BD310 declares no subordinate entry and cannot take a generated field.
+- Structural safety: SW-MUTATIES-EOF declares no subordinate entry and cannot take a generated field.
+- Structural safety: WS-DZEVEFC1-FLAG declares no subordinate entry and cannot take a generated field.
+- Structural safety: created WS-DB2-GENERATED for generated working-storage fields.
+- Timestamp: declared CS-PROGRAM as a level 10 inside WS-DB2-GENERATED.
+- Timestamp: added the timestamp working-storage block.
+- Timestamp: generated the 600-GET-TIMESTAMP paragraph.
+- Timestamp: added PERFORM 600-GET-TIMESTAMP at the start of the mainline.
+- Timestamp generator: timestamp working storage and paragraph ensured.
+- Cleanup: removed redundant CONTINUE after removed IDMS statement.
+- Cleanup: removed residual IDMS conversion comment noise.
+- Cleanup: added missing DCLGEN include DZBEFFTV.
+- DB2 date output: no DB2 DATE host is moved to an output date field (470 line(s) examined). Nothing to convert.
+- Removed 2 generated DB2 marker comment(s).
+- Retrieval cleanup: removed 1 COMMIT block(s); the program is read-only.
+- DB2 date output: no DB2 DATE host is moved to an output date field (465 line(s) examined). Nothing to convert.
+- Record materialisation: no whole-record MOVE statement was found in the PROCEDURE DIVISION; nothing to materialise.
+- Structural safety: generated fields share work group WS-DB2-GENERATED.
+- Counters: declared WS-NB-EVEF-COUNT in WS-DB2-GENERATED.
+- Counters: added 1 end-of-run total display line(s).
+- Restart injection: Retrieval program is read-only; restart control not applied.
+- Procedure indent: normalized 70 statement line(s) to Area B.
+- Procedure indent: preserved 33 line(s) carrying their own clause or continuation alignment.
+- [error] move_alignment: AttributeError: 'Passthrough' object has no attribute 'prefix'
+- Statement layout: inserted 1 blank line(s) before a paragraph header.
+- Removed 1 generated DB2 marker comment(s).
+
+Diagnostics
+-----------
+- START LOAD INPUTS
+- Sheet Mapping folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet
+- Sheet Mapping selected: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+- Sheet Mapping rows: 840
+- Sheet Mapping file name: field mapping for idms to db2_final v 1.0_manual.csv
+- Sheet Mapping file size bytes: 80424
+- CSV/text decoded length: 80421
+- CSV/text sample: Cobol Recrd IDMS,Cobol Zone,IDMS Key,IDMS PIC Clause,Length of Field Bytes,Field end position,DB2 key,New DB2 Record ,New DB2_Field name,New DB2 DataType,Hopex Expression Type,Remarks,Relation,Reference Field Name (Copybook),Reference Field PIC Clause,Cross Application DB2 table,Cross Application DB2 Field Name,Cross Appln DB2 DataType,,Basetype\r\nVMBFC,   02  KY-VMBFC.,,,9,9,,,,,,,,,,,,,,\r\nVMBFC, 03 CT-RK-TGDSV,CALC,PIC X(4 ),4,13,Primary Key,DZMBFCTB,CT_RKTGDSC_479MBFC,CHAR(4),Identifiier(*) NR
+- CSV detected headers: ['Cobol Recrd IDMS', 'Cobol Zone', 'IDMS Key', 'IDMS PIC Clause', 'Length of Field Bytes', 'Field end position', 'DB2 key', 'New DB2 Record', 'New DB2_Field name', 'New DB2 DataType', 'Hopex Expression Type', 'Remarks', 'Relation', 'Reference Field Name (Copybook)', 'Reference Field PIC Clause', 'Cross Application DB2 table', 'Cross Application DB2 Field Name', 'Cross Appln DB2 DataType', '', 'Basetype']
+- CSV parsed useful rows: 840
+- Sheet Mapping populated Cobol Record IDMS rows: 835
+- Sheet Mapping populated source field rows: 630
+- Sheet Mapping populated DB2 table rows: 617
+- Sheet Mapping populated DB2 column rows: 560
+- Sheet Mapping useful source-to-target rows: 370
+- DCLGEN file count: 7
+- DCLGEN 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+- DCLGEN 1 text length: 1750
+- DCLGEN 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+- DCLGEN 2 text length: 3874
+- DCLGEN 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+- DCLGEN 3 text length: 7342
+- DCLGEN 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+- DCLGEN 4 text length: 12328
+- DCLGEN 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+- DCLGEN 5 text length: 3033
+- DCLGEN 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+- DCLGEN 6 text length: 1683
+- DCLGEN 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+- DCLGEN 7 text length: 1769
+- DCLGEN total columns: 193
+- DCLGEN input file count: 7
+- DCLGEN file 1 input length: 1750
+- DCLGEN file 1: resolved table name: DZ01RSTV
+- DCLGEN file 1: DECLARE section 1 parsed SQL columns: 6
+- DCLGEN file 1: COBOL host field scan found 5 field(s).
+- DCLGEN file 1: SQL columns parsed: 6
+- DCLGEN file 1: COBOL host fields parsed: 5
+- DCLGEN file 1: merged DCLGEN columns: 6
+- DCLGEN file 1 parsed columns: 6
+- DCLGEN file 2 input length: 3874
+- DCLGEN file 2: resolved table name: DZBEFFTV
+- DCLGEN file 2: DECLARE section 1 parsed SQL columns: 22
+- DCLGEN file 2: COBOL host field scan found 22 field(s).
+- DCLGEN file 2: SQL columns parsed: 22
+- DCLGEN file 2: COBOL host fields parsed: 22
+- DCLGEN file 2: merged DCLGEN columns: 22
+- DCLGEN file 2 parsed columns: 22
+- DCLGEN file 3 input length: 7342
+- DCLGEN file 3: resolved table name: DZBFARTV
+- DCLGEN file 3: DECLARE section 1 parsed SQL columns: 51
+- DCLGEN file 3: COBOL host field scan found 51 field(s).
+- DCLGEN file 3: SQL columns parsed: 51
+- DCLGEN file 3: COBOL host fields parsed: 51
+- DCLGEN file 3: merged DCLGEN columns: 51
+- DCLGEN file 3 parsed columns: 51
+- DCLGEN file 4 input length: 12328
+- DCLGEN file 4: resolved table name: DZBFASTV
+- DCLGEN file 4: DECLARE section 1 parsed SQL columns: 89
+- DCLGEN file 4: COBOL host field scan found 89 field(s).
+- DCLGEN file 4: SQL columns parsed: 89
+- DCLGEN file 4: COBOL host fields parsed: 89
+- DCLGEN file 4: merged DCLGEN columns: 89
+- DCLGEN file 4 parsed columns: 89
+- DCLGEN file 5 input length: 3033
+- DCLGEN file 5: resolved table name: DZEVEFTV
+- DCLGEN file 5: DECLARE section 1 parsed SQL columns: 16
+- DCLGEN file 5: COBOL host field scan found 16 field(s).
+- DCLGEN file 5: SQL columns parsed: 16
+- DCLGEN file 5: COBOL host fields parsed: 16
+- DCLGEN file 5: merged DCLGEN columns: 16
+- DCLGEN file 5 parsed columns: 16
+- DCLGEN file 6 input length: 1683
+- DCLGEN file 6: resolved table name: DZSIASTV
+- DCLGEN file 6: DECLARE section 1 parsed SQL columns: 4
+- DCLGEN file 6: COBOL host field scan found 4 field(s).
+- DCLGEN file 6: SQL columns parsed: 4
+- DCLGEN file 6: COBOL host fields parsed: 4
+- DCLGEN file 6: merged DCLGEN columns: 4
+- DCLGEN file 6 parsed columns: 4
+- DCLGEN file 7 input length: 1769
+- DCLGEN file 7: resolved table name: DZWCEFTV
+- DCLGEN file 7: DECLARE section 1 parsed SQL columns: 5
+- DCLGEN file 7: COBOL host field scan found 5 field(s).
+- DCLGEN file 7: SQL columns parsed: 5
+- DCLGEN file 7: COBOL host fields parsed: 5
+- DCLGEN file 7: merged DCLGEN columns: 5
+- DCLGEN file 7 parsed columns: 5
+- DCLGEN total parsed columns: 193
+- Copybook file count: 7
+- Copybook 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+- Copybook 1 text length: 3078
+- Copybook 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+- Copybook 2 text length: 5330
+- Copybook 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+- Copybook 3 text length: 32308
+- Copybook 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+- Copybook 4 text length: 26404
+- Copybook 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+- Copybook 5 text length: 115948
+- Copybook 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+- Copybook 6 text length: 133824
+- Copybook 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+- Copybook 7 text length: 1420
+- Copybook total fields: 1349
+- Copybook files: logical copybook lines parsed: 2049
+- Copybook files: copybook fields parsed: 1349 (data fields: 1347, 88-condition names: 2, FILLER skipped: 431)
+- IDMS COBOL source file: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD310.cbl
+- IDMS COBOL source text length: 27634
+- Derived target PROGRAM-ID: VMDZ4310
+- LRF folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\LRF
+- LRF file count: 3
+- LRF 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+- LRF 1 text length: 3746
+- LRF 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+- LRF 2 text length: 30098
+- LRF 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+- LRF 3 text length: 6516
+- LRF logical records parsed: 3
+- LRF logical records parsed: 3
+- LRF paths parsed for VMBTL03-R01: 6
+- LRF paths parsed for VMBTL06-R01: 61
+- LRF paths parsed for VMBTL07-R01: 11
+- LRF logical records in scope for this program: 3 (VMBTL03-R01, VMBTL06-R01, VMBTL07-R01)
+- Renamed source copybook references to derived DB2 names: VMBD510I -> VMDZ510I, VMBD05 -> VMDZ05.
+
+Retrieval DB2 COBOL generation completed.
+Input program: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD420.cbl
+Output file created: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Output\VMDZ4420_11-10-2026_225647.cbl
+
+Input Summary
+-------------
+Project Root       : C:\VSCode\Latest\Latest-Code_Conversion
+SRC Directory      : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion
+Sheet Mapping Rows : 840
+DCLGEN Columns     : 193
+Copybook Fields    : 1349
+LRF Subschema Records : 3
+COBOL Text Length  : 18696
+Target PROGRAM-ID  : VMDZ4420
+
+Selected Input Files
+--------------------
+Sheet Mapping       : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+IDMS COBOL Source   : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD420.cbl
+DCLGEN Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+Copybook Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+LRF Subschema Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+
+Validation Messages
+-------------------
+- Mapping scope: DZ01FFTB carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: DZ01RSTV carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: 2 of 2 mapping gap(s) relate to tables this program does not reference.
+- Restart context: retrieval program; no restart context built.
+- Compiler option: replaced 'CBL NOCMPR2, NOFLAGMIG' with CBL ARITH(EXTEND).
+- Program flow analyzer: Sheet Mapping rows received: 840
+- Program flow analyzer: DCLGEN columns received: 193
+- Program flow analyzer: paragraphs detected: 8
+- Program flow analyzer: cursor loops detected: 4
+- Program flow analyzer: output writes detected: 1
+- Program flow analyzer: IDMS update verbs detected: 0
+- Program flow analyzer: DB2 date usages detected: 4
+- Program flow analyzer: no table resolver supplied; cursor names are derived from the record name and may not match the generated cursor.
+- Program flow analyzer: no DB2 table resolved for VMBEFF; cursor name and paragraph names were derived from the RECORD and will not match the generated cursor.
+- Program flow analyzer: no DB2 table resolved for VMBEVEF; cursor name and paragraph names were derived from the RECORD and will not match the generated cursor.
+- Program flow analyzer: loop sample: record=VMBEFF, set=AR_VMBEFF1, type=cursor, cursor=VMBEFF-C1
+- Program flow analyzer: loop sample: record=VMBEVEF, set=VMBEFF_VMBEVEF, type=cursor, cursor=VMBEVEF-C1
+- Qualified field rewrite: DA-CR-EVENT-PROD OF VMBEVEF -> DA-CREVTPD-479EVEF OF DCLDZEVEFTV
+- Qualified field rewrite: CT-RK-TEVPR OF VMBEVEF -> CT-RKTEVPR-479EVEF OF DCLDZEVEFTV
+- Bare field rewrite: NR-ID-GOOD -> NR-IDGOOD-479EVEF OF DCLDZEVEFTV
+- Field reference: rewritten statement exceeded column 72 and was wrapped onto 2 line(s).
+- Bare field rewrite: CO-STATE-EVPRAN -> CO-STEVPRN-479EVEF OF DCLDZEVEFTV
+- Qualified field rewrite: AM-CN-STOCK OF VMBEFF -> AM-CNSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: AM-CND-STOCK OF VMBEFF -> AM-CNDSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: CO-IDPRKB-STOCK OF VMBEFF -> CO-IDPRKSK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NS-IRMO-STOCK OF VMBEFF -> NS-IRMOSTK-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: DA-UBSECIS-STOCK OF VMBEFF -> DA-UBSECIS-479BEFF OF DCLDZBEFFTV
+- Qualified field rewrite: NR-ID-STOCK-R2 OF VMBEFF -> NR-IDSTOCK-479BEFF OF DCLDZBEFFTV
+- Field usage analyzer: records with usage detected: 2
+- Field usage analyzer: record=VMBEFF, condition=0, output=0, move_source=0, move_target=0, dclgen=6
+- Field usage analyzer: record=VMBEVEF, condition=2, output=0, move_source=0, move_target=0, dclgen=4
+- DB2 infrastructure: DCLGEN includes selected: DZBEFFTV, DZEVEFTV
+- DB2 infrastructure: generated infrastructure block inserted.
+- Cursor ORDER BY cleanup: pass disabled; ORDER BY is retained on every cursor (manual reference VMDZ7200 orders its root cursor).
+- DB2 cursor paragraphs: generated 2 cursor paragraph set(s).
+- [LRF-POPULATOR] no_lrf_markers
+- Cursor flow: found 2 inline loop(s) and 0 span loop(s).
+- Cursor close guarantee: FETCH paragraph 720-FETCH-DZBEFFC1 now performs business paragraph HOOFDVERWERKING.
+- Cursor close guarantee: 730-CLOSE-DZBEFFC1 is already performed; no insertion needed.
+- Cursor close guarantee: 820-FETCH-DZEVEFC1 already performs VERWERK-VMBEVEF; no change needed.
+- Cursor close guarantee: 830-CLOSE-DZEVEFC1 is already performed; no insertion needed.
+- DB2 date compare: declared 1 HELP- date helper field(s).
+- DB2 date compare: realigned 1 DATE host(s) in 1 condition(s).
+- Structural safety: generated fields share work group WS-TE-WORK.
+- Timestamp: declared CS-PROGRAM as a level 10 inside WS-TE-WORK.
+- Timestamp: replaced 1 hardcoded PROGRAM-NAME move(s) with CS-PROGRAM.
+- Timestamp: added the timestamp working-storage block.
+- Timestamp: generated the 600-GET-TIMESTAMP paragraph.
+- Timestamp: added PERFORM 600-GET-TIMESTAMP at the start of the mainline.
+- Timestamp generator: timestamp working storage and paragraph ensured.
+- Cleanup: removed redundant CONTINUE after removed IDMS statement.
+- Cleanup: removed residual IDMS conversion comment noise.
+- Cleanup: replaced ERROR-STATUS move with SW-STATUS-D flag.
+- Cleanup: declared SW-STATUS-D working-storage flag.
+- Cleanup: added SW-STATUS-D early-stop to child fetch loop.
+- Cleanup: moved output write block from VERWERK-VMBEVEF to HOOFDVERWERKING after the child cursor loop.
+- Output write placement: VERWERK-VMBEVEF has no trailing IF ... WRITE ... END-IF block to relocate.
+- Cleanup: moved INITIALIZE before output population for UITRECORD.
+- Cleanup: suppressed 1 MOVE SPACES to an output date field; the record is already cleared by INITIALIZE and SPACES is not a legal date value.
+- Cleanup: converted 1 DB2 date move(s) before the output write.
+- Cleanup: closed unterminated sentence in paragraph HOOFDVERWERKING.
+- Removed 2 generated DB2 marker comment(s).
+- Retrieval cleanup: removed 1 COMMIT block(s); the program is read-only.
+- Output write: extracted record population from HOOFDVERWERKING into paragraph WRITE-UITRECORD.
+- Output write: added WS-NB-OUTPUT-COUNT increment at the WRITE-UITRECORD call site.
+- DB2 date output: no DB2 DATE host is moved to an output date field (504 line(s) examined). Nothing to convert.
+- Record materialisation: DATE8-LS is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: DATE6 has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: CS-PROGRAM has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: SPACE has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: WS-NR-CIO-CRE has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: ZEROES has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: DA-CCYYMMDD-R is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: 10 whole-record move(s) examined, 0 materialised, 10 left for manual review.
+- Record materialisation: 10 record(s) refused - DATE8-LS (not a record); DATE6 (no mapping); CS-PROGRAM (no mapping); SPACE (no mapping); WS-NR-CIO-CRE (no mapping); ZEROES (no mapping). The whole-record MOVE was left in place and will be commented by the structural safety pass.
+- Counters: declared WS-NB-OUTPUT-COUNT in WS-TE-WORK.
+- Counters: declared WS-NB-BEFF-COUNT in WS-TE-WORK.
+- Counters: added 2 end-of-run total display line(s).
+- Restart injection: Retrieval program is read-only; restart control not applied.
+- Procedure indent: normalized 62 statement line(s) to Area B.
+- Procedure indent: preserved 39 line(s) carrying their own clause or continuation alignment.
+- Move alignment: run left unaligned; the aligned form does not fit columns 8-72.
+- Move alignment: aligned TO across 9 run(s), 43 statement(s).
+- Move alignment: joined 10 MOVE statement(s) that had been split across two lines.
+- Statement layout: inserted 1 blank line(s) before a paragraph header.
+- Removed 1 generated DB2 marker comment(s).
+
+Diagnostics
+-----------
+- START LOAD INPUTS
+- Sheet Mapping folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet
+- Sheet Mapping selected: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+- Sheet Mapping rows: 840
+- Sheet Mapping file name: field mapping for idms to db2_final v 1.0_manual.csv
+- Sheet Mapping file size bytes: 80424
+- CSV/text decoded length: 80421
+- CSV/text sample: Cobol Recrd IDMS,Cobol Zone,IDMS Key,IDMS PIC Clause,Length of Field Bytes,Field end position,DB2 key,New DB2 Record ,New DB2_Field name,New DB2 DataType,Hopex Expression Type,Remarks,Relation,Reference Field Name (Copybook),Reference Field PIC Clause,Cross Application DB2 table,Cross Application DB2 Field Name,Cross Appln DB2 DataType,,Basetype\r\nVMBFC,   02  KY-VMBFC.,,,9,9,,,,,,,,,,,,,,\r\nVMBFC, 03 CT-RK-TGDSV,CALC,PIC X(4 ),4,13,Primary Key,DZMBFCTB,CT_RKTGDSC_479MBFC,CHAR(4),Identifiier(*) NR
+- CSV detected headers: ['Cobol Recrd IDMS', 'Cobol Zone', 'IDMS Key', 'IDMS PIC Clause', 'Length of Field Bytes', 'Field end position', 'DB2 key', 'New DB2 Record', 'New DB2_Field name', 'New DB2 DataType', 'Hopex Expression Type', 'Remarks', 'Relation', 'Reference Field Name (Copybook)', 'Reference Field PIC Clause', 'Cross Application DB2 table', 'Cross Application DB2 Field Name', 'Cross Appln DB2 DataType', '', 'Basetype']
+- CSV parsed useful rows: 840
+- Sheet Mapping populated Cobol Record IDMS rows: 835
+- Sheet Mapping populated source field rows: 630
+- Sheet Mapping populated DB2 table rows: 617
+- Sheet Mapping populated DB2 column rows: 560
+- Sheet Mapping useful source-to-target rows: 370
+- DCLGEN file count: 7
+- DCLGEN 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+- DCLGEN 1 text length: 1750
+- DCLGEN 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+- DCLGEN 2 text length: 3874
+- DCLGEN 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+- DCLGEN 3 text length: 7342
+- DCLGEN 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+- DCLGEN 4 text length: 12328
+- DCLGEN 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+- DCLGEN 5 text length: 3033
+- DCLGEN 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+- DCLGEN 6 text length: 1683
+- DCLGEN 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+- DCLGEN 7 text length: 1769
+- DCLGEN total columns: 193
+- DCLGEN input file count: 7
+- DCLGEN file 1 input length: 1750
+- DCLGEN file 1: resolved table name: DZ01RSTV
+- DCLGEN file 1: DECLARE section 1 parsed SQL columns: 6
+- DCLGEN file 1: COBOL host field scan found 5 field(s).
+- DCLGEN file 1: SQL columns parsed: 6
+- DCLGEN file 1: COBOL host fields parsed: 5
+- DCLGEN file 1: merged DCLGEN columns: 6
+- DCLGEN file 1 parsed columns: 6
+- DCLGEN file 2 input length: 3874
+- DCLGEN file 2: resolved table name: DZBEFFTV
+- DCLGEN file 2: DECLARE section 1 parsed SQL columns: 22
+- DCLGEN file 2: COBOL host field scan found 22 field(s).
+- DCLGEN file 2: SQL columns parsed: 22
+- DCLGEN file 2: COBOL host fields parsed: 22
+- DCLGEN file 2: merged DCLGEN columns: 22
+- DCLGEN file 2 parsed columns: 22
+- DCLGEN file 3 input length: 7342
+- DCLGEN file 3: resolved table name: DZBFARTV
+- DCLGEN file 3: DECLARE section 1 parsed SQL columns: 51
+- DCLGEN file 3: COBOL host field scan found 51 field(s).
+- DCLGEN file 3: SQL columns parsed: 51
+- DCLGEN file 3: COBOL host fields parsed: 51
+- DCLGEN file 3: merged DCLGEN columns: 51
+- DCLGEN file 3 parsed columns: 51
+- DCLGEN file 4 input length: 12328
+- DCLGEN file 4: resolved table name: DZBFASTV
+- DCLGEN file 4: DECLARE section 1 parsed SQL columns: 89
+- DCLGEN file 4: COBOL host field scan found 89 field(s).
+- DCLGEN file 4: SQL columns parsed: 89
+- DCLGEN file 4: COBOL host fields parsed: 89
+- DCLGEN file 4: merged DCLGEN columns: 89
+- DCLGEN file 4 parsed columns: 89
+- DCLGEN file 5 input length: 3033
+- DCLGEN file 5: resolved table name: DZEVEFTV
+- DCLGEN file 5: DECLARE section 1 parsed SQL columns: 16
+- DCLGEN file 5: COBOL host field scan found 16 field(s).
+- DCLGEN file 5: SQL columns parsed: 16
+- DCLGEN file 5: COBOL host fields parsed: 16
+- DCLGEN file 5: merged DCLGEN columns: 16
+- DCLGEN file 5 parsed columns: 16
+- DCLGEN file 6 input length: 1683
+- DCLGEN file 6: resolved table name: DZSIASTV
+- DCLGEN file 6: DECLARE section 1 parsed SQL columns: 4
+- DCLGEN file 6: COBOL host field scan found 4 field(s).
+- DCLGEN file 6: SQL columns parsed: 4
+- DCLGEN file 6: COBOL host fields parsed: 4
+- DCLGEN file 6: merged DCLGEN columns: 4
+- DCLGEN file 6 parsed columns: 4
+- DCLGEN file 7 input length: 1769
+- DCLGEN file 7: resolved table name: DZWCEFTV
+- DCLGEN file 7: DECLARE section 1 parsed SQL columns: 5
+- DCLGEN file 7: COBOL host field scan found 5 field(s).
+- DCLGEN file 7: SQL columns parsed: 5
+- DCLGEN file 7: COBOL host fields parsed: 5
+- DCLGEN file 7: merged DCLGEN columns: 5
+- DCLGEN file 7 parsed columns: 5
+- DCLGEN total parsed columns: 193
+- Copybook file count: 7
+- Copybook 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+- Copybook 1 text length: 3078
+- Copybook 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+- Copybook 2 text length: 5330
+- Copybook 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+- Copybook 3 text length: 32308
+- Copybook 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+- Copybook 4 text length: 26404
+- Copybook 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+- Copybook 5 text length: 115948
+- Copybook 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+- Copybook 6 text length: 133824
+- Copybook 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+- Copybook 7 text length: 1420
+- Copybook total fields: 1349
+- Copybook files: logical copybook lines parsed: 2049
+- Copybook files: copybook fields parsed: 1349 (data fields: 1347, 88-condition names: 2, FILLER skipped: 431)
+- IDMS COBOL source file: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM4BD420.cbl
+- IDMS COBOL source text length: 18696
+- Derived target PROGRAM-ID: VMDZ4420
+- LRF folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\LRF
+- LRF file count: 3
+- LRF 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+- LRF 1 text length: 3746
+- LRF 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+- LRF 2 text length: 30098
+- LRF 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+- LRF 3 text length: 6516
+- LRF logical records parsed: 3
+- LRF logical records parsed: 3
+- LRF paths parsed for VMBTL03-R01: 6
+- LRF paths parsed for VMBTL06-R01: 61
+- LRF paths parsed for VMBTL07-R01: 11
+- LRF logical records in scope for this program: 3 (VMBTL03-R01, VMBTL06-R01, VMBTL07-R01)
+
+Retrieval DB2 COBOL generation completed.
+Input program: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM7BD200.cbl
+Output file created: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Output\VMDZ7200_11-10-2026_225648.cbl
+
+Input Summary
+-------------
+Project Root       : C:\VSCode\Latest\Latest-Code_Conversion
+SRC Directory      : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion
+Sheet Mapping Rows : 840
+DCLGEN Columns     : 193
+Copybook Fields    : 1349
+LRF Subschema Records : 3
+COBOL Text Length  : 18204
+Target PROGRAM-ID  : VMDZ7200
+
+Selected Input Files
+--------------------
+Sheet Mapping       : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+IDMS COBOL Source   : C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM7BD200.cbl
+DCLGEN Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+Copybook Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+LRF Subschema Files:
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+ - C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+
+Validation Messages
+-------------------
+- LRF expansion: FIRST VMBTL03-R01 WHERE SWEEP-VMBFAS expanded to VMBFAS WITHIN AR-VMBFRM1.
+- LRF expansion: NEXT VMBTL03-R01 WHERE SWEEP-VMBFAS expanded to VMBFAS WITHIN AR-VMBFRM1.
+- LRF expansion: rewrote 1 LR-STATUS condition(s) to the IDMS end-of-set token.
+- LRF expansion: expanded 2 statement(s), skipped 0.
+- Mapping scope: DZ01FFTB carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: DZ01RSTV carries no usable DB2 column mapping, but this program does not reference it. Workbook gap, not a conversion failure.
+- Mapping scope: 2 of 2 mapping gap(s) relate to tables this program does not reference.
+- Restart context: retrieval program; no restart context built.
+- Compiler option: source carried no CBL line; inserted CBL ARITH(EXTEND) before IDENTIFICATION DIVISION.
+- Program flow analyzer: Sheet Mapping rows received: 840
+- Program flow analyzer: DCLGEN columns received: 193
+- Program flow analyzer: paragraphs detected: 14
+- Program flow analyzer: cursor loops detected: 2
+- Program flow analyzer: output writes detected: 1
+- Program flow analyzer: IDMS update verbs detected: 0
+- Program flow analyzer: DB2 date usages detected: 7
+- Program flow analyzer: no table resolver supplied; cursor names are derived from the record name and may not match the generated cursor.
+- Program flow analyzer: no DB2 table resolved for VMBFAS; cursor name and paragraph names were derived from the RECORD and will not match the generated cursor.
+- Program flow analyzer: loop sample: record=VMBFAS, set=AR_VMBFRM1, type=cursor, cursor=VMBFAS-C1
+- Qualified field rewrite: DA-CPTA-FORM-AS OF VMBFAS -> DA-CPTAFS-479BFAS OF DCLDZBFASTV
+- Qualified field rewrite: DA-CR-FORM-AS OF VMBFAS -> DA-CRFMAS-479BFAS OF DCLDZBFASTV
+- Qualified field rewrite: NR-IS-FORM-AS OF VMBFAS -> NR-ISFMAS-479BFAS OF DCLDZBFASTV
+- Qualified field rewrite: NR-ST-FORM-AS OF VMBFAS -> NR-STFMAS-479BFAS OF DCLDZBFASTV
+- Field usage analyzer: records with usage detected: 1
+- Field usage analyzer: record=VMBFAS, condition=1, output=0, move_source=0, move_target=0, dclgen=4
+- DB2 infrastructure: DCLGEN includes selected: DZBFASTV
+- DB2 infrastructure: generated infrastructure block inserted.
+- Cursor ORDER BY cleanup: pass disabled; ORDER BY is retained on every cursor (manual reference VMDZ7200 orders its root cursor).
+- DB2 cursor paragraphs: generated 1 cursor paragraph set(s).
+- [LRF-POPULATOR] no_lrf_markers
+- Cursor flow: found 0 inline loop(s) and 3 span loop(s).
+- Cursor flow: correlated cursor DZBFASC1 with span loop PERFORM BEHANDELING THRU BEHANDELING-EXIT.
+- Cursor flow: rewrote span loop exit condition to DZBFASC1-EOC.
+- Cursor flow: inserted 730-CLOSE-DZBFASC1 after the span loop.
+- Cursor flow: no cursor loop was converted, so generated fetch calls were retained.
+- Cursor close guarantee: candidate business paragraph BEGIN-PROGRAMMA-EXIT for cursor DZBFASC1 references neither its DCLGEN group nor a nested cursor; binding refused.
+- Cursor close guarantee: FETCH paragraph 720-FETCH-DZBFASC1 now performs business paragraph BEHANDELING.
+- Cursor close guarantee: 730-CLOSE-DZBFASC1 is already performed; no insertion needed.
+- DB2 date compare: declared 2 HELP- date helper field(s).
+- DB2 date compare: realigned 2 DATE host(s) in 1 condition(s).
+- Structural safety: REC-FORM is a record layout; counters were not declared inside it.
+- Structural safety: W-NR-IS-FORM-AS declares no subordinate entry and cannot take a generated field.
+- Structural safety: WS-DZBFASC1-FLAG declares no subordinate entry and cannot take a generated field.
+- Structural safety: created WS-DB2-GENERATED for generated working-storage fields.
+- Timestamp: declared CS-PROGRAM as a level 10 inside WS-DB2-GENERATED.
+- Timestamp: replaced 1 hardcoded PROGRAM-NAME move(s) with CS-PROGRAM.
+- Timestamp: added the timestamp working-storage block.
+- Timestamp: generated the 600-GET-TIMESTAMP paragraph.
+- Timestamp: added PERFORM 600-GET-TIMESTAMP at the start of the mainline.
+- Timestamp generator: timestamp working storage and paragraph ensured.
+- Cleanup: removed redundant CONTINUE after removed IDMS statement.
+- Cleanup: removed residual IDMS conversion comment noise.
+- DB2 date output: no DB2 DATE host is moved to an output date field (568 line(s) examined). Nothing to convert.
+- Removed 2 generated DB2 marker comment(s).
+- Retrieval cleanup: removed 1 COMMIT block(s); the program is read-only.
+- Output write: extracted record population from BEHANDELING into paragraph WRITE-FORM-REC.
+- Output write: added WS-NB-OUTPUT-COUNT increment at the WRITE-FORM-REC call site.
+- Record materialisation: DATE8-LS is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: SPACES has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: CS-PROGRAM has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: ZEROES has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: DA-CCYYMMDD-R is a work field, not a mapped IDMS record; the move was left unchanged.
+- Record materialisation: WS-TELLER has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: target F-FORM measured at 478 byte(s); VMBFAS layout is 432 byte(s).
+- Record materialisation: expanded F-FORM into the VMBFAS layout (113 field(s), 432 bytes) and generated 83 move statement(s).
+- Record materialisation: VMBFAS occupies 432 of 478 byte(s) in F-FORM; 46 trailing byte(s) declared as FILLER so the record length is unchanged.
+- Record materialisation: W-NR-ID-ISSUE has no Sheet Mapping rows; the whole-record move was left for manual review.
+- Record materialisation: 12 whole-record move(s) examined, 1 materialised, 11 left for manual review.
+- Record materialisation: 11 record(s) refused - DATE8-LS (not a record); SPACES (no mapping); CS-PROGRAM (no mapping); ZEROES (no mapping); ZEROES (no mapping); ZEROES (no mapping). The whole-record MOVE was left in place and will be commented by the structural safety pass.
+- Structural safety: generated fields share work group WS-DB2-GENERATED.
+- Counters: declared WS-NB-OUTPUT-COUNT in WS-DB2-GENERATED.
+- Counters: declared WS-NB-BFAS-COUNT in WS-DB2-GENERATED.
+- Counters: added 2 end-of-run total display line(s).
+- Restart injection: Retrieval program is read-only; restart control not applied.
+- Procedure indent: normalized 40 statement line(s) to Area B.
+- Procedure indent: preserved 171 line(s) carrying their own clause or continuation alignment.
+- [error] move_alignment: AttributeError: 'Passthrough' object has no attribute 'prefix'
+- Statement layout: inserted 1 blank line(s) before a paragraph header.
+
+Diagnostics
+-----------
+- START LOAD INPUTS
+- Sheet Mapping folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet
+- Sheet Mapping selected: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Mapping Sheet\Field Mapping for IDMS to DB2_Final V 1.0_Manual.csv
+- Sheet Mapping rows: 840
+- Sheet Mapping file name: field mapping for idms to db2_final v 1.0_manual.csv
+- Sheet Mapping file size bytes: 80424
+- CSV/text decoded length: 80421
+- CSV/text sample: Cobol Recrd IDMS,Cobol Zone,IDMS Key,IDMS PIC Clause,Length of Field Bytes,Field end position,DB2 key,New DB2 Record ,New DB2_Field name,New DB2 DataType,Hopex Expression Type,Remarks,Relation,Reference Field Name (Copybook),Reference Field PIC Clause,Cross Application DB2 table,Cross Application DB2 Field Name,Cross Appln DB2 DataType,,Basetype\r\nVMBFC,   02  KY-VMBFC.,,,9,9,,,,,,,,,,,,,,\r\nVMBFC, 03 CT-RK-TGDSV,CALC,PIC X(4 ),4,13,Primary Key,DZMBFCTB,CT_RKTGDSC_479MBFC,CHAR(4),Identifiier(*) NR
+- CSV detected headers: ['Cobol Recrd IDMS', 'Cobol Zone', 'IDMS Key', 'IDMS PIC Clause', 'Length of Field Bytes', 'Field end position', 'DB2 key', 'New DB2 Record', 'New DB2_Field name', 'New DB2 DataType', 'Hopex Expression Type', 'Remarks', 'Relation', 'Reference Field Name (Copybook)', 'Reference Field PIC Clause', 'Cross Application DB2 table', 'Cross Application DB2 Field Name', 'Cross Appln DB2 DataType', '', 'Basetype']
+- CSV parsed useful rows: 840
+- Sheet Mapping populated Cobol Record IDMS rows: 835
+- Sheet Mapping populated source field rows: 630
+- Sheet Mapping populated DB2 table rows: 617
+- Sheet Mapping populated DB2 column rows: 560
+- Sheet Mapping useful source-to-target rows: 370
+- DCLGEN file count: 7
+- DCLGEN 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZ01RSTV.txt
+- DCLGEN 1 text length: 1750
+- DCLGEN 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBEFFTV.txt
+- DCLGEN 2 text length: 3874
+- DCLGEN 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFARTV.txt
+- DCLGEN 3 text length: 7342
+- DCLGEN 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZBFASTV.txt
+- DCLGEN 4 text length: 12328
+- DCLGEN 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZEVEFTV.txt
+- DCLGEN 5 text length: 3033
+- DCLGEN 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZSIASTV.txt
+- DCLGEN 6 text length: 1683
+- DCLGEN 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\DCLGen\DZWCEFTV.txt
+- DCLGEN 7 text length: 1769
+- DCLGEN total columns: 193
+- DCLGEN input file count: 7
+- DCLGEN file 1 input length: 1750
+- DCLGEN file 1: resolved table name: DZ01RSTV
+- DCLGEN file 1: DECLARE section 1 parsed SQL columns: 6
+- DCLGEN file 1: COBOL host field scan found 5 field(s).
+- DCLGEN file 1: SQL columns parsed: 6
+- DCLGEN file 1: COBOL host fields parsed: 5
+- DCLGEN file 1: merged DCLGEN columns: 6
+- DCLGEN file 1 parsed columns: 6
+- DCLGEN file 2 input length: 3874
+- DCLGEN file 2: resolved table name: DZBEFFTV
+- DCLGEN file 2: DECLARE section 1 parsed SQL columns: 22
+- DCLGEN file 2: COBOL host field scan found 22 field(s).
+- DCLGEN file 2: SQL columns parsed: 22
+- DCLGEN file 2: COBOL host fields parsed: 22
+- DCLGEN file 2: merged DCLGEN columns: 22
+- DCLGEN file 2 parsed columns: 22
+- DCLGEN file 3 input length: 7342
+- DCLGEN file 3: resolved table name: DZBFARTV
+- DCLGEN file 3: DECLARE section 1 parsed SQL columns: 51
+- DCLGEN file 3: COBOL host field scan found 51 field(s).
+- DCLGEN file 3: SQL columns parsed: 51
+- DCLGEN file 3: COBOL host fields parsed: 51
+- DCLGEN file 3: merged DCLGEN columns: 51
+- DCLGEN file 3 parsed columns: 51
+- DCLGEN file 4 input length: 12328
+- DCLGEN file 4: resolved table name: DZBFASTV
+- DCLGEN file 4: DECLARE section 1 parsed SQL columns: 89
+- DCLGEN file 4: COBOL host field scan found 89 field(s).
+- DCLGEN file 4: SQL columns parsed: 89
+- DCLGEN file 4: COBOL host fields parsed: 89
+- DCLGEN file 4: merged DCLGEN columns: 89
+- DCLGEN file 4 parsed columns: 89
+- DCLGEN file 5 input length: 3033
+- DCLGEN file 5: resolved table name: DZEVEFTV
+- DCLGEN file 5: DECLARE section 1 parsed SQL columns: 16
+- DCLGEN file 5: COBOL host field scan found 16 field(s).
+- DCLGEN file 5: SQL columns parsed: 16
+- DCLGEN file 5: COBOL host fields parsed: 16
+- DCLGEN file 5: merged DCLGEN columns: 16
+- DCLGEN file 5 parsed columns: 16
+- DCLGEN file 6 input length: 1683
+- DCLGEN file 6: resolved table name: DZSIASTV
+- DCLGEN file 6: DECLARE section 1 parsed SQL columns: 4
+- DCLGEN file 6: COBOL host field scan found 4 field(s).
+- DCLGEN file 6: SQL columns parsed: 4
+- DCLGEN file 6: COBOL host fields parsed: 4
+- DCLGEN file 6: merged DCLGEN columns: 4
+- DCLGEN file 6 parsed columns: 4
+- DCLGEN file 7 input length: 1769
+- DCLGEN file 7: resolved table name: DZWCEFTV
+- DCLGEN file 7: DECLARE section 1 parsed SQL columns: 5
+- DCLGEN file 7: COBOL host field scan found 5 field(s).
+- DCLGEN file 7: SQL columns parsed: 5
+- DCLGEN file 7: COBOL host fields parsed: 5
+- DCLGEN file 7: merged DCLGEN columns: 5
+- DCLGEN file 7 parsed columns: 5
+- DCLGEN total parsed columns: 193
+- Copybook file count: 7
+- Copybook 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\ESDATMAS.cpy
+- Copybook 1 text length: 3078
+- Copybook 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50I.cpy
+- Copybook 2 text length: 5330
+- Copybook 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VM9BC50O.cpy
+- Copybook 3 text length: 32308
+- Copybook 4: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD05.cpy
+- Copybook 4 text length: 26404
+- Copybook 5: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD205I.cpy
+- Copybook 5 text length: 115948
+- Copybook 6: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBD510I.cpy
+- Copybook 6 text length: 133824
+- Copybook 7: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Copybook\VMBZ270I.cpy
+- Copybook 7 text length: 1420
+- Copybook total fields: 1349
+- Copybook files: logical copybook lines parsed: 2049
+- Copybook files: copybook fields parsed: 1349 (data fields: 1347, 88-condition names: 2, FILLER skipped: 431)
+- IDMS COBOL source file: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Program\VM7BD200.cbl
+- IDMS COBOL source text length: 18204
+- Derived target PROGRAM-ID: VMDZ7200
+- LRF folder: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\LRF
+- LRF file count: 3
+- LRF 1: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS03.txt
+- LRF 1 text length: 3746
+- LRF 2: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS06.txt
+- LRF 2 text length: 30098
+- LRF 3: C:\VSCode\Latest\Latest-Code_Conversion\IDMS-DB2-Code-Conversion\mainframe\workspace\Subschema\VMBTS07.txt
+- LRF 3 text length: 6516
+- LRF logical records parsed: 3
+- LRF logical records parsed: 3
+- LRF paths parsed for VMBTL03-R01: 6
+- LRF paths parsed for VMBTL06-R01: 61
+- LRF paths parsed for VMBTL07-R01: 11
+- LRF logical records in scope for this program: 3 (VMBTL03-R01, VMBTL06-R01, VMBTL07-R01)
+- Renamed source copybook references to derived DB2 names: VMBZ270I -> VMDZ270I.

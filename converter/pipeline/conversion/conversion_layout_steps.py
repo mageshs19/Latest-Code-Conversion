@@ -42,6 +42,22 @@ ORDERING CONTRACT (enforced by ConversionLayoutPipeline)
     step 3, which is what emits the increment, and BEFORE step 7 so the
     generated DISPLAY lines are indented with everything else.
 
+5b. ``RestartStageAdapter`` injects the restart family into an UPDATE
+    program: legacy cleanup, mainline, reader, business paragraph and
+    the eight restart paragraphs.
+
+    MUST run AFTER step 5. The mainline splices the end-of-run totals
+    that pass produced; running first would emit a mainline with an
+    empty totals block and no second author to fill it.
+
+    MUST run BEFORE step 7. The generated paragraphs are returned as
+    logical bodies with relative indent only; Area B alignment, the
+    paragraph separator and the final resequence all have to see them.
+
+    A RETRIEVAL program is returned unchanged with a reason. So is an
+    update program whose restart role or resolved names are incomplete:
+    half a restart family is worse than none.
+
 6.  ``UnmappedRecordBlockComposer`` comments record-level blocks that
     have no usable DB2 column mapping. Runs after every content pass so
     it never comments code another pass still needs to read.
@@ -71,18 +87,26 @@ CORRECTION - step 4b was a silent no-op
     when the composer was absent, so an unwired feature was
     indistinguishable from a feature that ran and found nothing to do.
     The absence is now reported.
+
+CORRECTION - step 5b leaked its context between programs
+
+    inject_restart_control set composer.context and left it there. One
+    RestartStageAdapter is built per RUN, not per program, so a batch
+    would have applied program 1's DCLGEN role, retention value and
+    totals to program 2 - silently, because every one of those values
+    is plausible for the next program. The context is now cleared in a
+    finally block, and `restart_context` defaults to None so the pass
+    can be wired before the context plumbing exists and REPORT the gap
+    instead of raising.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-
 from converter.composers.late_db2_date_composer import (
     LateDb2DateComposer,
 )
-
-
 from converter.composers.structural_safety_composer import (
     StructuralSafetyComposer,
 )
@@ -94,6 +118,11 @@ from converter.services.final_sequence_resequencer_service import (
 )
 from rules.record_materialisation_rules import (
     RECORD_MATERIALISATION_MESSAGES,
+)
+
+RESTART_COMPOSER_ABSENT = (
+    "Restart injection: composer is not registered; no update program "
+    "will receive restart control."
 )
 
 
@@ -162,7 +191,7 @@ class ConversionLayoutSteps:
         )
         validation_messages.extend(doc.messages)
         return doc.cobol
-    
+
     # =================================================================
     # 4. Late DB2 date / INITIALIZE re-run
     # =================================================================
@@ -245,7 +274,48 @@ class ConversionLayoutSteps:
         doc = run_stage("declare_counters", Document(cobol=converted_cobol))
         validation_messages.extend(doc.messages)
         return doc.cobol
-    
+
+    # =================================================================
+    # 5b. Restart control injection
+    # =================================================================
+    def inject_restart_control(
+        self,
+        *,
+        converted_cobol: str,
+        validation_messages: list[str],
+        restart_context=None,
+    ) -> str:
+        """Apply the restart family to an UPDATE program.
+
+        AFTER declare_counters: the mainline splices the totals that
+        pass produced. BEFORE normalize_indentation: the generated
+        paragraphs must be aligned, separated and resequenced with
+        everything else.
+
+        `restart_context` defaults to None so this pass can be wired
+        before the context plumbing exists. The adapter then returns the
+        program unchanged and REPORTS the wiring gap, which is the one
+        state that must never look like success.
+
+        The context is cleared afterwards: one adapter is built per RUN,
+        not per program, and a context left behind would be applied to
+        the next program in a batch.
+        """
+        composer = self.composers.get("restart_injection")
+
+        if composer is None:
+            validation_messages.append(RESTART_COMPOSER_ABSENT)
+            return converted_cobol
+
+        composer.context = restart_context
+        try:
+            converted_cobol = composer.compose(converted_cobol)
+        finally:
+            composer.context = None
+            validation_messages.extend(self._component_messages(composer))
+
+        return converted_cobol
+
     # =================================================================
     # 6. Unmapped record blocks
     # =================================================================
@@ -315,9 +385,10 @@ class ConversionLayoutSteps:
         )
         validation_messages.extend(doc.messages)
         return doc.cobol
-    #
+
+    # =================================================================
     # 7b. MOVE alignment
-    #
+    # =================================================================
     def align_moves(
         self,
         *,
@@ -337,10 +408,11 @@ class ConversionLayoutSteps:
 
         doc = run_stage("move_alignment", Document(cobol=converted_cobol))
         validation_messages.extend(doc.messages)
-        return doc.cobol   
-    #
+        return doc.cobol
+
+    # =================================================================
     # 7c. Paragraph separation
-    #
+    # =================================================================
     def separate_paragraphs(
         self,
         *,
@@ -359,7 +431,8 @@ class ConversionLayoutSteps:
 
         doc = run_stage("statement_layout", Document(cobol=converted_cobol))
         validation_messages.extend(doc.messages)
-        return doc.cobol 
+        return doc.cobol
+
     # =================================================================
     # 8. Final resequence
     # =================================================================
@@ -396,6 +469,7 @@ class ConversionLayoutSteps:
         validation_messages.extend(doc.messages)
         return doc.cobol
 
+
 # ---------------------------------------------------------------------
 # Backwards-compatible aliases for step 4.
 #
@@ -414,4 +488,4 @@ ConversionLayoutSteps.late_db2_dates = (
 )
 
 
-__all__ = ["ConversionLayoutSteps"]
+__all__ = ["ConversionLayoutSteps", "RESTART_COMPOSER_ABSENT"]
