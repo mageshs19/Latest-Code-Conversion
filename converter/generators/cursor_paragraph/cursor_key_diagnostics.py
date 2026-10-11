@@ -29,12 +29,41 @@ HOST_OF_SEPARATOR = f" {TOKEN_OF} "
 
 
 class KeyDiagnosticsBuilder:
+    """Renders the driving-key DISPLAY lines of a child cursor's
+    WHEN OTHER branch.
+
+    CORRECTION - a missing dependency was silently substituted.
+
+    __init__ previously read
+
+        self.label_resolver = label_resolver or JoinKeyLabelResolver()
+
+    so KeyDiagnosticsBuilder() was legal and produced a resolver with NO
+    Sheet Mapping repository. Every lookup returned "", the label fell
+    back to the DCLGEN host name, and the generated COBOL carried
+
+        DISPLAY 'CT-RKTPROD-479BEFF = ' CT-RKTPROD-479BEFF
+
+    instead of the mapped name the manual reference shows. Nothing
+    failed and nothing was logged at the call site.
+
+    The label is Sheet Mapping DATA. A builder without a resolver cannot
+    produce a correct one, so it is no longer constructible.
+    """
 
     def __init__(
         self,
         label_resolver: JoinKeyLabelResolver | None = None,
     ) -> None:
-        self.label_resolver = label_resolver or JoinKeyLabelResolver()
+        if label_resolver is None:
+            raise ValueError(
+                "KeyDiagnosticsBuilder requires a JoinKeyLabelResolver "
+                "built over the run's MappingRepository. Substituting an "
+                "empty resolver degrades every driving-key label to its "
+                "DCLGEN host name without reporting anything."
+            )
+
+        self.label_resolver = label_resolver
 
     @property
     def messages(self) -> list[str]:
@@ -135,11 +164,15 @@ class KeyDiagnosticsBuilder:
         if KEY_LABEL_SOURCE != KEY_LABEL_SOURCE_MAPPING:
             return NameNormalizer.to_cobol(host)
 
-        return self.label_resolver.label_for(
+        label = self.label_resolver.label_for(
             table=self.label_resolver.table_of(group),
             column=NameNormalizer.normalize(host),
             host=host,
         )
+
+        # The resolver already recorded WHY on a miss, and `messages`
+        # exposes it. Falling back here keeps the COBOL renderable.
+        return label or NameNormalizer.to_cobol(host)
 
     @staticmethod
     def _split(reference: str) -> tuple[str, str]:

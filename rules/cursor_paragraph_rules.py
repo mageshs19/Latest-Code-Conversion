@@ -346,6 +346,9 @@ WRAP_KEY_DISPLAY = True
 KEY_DISPLAY_LITERAL_TEMPLATE = "DISPLAY '{label} = '"
 COLUMN_KEY_CONTINUATION = 24
 IND_KEY_CONTINUATION = " " * (COLUMN_KEY_CONTINUATION - BODY_FIRST_COLUMN)
+DCLGEN_TABLE_SUFFIX = "TV"
+MAPPING_TABLE_SUFFIX = "TB"
+MAPPING_TABLE_SEPARATOR = "_"
 
 KEY_DIAGNOSTIC_MESSAGES = {
     "emitted": (
@@ -366,6 +369,11 @@ KEY_DIAGNOSTIC_MESSAGES = {
     "truncated": (
         "Cursor paragraphs: {cursor} FETCH error branch limited to "
         "{limit} of {total} column(s)."
+    ),
+        "label_lookup_failed": (
+        "Cursor paragraphs: the Sheet Mapping lookup {method} raised "
+        "{error}. The label fell back to the DCLGEN host name. This is "
+        "a converter defect, not a workbook gap."
     ),
 }
 
@@ -427,3 +435,4 @@ DIAG_NO_HOST_VARIABLES_TEMPLATE = (
 # append is exactly what produced the duplicate template family and the
 # duplicate INTO geometry this file has now had removed TWICE. A new
 # constant belongs in its subject section above.
+STRIP_REDEFINES_SUFFIX_FROM_KEY_LABEL = False

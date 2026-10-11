@@ -14,7 +14,7 @@ This class is a thin facade that delegates to focused helpers:
 
 from __future__ import annotations
 
-from catalogs.db2_naming_catalog import DB2_TABLE_SUFFIX_EQUIVALENTS   # ADDED
+from catalogs.db2_naming_catalog import DB2_TABLE_SUFFIX_EQUIVALENTS
 from converter.domain.models import SheetMappingRow
 from converter.repositories.mapping_column_resolver import (
     MappingColumnResolver,
@@ -23,7 +23,30 @@ from converter.repositories.mapping_key_resolver import (
     MappingKeyResolver,
 )
 from converter.repositories.mapping_row_query import MappingRowQuery
-from converter.services.name_normalizer import NameNormalizer      # ADDED
+from converter.services.name_normalizer import NameNormalizer
+
+
+# A Sheet Mapping COBOL cell carries the copybook level number:
+#   "  04  CT-RK-TPROD  "
+# The level is layout, not identity, so it is stripped.
+LEVEL_NUMBER_MAX_WIDTH = 2
+
+
+def _cobol_name_of(value: str) -> str:
+    """The bare COBOL data name from a Sheet Mapping COBOL Zone cell."""
+    text = " ".join(str(value or "").split())
+    if not text:
+        return ""
+
+    parts = text.split()
+    if (
+        len(parts) > 1
+        and parts[0].isdigit()
+        and len(parts[0]) <= LEVEL_NUMBER_MAX_WIDTH
+    ):
+        parts = parts[1:]
+
+    return parts[0].upper() if parts else ""
 
 
 class MappingRepository:
@@ -131,7 +154,89 @@ class MappingRepository:
             changed_source_fields=changed_source_fields,
         )
 
-    # --- ADDED: restart AND-gate support (TB/TV aware) ---
+    # --- reverse lookup: DB2 column -> IDMS COBOL field name ---
+    #
+    # CORRECTION - this method delegated through `self.query`, an
+    # attribute this class does not own. MappingColumnResolver and
+    # MappingKeyResolver hold a MappingRowQuery under that name; the
+    # repository holds it as `_query`. Every call raised
+    #
+    #   AttributeError: 'MappingRepository' object has no attribute 'query'
+    #
+    # JoinKeyLabelResolver caught it, reported it, and fell back to the
+    # DCLGEN host name - so a converter defect was indistinguishable
+    # from a missing workbook cell in the generated COBOL.
+    #
+    # The lookup is now performed HERE, over this class's own public row
+    # accessors, and delegates to nothing. A renamed internal helper can
+    # no longer break it.
+    def cobol_field_for_column(
+        self,
+        table_name: str = "",
+        column_name: str = "",
+    ) -> str:
+        """The COBOL Zone this DB2 column was mapped FROM.
+
+        Sheet Mapping pairs a COBOL-side identifier (cobol_zone, with
+        reference_field_name_copybook as the alternate spelling) with
+        new_db2_field_name. Every other query walks that pair LEFT to
+        RIGHT. The cursor error-branch label needs it the other way:
+
+            CT_RKTPROD_479BEFF  ->  CT-RKT-PROD
+
+        It is a LOOKUP, not a derivation. The pairing is not reversible
+        by any string rule - NS-DBSTK-479BEFF maps to NR-DB-STOCK, and
+        the prefix changes.
+
+        Two passes. The first honours the caller's table, so a column
+        name reused across tables cannot cross-match. The second drops
+        the table filter, because JoinKeyLabelResolver probes several
+        spellings of the same table (DZBEFFTV / DZBEFFTB / DZBEFF) and
+        the workbook carries only one of them.
+
+        Keyword arguments, because JoinKeyLabelResolver probes
+        keyword-first.
+
+        Returns "" when the column is unknown. The caller reports the
+        gap and falls back to the DCLGEN host name.
+        """
+        target = NameNormalizer.normalize(column_name)
+        if not target:
+            return ""
+
+        wanted_table = NameNormalizer.normalize(table_name)
+
+        for restrict_to_table in (True, False):
+            if restrict_to_table and not wanted_table:
+                continue
+
+            for record in self.records():
+                if restrict_to_table:
+                    record_table = NameNormalizer.normalize(
+                        self.db2_table_for_record(record)
+                    )
+                    if record_table and record_table != wanted_table:
+                        continue
+
+                for row in self.rows_for_record(record) or []:
+                    column = NameNormalizer.normalize(
+                        getattr(row, "new_db2_field_name", "")
+                        or getattr(row, "cross_application_db2_field_name", "")
+                    )
+                    if column != target:
+                        continue
+
+                    for candidate in (
+                        getattr(row, "cobol_zone", ""),
+                        getattr(row, "reference_field_name_copybook", ""),
+                    ):
+                        name = _cobol_name_of(candidate)
+                        if name:
+                            return name
+
+        return ""
+
+    # --- restart AND-gate support (TB/TV aware) ---
     def _restart_table_candidates(self, table_name: str) -> list[str]:
         """All equivalent DB2 table spellings (TB/TV) for confirmation.
 
@@ -171,24 +276,6 @@ class MappingRepository:
             if self.has_table(candidate):
                 return True
         return False
-
-# LOCATION: converter/repositories/mapping_repository.py
-# ACTION: APPEND one delegate to class MappingRepository
-
-    def cobol_field_for_column(
-        self,
-        table_name: str = "",
-        column_name: str = "",
-    ) -> str:
-        """DB2 column -> IDMS COBOL field name. "" when unmapped.
-
-        Consumed by the cursor error-branch diagnostic label. Keyword
-        arguments, because JoinKeyLabelResolver probes keyword-first.
-        """
-        return self.query.cobol_field_for_column(
-            table_name=table_name,
-            column_name=column_name,
-        )
 
 
 __all__ = [

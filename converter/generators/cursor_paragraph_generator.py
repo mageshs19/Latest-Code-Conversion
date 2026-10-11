@@ -1,6 +1,3 @@
-# LOCATION: converter/generators/cursor_paragraph_generator.py
-# ACTION: REPLACE ENTIRE FILE
-
 """Generates DB2 cursor OPEN / FETCH / CLOSE paragraphs.
 
 This class is a FACADE. It owns orchestration only:
@@ -23,9 +20,30 @@ Public interface consumed by orchestration/conversion/conversion_pipeline.py:
     )
 
 Do not rename or remove `apply`.
+
+CORRECTION - the Sheet Mapping never reached the label resolver
+---------------------------------------------------------------
+The body builder was constructed bare, so JoinKeyLabelResolver had no
+repository to query and every FETCH error-branch label fell back to the
+DCLGEN host name:
+
+    DISPLAY 'CT-RKTPROD-479BEFF = ' CT-RKTPROD-479BEFF   wrong
+    DISPLAY 'CT-RK-TPROD = '        CT-RKTPROD-479BEFF   right
+
+The repository is reached through the infrastructure generator, which
+already holds it, so no construction site changes.
+
+CORRECTION - the fallback was reported into a list nobody read
+---------------------------------------------------------------
+Every fallback IS reported, onto body_builder.messages. apply() appended
+its own diagnostics and never drained that list, so a wrong label
+produced no warning anywhere. The list is drained before returning, and
+reset once per program so one program's report cannot reach the next.
 """
 
 from __future__ import annotations
+
+from typing import Optional
 
 from catalogs.output_sections import DB2_CURSOR_PARAGRAPH_MARKER
 from converter.domain.models import IdmsOperation
@@ -49,7 +67,6 @@ from rules.cursor_paragraph_rules import (
     DIAG_NO_HOST_VARIABLES_TEMPLATE,
     SQL_ERROR_PARAGRAPH_NAME,
 )
-from typing import Optional
 
 
 class CursorParagraphGenerator:
@@ -68,11 +85,12 @@ class CursorParagraphGenerator:
         self.db2_infrastructure_generator = db2_infrastructure_generator
         self.host_variable_resolver = host_variable_resolver
         self.sql_error_generator = sql_error_generator
-        self.body_builder = body_builder or CursorParagraphBodyBuilder()
+        self.body_builder = body_builder or CursorParagraphBodyBuilder(
+            mapping_repository=self._mapping_repository(),
+        )
         self.perform_rewriter = perform_rewriter or CursorPerformRewriter()
         self.messages: list[str] = []
-        
-        # LRF host variable population support (initialized by factory)
+
         self._lrf_host_variable_populator: Optional[object] = None
         self._table_name_resolver: Optional[object] = None
         self._cursor_name_resolver: Optional[object] = None
@@ -86,6 +104,8 @@ class CursorParagraphGenerator:
         operations: list[IdmsOperation],
     ) -> tuple[str, list[str]]:
         self.messages = []
+        self._reset_body_builder()
+
         text = str(cobol_text or "")
 
         if not text:
@@ -124,6 +144,7 @@ class CursorParagraphGenerator:
             DIAG_GENERATED_TEMPLATE.format(count=len(cursor_specs))
         )
         self.messages.extend(self._host_variable_warnings(cursor_specs))
+        self.messages.extend(self._body_builder_messages())
         return updated_text, self.messages
 
     # =================================================================
@@ -144,18 +165,15 @@ class CursorParagraphGenerator:
         """
         populator = getattr(self, "_lrf_host_variable_populator", None)
         if not populator:
-            # LRF support not configured
             return cobol_text, []
 
         try:
-            # Inject host variable population code before cursor OPENs
             augmented_cobol, messages = populator.augment_procedure_division(
                 cobol_text
             )
             return augmented_cobol, messages
 
         except Exception as e:  # noqa: BLE001
-            # If augmentation fails, return original and note the error
             error_msg = f"[LRF-POPULATION] augmentation failed: {e}"
             return cobol_text, [error_msg]
 
@@ -274,6 +292,39 @@ class CursorParagraphGenerator:
         ).strip()
         return name or self.SQLERROR_PARAGRAPH_NAME
 
+    def _mapping_repository(self):
+        """Sheet Mapping, reached through the infrastructure generator.
+
+        The label in a FETCH error branch is a Sheet Mapping lookup, not
+        a derivation. Constructing the body builder bare left the
+        resolver with nothing to query, so every label fell back to the
+        DCLGEN host name.
+        """
+        return getattr(
+            self.db2_infrastructure_generator,
+            "mapping_repository",
+            None,
+        )
+
+    def _reset_body_builder(self) -> None:
+        """Drop the previous program's label diagnostics.
+
+        One component factory instance converts every program in a
+        folder, so an uncleared list carries program 1's fallbacks into
+        program 2's report.
+        """
+        reset = getattr(self.body_builder, "reset", None)
+        if callable(reset):
+            reset()
+
+    def _body_builder_messages(self) -> list[str]:
+        """Label-resolution diagnostics from the body builder.
+
+        An unreported fallback reads exactly like a correct label. This
+        is the only place they reach the conversion log.
+        """
+        return list(getattr(self.body_builder, "messages", []) or [])
+
     def _cursor_specs(
         self,
         operations: list[IdmsOperation],
@@ -336,3 +387,6 @@ class CursorParagraphGenerator:
             return f"{text[:insert_at]}\n{block}\n{text[insert_at:]}"
 
         return f"{text.rstrip()}\n\n{block}"
+
+
+__all__ = ["CursorParagraphGenerator"]
