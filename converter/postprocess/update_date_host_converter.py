@@ -139,7 +139,7 @@ class UpdateDateHostConverter:
         if host_key.startswith(self._AUDIT_HOST_PREFIXES):
             return False
 
-        src_key = NameNormalizer.normalize(source).upper().replace("-", "")
+        src_key = NameNormalizer.to_cobol(source).upper().replace("-", "")
         if src_key == self._ALREADY_REALIGNED_SOURCE:
             return False
         if src_key in self._PROTECTED_SOURCES:
