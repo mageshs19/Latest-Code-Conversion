@@ -27,3 +27,15 @@ CONTINUE_STATEMENT = "CONTINUE."
 SQLCODE_100_IF_OPEN = "IF SQLCODE = 100"
 SQLCODE_100_IF_CLOSE = "END-IF."
 SQLCODE_100_CONTINUE_BODY = "   CONTINUE"
+
+REMOVED_COPYBOOK_FIELDS = (
+    "LR-STATUS",
+    "ERROR-STATUS",
+    "DML-SEQUENCE",
+)
+
+REMOVED_COPYBOOK_FIELD_RULE = (
+    "A reference whose declaration the converter removed is either "
+    "rewritten to a DB2 equivalent or commented with *DB2-KEEP:. It is "
+    "never left live, and the action is always reported."
+)

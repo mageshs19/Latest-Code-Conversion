@@ -5,6 +5,9 @@ from __future__ import annotations
 
 from converter.composers.cobol_cleanup_composer import CobolCleanupComposer
 from converter.composers.cobol_formatter import CobolFormatter
+from converter.composers.cursor_close_guarantee_composer import (
+    CursorCloseGuaranteeComposer,
+)
 from converter.composers.cursor_flow_composer import CursorFlowComposer
 from converter.composers.cursor_order_cleanup_composer import (
     CursorOrderCleanupComposer,
@@ -19,6 +22,9 @@ from converter.composers.final_cobol_fix_composer import (
 from converter.composers.fixed_format_composer import FixedFormatComposer
 from converter.composers.manual_layout_composer import ManualLayoutComposer
 from converter.composers.manual_style_preserver import ManualStylePreserver
+from converter.composers.record_materialisation_composer import (
+    RecordMaterialisationComposer,
+)
 from converter.composers.restart.restart_line_utils import RestartLineUtils
 from converter.composers.restart.restart_stage_adapter import (
     RestartStageAdapter,
@@ -45,15 +51,15 @@ from converter.generators.cursor_paragraph_generator import (
 from converter.generators.db2_infrastructure_generator import (
     Db2InfrastructureGenerator,
 )
-from converter.pipeline.lrf_host_variable_population import (
-    setup_lrf_host_variable_population,
-)
 from converter.generators.select_paragraph_generator import (
     SelectParagraphGenerator,
 )
 from converter.generators.sql_error_generator import SqlErrorGenerator
 from converter.generators.sql_generator import SqlGenerator
 from converter.generators.timestamp_generator import TimestampGenerator
+from converter.pipeline.lrf_host_variable_population import (
+    setup_lrf_host_variable_population,
+)
 from converter.repositories.copybook_repository import CopybookRepository
 from converter.repositories.dclgen_repository import DclgenRepository
 from converter.repositories.lrf_repository import LrfRepository
@@ -71,17 +77,14 @@ from converter.transformers.field_reference_rewriter import (
 from converter.transformers.idms_statement_transformer import (
     IdmsStatementTransformer,
 )
+from converter.transformers.lr_status_token_replacer import (
+    LrStatusTokenReplacer,
+)
 from converter.transformers.lrf_path_expander import LrfPathExpander
 from patterns.idms_patterns import IDMS_WRITE_VERB_PATTERN
 from rules.final_feedback_fix_rules import (
     DEFAULT_DB2_DATE_EXTERNAL_FORMAT,
     ORDER_BY_COLUMNS_IN_SELECT_DEFAULT,
-)
-from converter.composers.record_materialisation_composer import (
-    RecordMaterialisationComposer,
-)
-from converter.composers.cursor_close_guarantee_composer import (
-    CursorCloseGuaranteeComposer,
 )
 from rules.idms_transformer_messages import TRANSFORMER_MESSAGES
 
@@ -175,6 +178,27 @@ class ConversionComponentFactory:
     empty, LrfPathResolver reports is_empty(), and LrfPathExpander returns
     the program source unchanged - so a program without logical records
     converts exactly as it did before LRF support existed.
+
+    Two transformers make up the LRF pre-pass and they run as a PAIR, in
+    this order, inside ConversionPipeline._expand_logical_records:
+
+      1. LrfPathExpander       rewrites the LRF form into classic IDMS and
+                               turns an LR-STATUS literal test into an
+                               IDMS status TOKEN (DB-END-OF-SET,
+                               DB-REC-NOT-FOUND, DB-REC-FOUND).
+
+      2. LrStatusTokenReplacer turns that token into the DB2 condition
+                               (SQLCODE = 100 / SQLCODE = 0) using the one
+                               mapping in rules/lrf_conversion_rules.py.
+
+    Step 2 is not optional cosmetics. The tokens are CONDITION NAMES
+    declared by COPY IDMS SUBSCHEMA-LR-CTRL, and the declarative converter
+    removes that copybook. Without the replacer, DB-REC-FOUND reaches the
+    compiler undefined and CHK-31 reports it as residual IDMS.
+
+    LrStatusTokenReplacer takes NO collaborators: it reads only rules/, so
+    it cannot be mis-wired, and it is a byte-for-byte no-op on any program
+    that carries no generated status token.
     """
 
     def __init__(self) -> None:
@@ -371,6 +395,13 @@ class ConversionComponentFactory:
             "lrf_path_expander": LrfPathExpander(
                 path_resolver=resolvers["lrf_path"],
             ),
+            # Runs IMMEDIATELY AFTER the expander, in the same pipeline
+            # step. The expander emits an IDMS status TOKEN; this turns
+            # that token into the DB2 condition. Takes no collaborators -
+            # it reads only rules/lrf_conversion_rules.py. See the LRF
+            # section of the class docstring for why the pair is not
+            # separable.
+            "lr_status_token_replacer": LrStatusTokenReplacer(),
         }
 
     def _apply_commit_policy(

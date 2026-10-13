@@ -10,6 +10,7 @@ from converter.domain.models import ConversionInput
 from converter.infrastructure.file_loader import FileLoader
 from converter.infrastructure.local_uploaded_file import LocalUploadedFile
 from converter.pipeline.conversion_service import ConversionService
+from converter.resolvers.program_kind_resolver import ProgramKindResolver
 from patterns.lrf_patterns import COPY_IDMS_LR_PATTERN
 from rules.batch_runner_messages import (
     DIAG_SOURCE_FILE_TEMPLATE,
@@ -32,6 +33,10 @@ from rules.lrf_rules import (
 from .batch_models import BatchMode, SharedInputs
 from .batch_reporter import log_program_result
 from .update_postprocess_pipeline import apply_update_postprocess
+DIAG_RETRIEVAL_SKIPPED_TEMPLATE = (
+    "Update postprocess skipped: {program} measures as a RETRIEVAL "
+    "program. The batch mode offered it; the source refused."
+)
 
 
 def build_output_path(*, mode: BatchMode, program_path: Path) -> Path:
@@ -148,15 +153,25 @@ def convert_one_program(
     converted_cobol = result.converted_cobol or ""
 
     if mode.apply_update_postprocess:
-        converted_cobol = apply_update_postprocess(
-            source_text=source_text,
-            converted_cobol=converted_cobol,
-            copybook_fields=shared_inputs.copybook_fields,
-            dclgen_columns=shared_inputs.dclgen_columns,
-            target_program_id=target_program_id,
-            diagnostics=diagnostics,
-            logger=logger,
-        )
+        is_update, kind_messages = ProgramKindResolver().is_update(source_text)
+        diagnostics.extend(kind_messages)
+
+        if is_update:
+            converted_cobol = apply_update_postprocess(
+                source_text=source_text,
+                converted_cobol=converted_cobol,
+                copybook_fields=shared_inputs.copybook_fields,
+                dclgen_columns=shared_inputs.dclgen_columns,
+                target_program_id=target_program_id,
+                diagnostics=diagnostics,
+                logger=logger,
+            )
+        else:
+            message = DIAG_RETRIEVAL_SKIPPED_TEMPLATE.format(
+                program=program_path.name
+            )
+            diagnostics.append(message)
+            logger.warning(message)
 
     output_path = build_output_path(mode=mode, program_path=program_path)
     output_path.write_text(converted_cobol, encoding=COBOL_TEXT_ENCODING)

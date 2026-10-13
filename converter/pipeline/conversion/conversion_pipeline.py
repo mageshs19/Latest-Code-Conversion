@@ -320,8 +320,23 @@ class ConversionPipeline(ConversionPipelineSteps):
             return source_text
 
         validation_messages.extend(self._component_messages(expander))
+        expanded = expanded or source_text
 
-        return expanded or source_text
+        replacer = transformers.get("lr_status_token_replacer")
+        if replacer is None:
+            return expanded
+
+        try:
+            replaced = replacer.apply(expanded)
+        except Exception as exc:  # noqa: BLE001
+            validation_messages.append(
+                "LR-STATUS tokens: skipped, expanded source will be used. "
+                f"Reason: {exc}"
+            )
+            return expanded
+
+        validation_messages.extend(self._component_messages(replacer))
+        return replaced or expanded
 
 
 __all__ = ["ConversionPipeline"]

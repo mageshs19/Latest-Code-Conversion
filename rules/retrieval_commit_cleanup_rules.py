@@ -51,10 +51,6 @@ RETRIEVAL_COMMIT_MESSAGES = {
 
 CURSOR_ORDER_CLEANUP_UNUSED = None  # placeholder, keeps imports stable
 
-RETRIEVAL_COMMIT_MESSAGES["continue_added"] = (
-    "Retrieval cleanup: added CONTINUE. after the removed COMMIT; it was "
-    "the only statement in its paragraph."
-)
 
 ENFORCE_PARAGRAPH_NOT_EMPTIED = True
 

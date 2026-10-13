@@ -111,9 +111,42 @@ class FixedFormatLineParser(FixedFormatSequenceStripper):
     def parse_fixed_80_line(self, line: str) -> dict[str, str | bool] | None:
         """Parse a sequenced record, whatever its physical length.
 
-        A record without a right sequence keeps every character from
-        column 8 onwards as body. Slicing columns 73-80 off a record that
-        does not have them destroys real COBOL text.
+        CORRECTION 4 - the body ran past column 72 on any short record.
+
+            if self._has_right_sequence(text):
+                body = text[BODY_START:BODY_END]
+            else:
+                body = text[BODY_START:]        # <- to the END of the record
+
+        _has_right_sequence requires len(text) >= 80, so a record off by a
+        SINGLE character took the else branch and kept its own sequence
+        area as COBOL text:
+
+            IN   '    STOP RUN.' + 52 spaces + '02350000'   (79 columns)
+            BODY '    STOP RUN.' + 51 spaces + '0235000'    (72 chars)
+
+        FixedFormatWrapper then collapsed the spaces, _compose_line packed
+        the result into columns 8-72 and wrote a fresh sequence beside it:
+
+            002340     STOP RUN. 02350000                           02340000
+
+        a complete statement followed by a stray numeric literal, which
+        the compiler rejects. 374 such records across six programs.
+
+        The same branch fires for a record LONGER than 80, where columns
+        73-80 hold body text rather than digits, which is where the
+        73-character fragments came from.
+
+        THE BODY NEVER EXTENDS PAST COLUMN 72. That is geometry, not a
+        consequence of whether a right sequence happens to be present.
+        CORRECTION 1 separated "is this record sequenced" from "does it
+        carry a right sequence" - correctly - and then let the second
+        question decide where the body ENDS, which is a third question
+        neither of them answers.
+
+        A record that is not exactly 80 columns is reported by
+        FixedFormatComposer.validate_fixed_format, which stays the one
+        owner of that diagnostic.
         """
         text = str(line or "").rstrip(LINE_ENDINGS)
 
@@ -124,12 +157,12 @@ class FixedFormatLineParser(FixedFormatSequenceStripper):
         if indicator not in VALID_INDICATORS:
             indicator = SPACE_INDICATOR
 
-        if self._has_right_sequence(text):
-            body = text[BODY_START:BODY_END].rstrip()
-            right = text[RIGHT_SEQUENCE_START:RIGHT_SEQUENCE_END]
-        else:
-            body = text[BODY_START:].rstrip()
-            right = ""
+        body = text[BODY_START:BODY_END].rstrip()
+        right = (
+            text[RIGHT_SEQUENCE_START:RIGHT_SEQUENCE_END]
+            if self._has_right_sequence(text)
+            else ""
+        )
 
         return {
             "left_sequence": text[LEFT_SEQUENCE_START:LEFT_SEQUENCE_END],
@@ -138,7 +171,7 @@ class FixedFormatLineParser(FixedFormatSequenceStripper):
             "right_sequence": right,
             "is_fixed_format": True,
         }
-
+    
     def body_for_boolean_merge(self, line: str) -> str:
         return str(self.parse_line(line).get("body", ""))
 

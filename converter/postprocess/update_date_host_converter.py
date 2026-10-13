@@ -212,12 +212,30 @@ class UpdateDateHostConverter:
         return text.strip()
 
     def _replace_body(self, line: str, body: str) -> str:
+        """Rewrite columns 8-72, keeping both sequence areas in place.
+
+        CORRECTION - the rebuilt record was 81 columns.
+
+            left(6) + ' '(col 7) + clean(65 -> cols 8-72) + ' ' + right(8)
+
+        The second separator pushed the right sequence to column 74 and
+        made the record 81 bytes. The body already ENDS at column 72, so
+        the right sequence must follow it with no gap. An 81-column line
+        is then passed through untouched by the final resequencer, which
+        only recognises records of exactly 80 columns - so the damage is
+        invisible until the compiler sees it.
+
+        Identical correction to the one applied in
+        update_input_record_renamer.py. Both are hand-rolled copies of
+        patterns.sequence_patterns.replace_body(), which has always had
+        the geometry right.
+        """
         text = str(line or "").rstrip("\n")
         clean = str(body or "")[: self.BODY_WIDTH].ljust(self.BODY_WIDTH)
         if len(text) >= 72 and text[:6].strip().isdigit():
             left = text[:6]
             right = text[72:80] if len(text) >= 80 else ""
-            return f"{left} {clean} {right}"
+            return f"{left} {clean}{right}"
         if len(text) > 6 and text[:6].strip().isdigit():
             left = text[:6]
             return f"{left} {clean.rstrip()}"

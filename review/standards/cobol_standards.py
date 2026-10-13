@@ -50,7 +50,6 @@ COMPILER_OPTION_LINE = "CBL ARITH(EXTEND)"
 NAME_PREFIX = "VM"
 NAME_SOURCE_MARKER = "BD"
 NAME_TARGET_MARKER = "DZ"
-CS_PROGRAM_LEVELS = ("01", "77")
 
 # ---- CHK-05 SQL error routing ----------------------------------------
 SQL_ERROR_PARAGRAPH = "SQLERROR"
@@ -73,8 +72,6 @@ AREA_B_LEVEL_NUMBERS = (
 CONTINUATION_INDICATOR = "-"
 ENFORCE_AREA_B_STATEMENT_INDENT = True
 
-# Generated DB2 block indentation. See open decision D-8.
-ENFORCE_AREA_B_SQL_INDENT = False
 AREA_B_SQL_MIN_INDENT = AREA_B_MIN_INDENT
 
 SQL_BLOCK_START = "EXEC SQL"
@@ -131,7 +128,6 @@ MISSING_MAPPING_MARKERS = (
     "MANUAL REDESIGN",
 )
 
-SQL_LOCATION_MOVE_PREFIX = "MOVE '"
 SQL_LOCATION_MOVE_SUFFIX = "TO SQL-LOCATION"
 SQL_LOCATION_LOOKBACK = 6
 ENFORCE_SQL_LOCATION_BEFORE_SQL = True
@@ -213,17 +209,11 @@ CURSOR_PARAGRAPH_MARKER = "DB2 GENERATED CURSOR OPEN FETCH CLOSE PARAGRAPHS"
 CURSOR_EOC_SUFFIX = "-EOC"
 CURSOR_NOT_EOC_SUFFIX = "-NOT-EOC"
 CURSOR_FLAGS_MARKER = "DB2 CURSOR END-OF-CURSOR FLAGS"
-LEGACY_EOC_CONDITIONS = (
-    "UNTIL SQLCODE = 100",
-    "IF NOT SQLCODE = 100",
-)
 ENFORCE_EOC_FLAG_LOOP = True
 
 # ---- CHK-15 nested cursor processing ---------------------------------
 CHILD_CURSOR_MINIMUM_NUMBER = 800
 CHILD_FETCH_EARLY_STOP_FIELD = "SW-STATUS-D"
-# See open decision D-10.
-ENFORCE_CHILD_FETCH_EARLY_STOP = False
 
 # ---- CHK-16 conservative update column selection ---------------------
 UPDATE_AUDIT_PREFIXES = (
@@ -268,10 +258,7 @@ RESTART_STATUS_INCOMPLETE = "0"
 # ---- CHK-20 restart SQL from DCLGEN metadata -------------------------
 RESTART_TABLE_NAME_HINTS = ("RST", "RESTART")
 # See open decision D-3.
-ENFORCE_RESTART_QUERYNO = False
-RESTART_SELECT_QUERYNO = "376"
-RESTART_UPDATE_QUERYNO = "398"
-RESTART_INSERT_QUERYNO = ""
+
 
 # ---- CHK-21 unresolved restart metadata safe skip --------------------
 RESTART_CONTROL_HINTS = (
@@ -369,11 +356,6 @@ ENFORCE_RESTART_QUERYNO = True
 RESTART_SELECT_QUERYNO = "376"
 RESTART_UPDATE_QUERYNO = "398"
 RESTART_INSERT_QUERYNO = "413"
-# ---- CHK-02 SQL-LOCATION ownership
-#
-# SQLERRWS supplies SQL-LOCATION. A local declaration is a duplicate
-# data-name. Decision closed by the manual reference program.
-ENFORCE_SQL_LOCATION_DECLARATION = False
 
 # =====================================================================
 # DECISIONS CLOSED BY THE MANUAL REFERENCE PROGRAM (VMDZ4420)
@@ -406,3 +388,15 @@ SQL_LOCATION_MOVE_PREFIXES = ("MOVE '", "MOVE ")
 # Retained for any caller still reading the singular name.
 SQL_LOCATION_MOVE_PREFIX = "MOVE "
 SQL_LOCATION_SOURCE_COPYBOOK = "SQLERRWS"
+
+LEGACY_EOC_LOOP_STATEMENTS = (
+    "UNTIL SQLCODE = 100",
+    "UNTIL SQLCODE=100",
+    "UNTIL SQLCODE = +100",
+    "UNTIL SQLCODE=+100",
+    "UNTIL DB-END-OF-SET",
+    "UNTIL DB-REC-NOT-FOUND",
+)
+
+# Retained for any caller still reading the old name.
+LEGACY_EOC_CONDITIONS = LEGACY_EOC_LOOP_STATEMENTS

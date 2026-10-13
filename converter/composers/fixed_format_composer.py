@@ -92,7 +92,7 @@ class FixedFormatComposer(FixedFormatLineComposer):
         previous_procedure_indent = " "
 
         for raw_line in lines:
-            raw_text = str(raw_line or "").rstrip()
+            raw_text = str(raw_line or "").rstrip("\r\n")
 
             if not raw_text.strip():
                 self._append_blank(state, preserve_blank_lines, output_lines)

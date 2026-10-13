@@ -1,3 +1,5 @@
+# LOCATION: converter/postprocess/storage_include/storage_ws_injector.py
+# ACTION: REPLACE ENTIRE FILE
 from __future__ import annotations
 
 from converter.postprocess.dynamic_metadata_resolver import UpdateProgramContext
@@ -18,7 +20,6 @@ from rules.update_storage_include_rules import (
     PROGRAM_NAME_MOVE_REPLACEMENT_TEMPLATE,
     SKIP_DATA_DIVISION_DATE_WS,
     SKIP_DATA_DIVISION_WS,
-    WS_ANCHOR_01_TEMPLATE,
 )
 
 
@@ -53,7 +54,7 @@ class StorageWsInjector:
         # Step 1: Remove incorrectly-placed CS-PROGRAM (e.g., at level 10)
         import re
         updated = re.sub(
-            r'\s+10\s+CS-PROGRAM\s+PIC\s+X\(\s*8\s*\)\s+VALUE\s+[\'"]([^\'"]*)[\'"]\.?\s*\n',
+            r'\s+10\s+CS-PROGRAM\s+PIC\s+X$\s*8\s*$\s+VALUE\s+[\'"]([^\'"]*)[\'"]\.?\s*\n',
             "",
             cobol_text,
             flags=re.IGNORECASE
@@ -158,6 +159,28 @@ class StorageWsInjector:
         - Validate section boundaries (no WS items in FILE SECTION)
         - Remove incorrectly-placed items
         - Ensure proper placement
+
+        CORRECTION (NEW-2c): the existence check used to build a literal
+        anchor string via WS_ANCHOR_01_TEMPLATE ("01 {group}." - ONE
+        space) and test it with logical_contains(), a plain substring
+        search with no whitespace normalisation. RestartStorageInjector
+        (converter/composers/restart/ - a completely separate system
+        from this one) renders the SAME group aligned to COBOL Area
+        A/B with TWO spaces ("01  WS-SWITCHES."). A one-space target
+        can never appear as a substring of a two-space source line, so
+        this check always concluded the group was absent whenever the
+        OTHER system had already declared it first, and injected a
+        second, independently-named copy.
+
+        Proven directly against VM1BD567's output, which carried BOTH
+        "01  WS-SWITCHES." (RestartStorageInjector, this run's first
+        pass) and "01 WS-SWITCHES." (this method's own template,
+        second pass) as two separate groups.
+
+        The group header is now matched by SHAPE - level number,
+        flexible whitespace, the group name, optional period - via
+        _declares_group(), the same way this file already matches
+        "^\\s*01\\s+WS-" in _has_ws_items_in_file_section() above.
         """
         # Step 1: Check for WS items in FILE SECTION (structural error)
         if self._has_ws_items_in_file_section(cobol_text):
@@ -169,12 +192,10 @@ class StorageWsInjector:
         
         # Step 2: Existing working-storage validation
         names = UPDATE_RESTART_WS_NAMES
-        switch_anchor = WS_ANCHOR_01_TEMPLATE.format(group=names["switch_group"])
-        help_anchor = WS_ANCHOR_01_TEMPLATE.format(group=names["help_group"])
 
-        if self.line_utils.logical_contains(
-            cobol_text, switch_anchor
-        ) and self.line_utils.logical_contains(cobol_text, help_anchor):
+        if self._declares_group(
+            cobol_text, names["switch_group"]
+        ) and self._declares_group(cobol_text, names["help_group"]):
             diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["ws_exists"])
             return cobol_text
 
@@ -188,6 +209,28 @@ class StorageWsInjector:
         updated_lines = lines[:insert_index] + block + [""] + lines[insert_index:]
         diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["ws_injected"])
         return self.line_utils.join(updated_lines)
+
+    def _declares_group(self, cobol_text: str, group_name: str) -> bool:
+        """True when `01 <group_name>.` is already declared, regardless
+        of how many spaces separate the level number from the name -
+        COBOL permits any amount of Area A/B whitespace there, and a
+        different generator (RestartStorageInjector) may align it
+        differently than this one does. See CORRECTION in
+        ensure_working_storage() above.
+        """
+        import re
+        wanted = str(group_name or "").strip().upper()
+        if not wanted:
+            return False
+        pattern = re.compile(
+            rf"^01\s+{re.escape(wanted)}\s*\.?\s*$",
+            flags=re.IGNORECASE,
+        )
+        for line in self.line_utils.lines(cobol_text):
+            logical = str(self.line_utils.logical(line) or "").strip()
+            if pattern.match(logical):
+                return True
+        return False
     
     def _has_ws_items_in_file_section(self, cobol_text: str) -> bool:
         """

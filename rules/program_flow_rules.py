@@ -1,15 +1,39 @@
 # LOCATION: rules/program_flow_rules.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """Program flow analyzer rules.
 
 Constants only. No regex, no runtime logic, no program / record / table /
 cursor / host variable names.
 
-CORRECTION - diagnostic text lived inside the analyzer.
+CORRECTION 1 - diagnostic text lived inside the analyzer.
 
 Every "Program flow analyzer: ..." string was an f-string in the
 analyzer body. Wording then drifted per message and could not be
 reviewed in one place.
+
+CORRECTION 2 - CURSOR_OPERATIONS meant two different things.
+
+This module declared
+
+    CURSOR_OPERATIONS = frozenset({"OBTAIN_FIRST", "OBTAIN_NEXT",
+                                   "FIND_FIRST"})
+
+while rules/cursor_paragraph_rules.py and review/standards/
+cobol_standards.py both declared the SAME NAME meaning
+
+    ("OPEN", "FETCH", "CLOSE")
+
+One is the IDMS navigation vocabulary a cursor is converted FROM; the
+other is the DB2 cursor operations it is converted TO. A module
+importing the name received whichever meaning its import line happened
+to choose, and nothing could tell the two apart at the call site.
+
+Renamed to IDMS_RETRIEVAL_VERBS. The rename is a pure substitution - no
+value changed - but it makes the two-hop re-export through
+rules/cursor_spec/cursor_spec_rules.py into
+converter/generators/db2_infrastructure/spec_builder/spec_factory.py
+readable: that module consumes IDMS verbs, and the import line now says
+so.
 """
 
 from __future__ import annotations
@@ -17,7 +41,12 @@ from __future__ import annotations
 # ---------------------------------------------------------------------
 # IDMS operations that become a DB2 cursor
 # ---------------------------------------------------------------------
-CURSOR_OPERATIONS = frozenset({
+# NOT the DB2 cursor operations. rules/cursor_paragraph_rules.py and
+# review/standards/cobol_standards.py each declare CURSOR_OPERATIONS
+# meaning ("OPEN", "FETCH", "CLOSE"). This set is the IDMS vocabulary
+# those are converted FROM. The two shared one name until the
+# cross-module guard reported them.
+IDMS_RETRIEVAL_VERBS = frozenset({
     "OBTAIN_FIRST",
     "OBTAIN_NEXT",
     "FIND_FIRST",
@@ -97,7 +126,7 @@ FLOW_MESSAGES = {
 }
 
 __all__ = [
-    "CURSOR_OPERATIONS", "LOOP_TYPE_CURSOR", "LOOP_TYPE_UNKNOWN",
+    "IDMS_RETRIEVAL_VERBS", "LOOP_TYPE_CURSOR", "LOOP_TYPE_UNKNOWN",
     "WRITE_VERBS", "IDMS_WRITE_VERBS", "STATEMENT_TERMINATOR",
     "DATE_TOKENS", "DATE_TOKEN_PREFIXES", "USAGE_TYPE_DATE_TOKEN",
     "TOKEN_DELIMITERS", "LOOP_SAMPLE_LIMIT", "FLOW_MESSAGES",

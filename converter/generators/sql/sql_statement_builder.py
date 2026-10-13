@@ -5,9 +5,17 @@
 
 from __future__ import annotations
 
+from converter.generators.db2_infrastructure.sql_location_move_builder import (
+    SqlLocationMoveBuilder,
+)
 from converter.services.name_normalizer import NameNormalizer
+from rules.sql_location_rules import (
+    LEGACY_OPERATION_DELETE,
+    LEGACY_OPERATION_INSERT,
+    LEGACY_OPERATION_UPDATE,
+    LEGACY_RECORD_LOCATION_TEMPLATE,
+)
 from rules.update_sql_cleanup_rules import UPDATE_QUERYNO
-
 
 class SqlStatementBuilder:
     def __init__(
@@ -72,7 +80,30 @@ class SqlStatementBuilder:
             "CONTINUE.",
         ]
 
-    def insert(self, record_name: str) -> list[str]:
+    def insert(
+        self,
+        record_name: str,
+        paragraph: str = "",
+    ) -> list[str]:
+        """The converted STORE block, SQL-LOCATION included.
+
+        CORRECTION - this method rendered the MOVE itself
+        -------------------------------------------------
+        The line was an inline f-string:
+
+            f"MOVE 'INSERT-{NameNormalizer.to_cobol(record)}' "
+            f"TO SQL-LOCATION."
+
+        hardcoding a COBOL host-variable name inside a generator and
+        moving the RECORD name into a field whose every site occurrence
+        is a paragraph NUMBER. Rendering now belongs to
+        SqlLocationMoveBuilder, shared with the cursor and MODIFY paths.
+
+        `paragraph` is optional so the existing call sites are untouched
+        and generated text is unchanged byte for byte until a numbered
+        paragraph is supplied. Empty render means DROP the line, never
+        emit a half-built MOVE.
+        """
         self.messages = []
         record = NameNormalizer.normalize(record_name)
         table = self.column_resolver.resolved_table_for_record(record)
@@ -108,14 +139,30 @@ class SqlStatementBuilder:
                 reason="missing INSERT host variables in DCLGEN",
             )
 
+        record_label = NameNormalizer.to_cobol(record)
+
+        location = str(paragraph or "").strip()
+        if not location:
+            location = LEGACY_RECORD_LOCATION_TEMPLATE.format(
+                operation=LEGACY_OPERATION_INSERT,
+                record=record_label,
+            )
+
         lines: list[str] = [
-            f"*DB2: Converted STORE for {NameNormalizer.to_cobol(record)}.",
-            f"MOVE 'INSERT-{NameNormalizer.to_cobol(record)}' "
-            f"TO SQL-LOCATION.",
-            "EXEC SQL",
-            f"   INSERT INTO {table}",
-            "      (",
+            f"*DB2: Converted STORE for {record_label}.",
         ]
+
+        sql_location = SqlLocationMoveBuilder().sentence(location)
+        if sql_location:
+            lines.append(sql_location)
+
+        lines.extend(
+            [
+                "EXEC SQL",
+                f"   INSERT INTO {table}",
+                "      (",
+            ]
+        )
         lines.extend(
             self.line_builder.sql_column_list(columns, indent="       ")
         )
@@ -128,12 +175,26 @@ class SqlStatementBuilder:
         lines.append("      )")
         lines.extend(self._sqlcode_evaluate_block("INSERT", table))
         return lines
-
+    
     def update(
         self,
         record_name: str,
         changed_source_fields: list[str] | None = None,
+        paragraph: str = "",
     ) -> list[str]:
+        """The converted MODIFY block, SQL-LOCATION included.
+
+        CORRECTION - this method rendered the MOVE itself
+        -------------------------------------------------
+        Same defect and same remedy as insert(): the inline f-string
+
+            f"MOVE 'UPDATE-{NameNormalizer.to_cobol(record)}' "
+            f"TO SQL-LOCATION."
+
+        was the third of three independent emitters. One renderer now
+        owns the form; `paragraph` is optional and keyword-last so no
+        existing positional call site changes meaning.
+        """
         self.messages = []
         record = NameNormalizer.normalize(record_name)
         plan = self.update_plan_resolver.resolve(
@@ -172,21 +233,63 @@ class SqlStatementBuilder:
                 reason="missing SET or WHERE host variables in DCLGEN",
             )
 
+        record_label = NameNormalizer.to_cobol(record)
+
+        location = str(paragraph or "").strip()
+        if not location:
+            location = LEGACY_RECORD_LOCATION_TEMPLATE.format(
+                operation=LEGACY_OPERATION_UPDATE,
+                record=record_label,
+            )
+
         lines: list[str] = [
-            f"*DB2: Converted MODIFY for {NameNormalizer.to_cobol(record)}.",
-            f"MOVE 'UPDATE-{NameNormalizer.to_cobol(record)}' "
-            f"TO SQL-LOCATION.",
-            "EXEC SQL",
-            f"   UPDATE {plan.table_name}",
-            "   SET",
+            f"*DB2: Converted MODIFY for {record_label}.",
         ]
+
+        sql_location = SqlLocationMoveBuilder().sentence(location)
+        if sql_location:
+            lines.append(sql_location)
+
+        lines.extend(
+            [
+                "EXEC SQL",
+                f"   UPDATE {plan.table_name}",
+                "   SET",
+            ]
+        )
         lines.extend(set_lines)
         lines.append("   WHERE")
         lines.extend(where_lines)
         lines.extend(self._sqlcode_evaluate_block("UPDATE", plan.table_name))
         return lines
+    
+    def delete(
+        self,
+        record_name: str,
+        paragraph: str = "",
+    ) -> list[str]:
+        """The converted ERASE block, SQL-LOCATION included.
 
-    def delete(self, record_name: str) -> list[str]:
+        CORRECTION - the fourth inline emitter
+        --------------------------------------
+        insert() and update() were unified first because they were the
+        two the artefact exposed. delete() carried the identical defect
+
+            f"MOVE 'DELETE-{NameNormalizer.to_cobol(record)}' "
+            f"TO SQL-LOCATION."
+
+        and was only found by grepping the WHOLE file for the emitted
+        text after the first two were fixed - not by reading the ranges
+        the defect report pointed at. Same remedy, same optional
+        `paragraph`, same byte-for-byte fallback.
+
+        commit() and rollback() are deliberately NOT unified here. They
+        have no record and no paragraph, the manual reference emits no
+        MOVE before COMMIT at all, and retrieval_commit_cleanup_composer
+        matches the literal "MOVE 'COMMIT' TO SQL-LOCATION" to find and
+        remove the block. That is a separate decision with a consumer
+        attached - see defect NEW-14.
+        """
         self.messages = []
         record = NameNormalizer.normalize(record_name)
         table = self.column_resolver.resolved_table_for_record(record)
@@ -214,18 +317,34 @@ class SqlStatementBuilder:
                 reason="missing DELETE key host variables in DCLGEN",
             )
 
+        record_label = NameNormalizer.to_cobol(record)
+
+        location = str(paragraph or "").strip()
+        if not location:
+            location = LEGACY_RECORD_LOCATION_TEMPLATE.format(
+                operation=LEGACY_OPERATION_DELETE,
+                record=record_label,
+            )
+
         lines: list[str] = [
-            f"*DB2: Converted ERASE for {NameNormalizer.to_cobol(record)}.",
-            f"MOVE 'DELETE-{NameNormalizer.to_cobol(record)}' "
-            f"TO SQL-LOCATION.",
-            "EXEC SQL",
-            f"   DELETE FROM {table}",
-            "   WHERE",
+            f"*DB2: Converted ERASE for {record_label}.",
         ]
+
+        sql_location = SqlLocationMoveBuilder().sentence(location)
+        if sql_location:
+            lines.append(sql_location)
+
+        lines.extend(
+            [
+                "EXEC SQL",
+                f"   DELETE FROM {table}",
+                "   WHERE",
+            ]
+        )
         lines.extend(where_lines)
         lines.extend(self._sqlcode_evaluate_block("DELETE", table))
         return lines
-
+    
     def commit(self) -> list[str]:
         return [
             "MOVE 'COMMIT' TO SQL-LOCATION.",

@@ -254,3 +254,18 @@ def test_control_routes_sqlcode_to_the_right_paragraphs(config):
     body = " ".join(_render(tpl.CONTROL_TEMPLATE, config))
     assert "WHEN 0" in body
     assert "WHEN 100" in body
+
+
+
+def test_payload_length_is_never_invented(config) -> None:
+    """Either the full measurement, or the read-count picture. Nothing else."""
+    assert config.payload_length in (
+        config.payload_full_length,
+        config.names.read_count_size,
+    )
+
+
+def test_the_full_payload_flag_decides_both_lengths() -> None:
+    """The flag is the single decision point for the whole family."""
+    import rules.restart_standard_rules as std
+    assert isinstance(std.ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT, bool)

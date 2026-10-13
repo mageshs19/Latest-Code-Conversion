@@ -39,6 +39,22 @@ from .update_input_selector import (
     selected_dclgen_paths,
     selected_mapping_sheet_path,
 )
+from config.path_settings import DEFAULT_LRF_DIR, lrf_paths  # noqa: E402
+from converter.parsers.lrf_parser import LrfParser  # noqa: E402
+from rules.lrf_rules import (  # noqa: E402
+    DIAG_LRF_FILE_COUNT_TEMPLATE,
+    DIAG_LRF_FILE_TEMPLATE,
+    DIAG_LRF_FOLDER_TEMPLATE,
+    DIAG_LRF_PARSE_FAILED_TEMPLATE,
+    DIAG_LRF_PARSED_ZERO,
+    DIAG_LRF_READ_FAILED_TEMPLATE,
+    DIAG_LRF_TEXT_LEN_TEMPLATE,
+    LOG_LRF_FILE_COUNT,
+    LOG_LRF_TOTAL_RECORDS,
+    LRF_SOURCE_LABEL,
+)
+
+_LOGICAL_RECORDS_CACHE: list | None = None
 
 
 def _load_mapping_rows(sheet_parser, diagnostics, logger):
@@ -165,3 +181,81 @@ def load_shared_inputs(logger) -> tuple[list, list, list, list[str]]:
     )
 
     return sheet_rows, dclgen_columns, copybook_fields, diagnostics
+
+def reset_logical_records_cache() -> None:
+    """Drop the memoised subschema. One process, many runs."""
+    global _LOGICAL_RECORDS_CACHE
+    _LOGICAL_RECORDS_CACHE = None
+
+
+def load_logical_records(logger, diagnostics: list[str]) -> list:
+    """The optional LRF subschema, parsed once per process.
+
+    Never raises and never blocks the run. A missing or empty folder is
+    a note: programs that do not use COPY IDMS LR convert exactly as
+    they did before LRF support existed.
+    """
+    global _LOGICAL_RECORDS_CACHE
+
+    if _LOGICAL_RECORDS_CACHE is not None:
+        diagnostics.append(
+            DIAG_LRF_FILE_COUNT_TEMPLATE.format(
+                count=len(_LOGICAL_RECORDS_CACHE)
+            )
+        )
+        return list(_LOGICAL_RECORDS_CACHE)
+
+    file_loader = FileLoader()
+    lrf_files = lrf_paths()
+
+    diagnostics.append(DIAG_LRF_FOLDER_TEMPLATE.format(folder=DEFAULT_LRF_DIR))
+    diagnostics.append(DIAG_LRF_FILE_COUNT_TEMPLATE.format(count=len(lrf_files)))
+    logger.info(LOG_LRF_FILE_COUNT, len(lrf_files))
+
+    if not lrf_files:
+        diagnostics.append(DIAG_LRF_PARSED_ZERO)
+        _LOGICAL_RECORDS_CACHE = []
+        return []
+
+    text_parts: list[str] = []
+    for index, path in enumerate(lrf_files, start=1):
+        try:
+            text = file_loader.read_uploaded_text(LocalUploadedFile(path))
+        except Exception as exc:  # noqa: BLE001
+            diagnostics.append(
+                DIAG_LRF_READ_FAILED_TEMPLATE.format(name=path, reason=exc)
+            )
+            continue
+        text_parts.append(text)
+        diagnostics.append(DIAG_LRF_FILE_TEMPLATE.format(index=index, path=path))
+        diagnostics.append(
+            DIAG_LRF_TEXT_LEN_TEMPLATE.format(index=index, length=len(text))
+        )
+
+    lrf_text = "\n".join(text_parts)
+    if not lrf_text.strip():
+        diagnostics.append(DIAG_LRF_PARSED_ZERO)
+        _LOGICAL_RECORDS_CACHE = []
+        return []
+
+    parser = LrfParser()
+    try:
+        try:
+            records = parser.parse(text=lrf_text, source_label=LRF_SOURCE_LABEL)
+        except TypeError:
+            records = parser.parse(lrf_text)
+    except Exception as exc:  # noqa: BLE001
+        diagnostics.append(
+            DIAG_LRF_PARSE_FAILED_TEMPLATE.format(
+                name=LRF_SOURCE_LABEL, reason=exc
+            )
+        )
+        _LOGICAL_RECORDS_CACHE = []
+        return []
+
+    if hasattr(parser, "diagnostics"):
+        diagnostics.extend(parser.diagnostics)
+
+    logger.info(LOG_LRF_TOTAL_RECORDS, len(records))
+    _LOGICAL_RECORDS_CACHE = list(records)
+    return list(records)

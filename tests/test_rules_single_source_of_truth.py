@@ -40,3 +40,17 @@ def test_the_template_placeholder_is_honoured():
     rendered = cursor_rules.QUERYNO_TEMPLATE.format(number=254)
 
     assert rendered == "QUERYNO 254"
+
+def test_no_rules_module_declares_a_restart_queryno():
+    """RestartConfig owns the restart QUERYNOs. A rules-module copy is
+    dead the moment the config changes, and reads as authoritative."""
+    import pathlib
+
+    rules = pathlib.Path(__file__).resolve().parents[1] / "rules"
+    offenders = [
+        f"{path.name}:{n}"
+        for path in rules.rglob("*.py")
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if line.strip().startswith("RESTART_") and "QUERYNO" in line and "=" in line
+    ]
+    assert not offenders, "Restart QUERYNO declared outside RestartConfig: " + ", ".join(offenders)

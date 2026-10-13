@@ -30,7 +30,11 @@ closed, and changes nothing else.
 """
 
 from __future__ import annotations
-
+from rules.cursor_eoc_rules import (  # noqa: F401
+    EOC_CONDITION_SUFFIX,
+    EOC_CONDITION_TEMPLATE,
+    LEGACY_EOC_CONDITIONS,
+)
 # ---------------------------------------------------------------- master
 ENFORCE_SPAN_LOOP_REWRITE = True
 

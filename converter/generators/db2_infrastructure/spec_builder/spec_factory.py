@@ -7,7 +7,7 @@ from converter.generators.db2_infrastructure.spec_builder.spec_build_context imp
 )
 from converter.services.name_normalizer import NameNormalizer
 from rules.cursor_spec import (
-    CURSOR_OPERATIONS,
+    IDMS_RETRIEVAL_VERBS,
     SPEC_CLOSE_PARAGRAPH,
     SPEC_CURSOR_NAME,
     SPEC_CURSOR_ORDER,
@@ -70,7 +70,7 @@ class SpecFactory:
         operation_name = str(
             getattr(operation, "operation", "") or ""
         ).upper()
-        if operation_name not in CURSOR_OPERATIONS:
+        if operation_name not in IDMS_RETRIEVAL_VERBS:
             return None
 
         record = NameNormalizer.normalize(

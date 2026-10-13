@@ -326,6 +326,14 @@ class ProcessParagraphInjector:
             if tokens[0] == verb:
                 depth[verb] += 1
 
+        # A period closes EVERY open scope. Without this the depth
+        # carries across sentences, a genuine orphan reads as
+        # balanced, and the terminator is KEPT. That is how the
+        # END-IF following a lone period survived this pass.
+        if logical.rstrip().endswith(PERIOD):
+            for verb in SCOPED_VERBS:
+                depth[verb] = 0
+
     # -----------------------------------------------------------------
     # 3. Idempotency
     # -----------------------------------------------------------------

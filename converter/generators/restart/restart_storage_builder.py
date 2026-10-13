@@ -1,5 +1,5 @@
 # LOCATION: converter/generators/restart/restart_storage_builder.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """Builds the WORKING-STORAGE the restart family depends on.
 
     01 <switch group>     the EOF switch and its two 88-levels
@@ -35,6 +35,49 @@ THE EOF SWITCH IS NAMED AFTER THE RECORD
 One file cannot then test another file's flag. The record name is
 RESOLVED; only the affixes are catalogued.
 
+CORRECTION - "RESOLVED" meant MEASURED, not DERIVED
+
+RestartNameResolver measures record_name by reading the source text
+during the FINISHING phase - before UpdateInputRecordRenamer performs
+the VM..BD../VM..BZ..->VMDZ.. derivation in POSTPROCESS. _record() then
+composed SW-VMBD205I / VMBD205I-EOF / VMBD205I-NOT-EOF: internally
+consistent with each other (switch_group() builds all three from ONE
+_record() call), but carrying the SOURCE spelling into generated DB2
+COBOL.
+
+Proven on disk (VM1BD567_13-10-2026_072742.cbl): the program's restart
+storage was injected TWICE during the same conversion, each time from
+a DIFFERENT _record() snapshot (VMBD205I, then VMDZ205I, after an
+interleaved rename pass touched the bare record references elsewhere
+in the text). Because _record() never derived its own answer, the two
+injections produced two DIFFERENT, non-idempotent switch groups instead
+of the SAME group twice - which is what let the duplicate survive
+whatever "already declared" check should have caught it.
+
+Neither downstream renamer can repair a compound built on the record
+name after the fact:
+
+    UpdateInputRecordRenamer.WORD_RECORD_PATTERN_TEMPLATE
+        (?<![A-Z0-9-]){name}(?![A-Z0-9-])
+        - blocks a match with a hyphen on EITHER side, so it can touch
+          neither "SW-VMBD205I" (hyphen before) nor "VMBD205I-EOF"
+          (hyphen after).
+
+    CopybookReferenceRenamer.WORD_REFERENCE_PATTERN_TEMPLATE
+        (?<![A-Z0-9-]){name}(?![A-Z0-9])
+        - allows a trailing hyphen (so "VMBD205I-EOF" renames), but
+          still blocks a leading one, so "SW-VMBD205I" is untouched
+          regardless of which renamer runs.
+
+Patching either renamer to recognise this ONE catalogued prefix would
+couple generic rename logic to a restart-specific convention, and would
+still leave every OTHER future compound convention exposed to the same
+class of defect. The record name is this builder's OWN input; deriving
+it HERE, once, in the ONE place all three names are composed, is the
+root fix - every caller (however many times it is invoked) now gets a
+name that is consistent with itself and with every other invocation,
+which is the actual property PERFORM ... UNTIL / SET depend on.
+
 GEOMETRY IS NOT OURS
 
 Lines carry meaningful RELATIVE indent. Area B alignment and the
@@ -54,6 +97,7 @@ from catalogs.restart_storage_catalog import (
     SWITCH_GROUP,
 )
 from converter.generators.restart.restart_config import RestartConfig
+from converter.services.name_derivation_resolver import NameDerivationResolver
 from rules.restart_storage_templates import (
     ENFORCE_RESTART_STORAGE,
     EOF_FALSE_VALUE,
@@ -82,9 +126,18 @@ REQUIRED_SIZES = (
 class RestartStorageBuilder:
     """Renders the restart working storage, or refuses and says why."""
 
-    def __init__(self, config: RestartConfig) -> None:
+    def __init__(
+        self,
+        config: RestartConfig,
+        name_derivation_resolver: NameDerivationResolver | None = None,
+    ) -> None:
         self.config = config
         self.messages: list[str] = []
+        # CORRECTION: injected, not hardcoded. Defaults to the same
+        # generic VM..BD../VM..BZ..->VMDZ.. resolver UpdateInputRecord
+        # Renamer and CopybookReferenceRenamer already use, so every
+        # owner of this derivation rule agrees on one implementation.
+        self._name_resolver = name_derivation_resolver or NameDerivationResolver()
 
     #
     # Public surface
@@ -164,7 +217,30 @@ class RestartStorageBuilder:
         return f"{record}{NOT_EOF_CONDITION_SUFFIX}" if record else ""
 
     def _record(self) -> str:
-        return str(self.config.names.record_name or "").strip().upper()
+        """The record name every generated identifier in this group is
+        built on - DERIVED to its final DB2 spelling.
+
+        CORRECTION (NEW-2): this used to return
+        self.config.names.record_name verbatim. That value is MEASURED
+        from the source during the FINISHING phase, before the
+        VM..BD../VM..BZ..->VMDZ.. rename runs in POSTPROCESS, so every
+        name this builder composes (SW-<record>, <record>-EOF,
+        <record>-NOT-EOF) carried the SOURCE spelling into generated
+        DB2 COBOL. Deriving HERE - the one place all three names are
+        composed - guarantees eof_switch()/eof_condition()/
+        not_eof_condition() always agree with each other AND with any
+        other invocation of this builder against the same config,
+        however many times the storage injection runs.
+
+        derive() returns a non-matching name unchanged (e.g. a file
+        name like OPERATIES, or an already-derived VMDZ... name), so
+        this is always safe to apply unconditionally.
+        """
+        source = str(self.config.names.record_name or "").strip().upper()
+        if not source:
+            return ""
+        derived = self._name_resolver.derive(source)
+        return str(derived or source).strip().upper()
 
     #
     # Gate

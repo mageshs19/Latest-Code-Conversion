@@ -67,8 +67,21 @@ class UpdateMainFlowRewriter(
         if not self._has_legacy_restart_between(
             lines=lines, start_index=open_index + 1, end_index=stop_index
         ):
+            # Startup initialization is NOT part of legacy replacement.
+            # A program whose restart flow is already generated still
+            # needs the EOF switch SET, the work group INITIALIZEd and
+            # the run date built before the restart control paragraph
+            # reads it. Returning the untouched text here is what left
+            # the run-date field at its VALUE clause when it keyed the
+            # checkpoint row. The helper is idempotent.
+            lines = self._ensure_main_initialization_before_open(
+                lines=lines,
+                open_index=open_index,
+                context=context,
+                diagnostics=diagnostics,
+            )
             diagnostics.append(MAIN_FLOW_DIAGNOSTICS["legacy_not_found"])
-            return cobol_text
+            return self.line_utils.join(lines)
 
         process_paragraph = self._resolve_process_paragraph_from_main_flow(
             lines=lines, start_index=open_index + 1, end_index=stop_index

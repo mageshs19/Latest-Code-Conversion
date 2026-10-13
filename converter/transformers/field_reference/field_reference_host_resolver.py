@@ -8,7 +8,7 @@ from patterns.field_reference_rewriter_patterns import (
     HOST_REFERENCE_OF_SPLIT_PATTERN,
 )
 from rules.field_reference_rewriter_rules import (
-    HOST_GROUP_SEPARATOR,
+    HOST_QUALIFIER_CONNECTOR,
     HOST_OF_GROUP_TEMPLATE,
     HOST_OF_SPLIT_PART_COUNT,
     HOST_REFERENCE_LEADING_CHAR,
@@ -51,7 +51,7 @@ class FieldReferenceHostResolver:
 
         cleaned = host_reference.lstrip(HOST_REFERENCE_LEADING_CHAR).strip()
 
-        if HOST_GROUP_SEPARATOR in cleaned.upper():
+        if HOST_QUALIFIER_CONNECTOR in cleaned.upper():
             parts = HOST_REFERENCE_OF_SPLIT_PATTERN.split(cleaned)
             if len(parts) == HOST_OF_SPLIT_PART_COUNT:
                 return self._format(parts[0], parts[1])

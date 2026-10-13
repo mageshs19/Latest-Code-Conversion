@@ -24,7 +24,6 @@ from rules.update_business_sql_rules import (
     PERFORM_TEMPLATE,
     SQL_ERROR_PARAGRAPH_NAMES,
     SQL_ERROR_ROUTINE_MARKER,
-    TOKEN_INITIALIZE_DCL,
     TOKEN_STAR,
 )
 from rules.update_restart_rules import (
@@ -33,6 +32,8 @@ from rules.update_restart_rules import (
     UPDATE_RESTART_DIAGNOSTICS,
     UPDATE_RESTART_WS_NAMES,
 )
+
+SENTENCE_TERMINATOR = "."
 
 
 class UpdateSqlBlockExtractor:
@@ -43,8 +44,51 @@ class UpdateSqlBlockExtractor:
     (_update_paragraph_name / _paragraph_exists / _strip_existing_final_period /
     _normalize_update_paragraph_lines), and the shared line_utils.
     Owns no regex and no column geometry; all patterns/constants are external.
+
+    CORRECTION 1 - the INITIALIZE idempotency check could never match
+    -----------------------------------------------------------------
+    The wanted text was rebuilt by SLICING a token:
+
+        target = f"{TOKEN_INITIALIZE_DCL[:-3]} {dcl_group}".strip()
+
+    "INITIALIZE DCL"[:-3] is "INITIALIZE " - carrying its own trailing
+    space - so the f-string produced
+
+        "INITIALIZE  DCLDZBFARTV"      <- two spaces
+
+    No rendered COBOL line can equal that. The check answered "not
+    present" on every pass, and a second run appended a second
+    INITIALIZE to the same paragraph.
+
+    The wanted text is now rendered from INITIALIZE_DCL_GROUP_TEMPLATE,
+    the same template that WRITES the line. A detector derived from its
+    own writer cannot drift from it. TOKEN_INITIALIZE_DCL is no longer
+    referenced and has been dropped from the import list.
+
+    CORRECTION 2 - the comparison was whitespace-sensitive
+    -------------------------------------------------------
+    Both sides are now whitespace-normalised, so a program that already
+    carries a double-spaced INITIALIZE written by the defect above is
+    still recognised as having one. Without this the fix would leave
+    existing output permanently duplicated.
+
+    CORRECTION 3 - placement refusals were silent
+    ----------------------------------------------
+    Four paths returned the lines unchanged and said nothing:
+
+      - the extracted paragraph already exists
+      - no DCLGEN host group was resolved
+      - the process paragraph could not be located after extraction
+      - the paragraph carries no executable line to insert before
+
+    The middle two have a DATA consequence: without the INITIALIZE,
+    every column the SET list does not assign keeps the previous row's
+    value. A pass that declines to place it must say so.
     """
 
+    #
+    # Extraction
+    #
     def _extract_inline_update_block(
         self, *, lines, process_paragraph, block_info, diagnostics
     ):
@@ -52,6 +96,10 @@ class UpdateSqlBlockExtractor:
         update_paragraph = self._update_paragraph_name(record_name)
 
         if self._paragraph_exists(lines, update_paragraph):
+            diagnostics.append(
+                f"Business update SQL: {update_paragraph} already exists; "
+                "the inline block was left where it is."
+            )
             return lines
 
         extracted_block = self._replace_update_success_continue(
@@ -69,7 +117,18 @@ class UpdateSqlBlockExtractor:
         if process_range:
             p_start, p_end = process_range
             updated_lines = self._ensure_initialize_dcl_group(
-                lines=updated_lines, start=p_start, end=p_end, dcl_group=dcl_group
+                lines=updated_lines,
+                start=p_start,
+                end=p_end,
+                dcl_group=dcl_group,
+                diagnostics=diagnostics,
+            )
+        else:
+            diagnostics.append(
+                f"Business update SQL: {process_paragraph} could not be "
+                "located after extraction; no INITIALIZE was placed. Any "
+                "column the SET list does not assign will keep the "
+                "previous row's value."
             )
 
         update_paragraph_lines = self._build_update_paragraph(
@@ -141,6 +200,9 @@ class UpdateSqlBlockExtractor:
 
         return -1
 
+    #
+    # Rendering
+    #
     def _replacement_in_process(self, *, reference_line, update_paragraph):
         names = UPDATE_RESTART_WS_NAMES
         return [
@@ -207,26 +269,66 @@ class UpdateSqlBlockExtractor:
 
         return output
 
-    def _ensure_initialize_dcl_group(self, *, lines, start, end, dcl_group):
+    #
+    # INITIALIZE placement
+    #
+    def _ensure_initialize_dcl_group(
+        self, *, lines, start, end, dcl_group, diagnostics=None
+    ):
+        notes = diagnostics if diagnostics is not None else []
+
         if not dcl_group:
+            notes.append(
+                "Business update SQL: no DCLGEN host group was resolved for "
+                "the extracted UPDATE; no INITIALIZE was placed. Any column "
+                "the SET list does not assign will keep the previous row's "
+                "value."
+            )
             return lines
 
-        target = f"{TOKEN_INITIALIZE_DCL[:-3]} {dcl_group}".strip()
+        wanted = self._initialize_key(
+            INITIALIZE_DCL_GROUP_TEMPLATE.format(group=dcl_group)
+        )
+
         for index in range(start, end):
-            if self._logical(lines[index]).upper().rstrip(".") == target:
+            if self._initialize_key(self._logical(lines[index])) == wanted:
+                notes.append(
+                    f"Business update SQL: INITIALIZE {dcl_group} is already "
+                    "present; no second statement added."
+                )
                 return lines
 
         insert_index = self._first_executable_line_index(
             lines=lines, start=start, end=end
         )
         if insert_index < 0:
+            notes.append(
+                "Business update SQL: the process paragraph carries no "
+                f"executable line; INITIALIZE {dcl_group} was not placed."
+            )
             return lines
 
         initialize_line = self._active_line_like(
             reference_line=lines[insert_index],
             body=INITIALIZE_DCL_GROUP_TEMPLATE.format(group=dcl_group),
         )
+        notes.append(
+            f"Business update SQL: placed INITIALIZE {dcl_group} as the "
+            "first statement of the process paragraph."
+        )
         return lines[:insert_index] + [initialize_line, ""] + lines[insert_index:]
+
+    @staticmethod
+    def _initialize_key(text):
+        """Whitespace- and terminator-insensitive comparison key.
+
+        Collapsing runs of blanks is what lets this recognise an
+        "INITIALIZE  <group>" written by the double-space defect, so a
+        program converted before the fix is repaired rather than given a
+        second statement.
+        """
+        collapsed = " ".join(str(text or "").split())
+        return collapsed.upper().rstrip(SENTENCE_TERMINATOR).strip()
 
     def _first_executable_line_index(self, *, lines, start, end):
         for index in range(start + 1, end):
@@ -241,6 +343,9 @@ class UpdateSqlBlockExtractor:
             return index
         return -1
 
+    #
+    # Placement of the generated paragraph
+    #
     def _update_paragraph_insert_index(self, lines):
         sqlerror_index = self._find_sqlerror_routine_index(lines)
         if sqlerror_index >= 0:
@@ -256,7 +361,7 @@ class UpdateSqlBlockExtractor:
 
     def _find_sqlerror_routine_index(self, lines):
         for index, line in enumerate(lines):
-            logical = self._logical(line).upper().rstrip(".")
+            logical = self._logical(line).upper().rstrip(SENTENCE_TERMINATOR)
             if logical in set(SQL_ERROR_PARAGRAPH_NAMES):
                 return index
             if SQL_ERROR_ROUTINE_MARKER in logical:
@@ -271,3 +376,6 @@ class UpdateSqlBlockExtractor:
                 if group:
                     return group
         return ""
+
+
+__all__ = ["UpdateSqlBlockExtractor"]

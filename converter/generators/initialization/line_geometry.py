@@ -9,7 +9,7 @@ from rules.initialization_placement_rules import (
     LINE_WIDTH,
     SEQUENCE_WIDTH,
     STATEMENT_INDENT,
-    VALID_INDICATORS,
+    ACTIVE_INDICATORS,
 )
 
 
@@ -87,7 +87,7 @@ class LineGeometry:
             return cls.statement(clean, cls.indent_of(text))
         left = text[:SEQUENCE_WIDTH]
         mark = text[SEQUENCE_WIDTH:BODY_START]
-        if mark not in VALID_INDICATORS:
+        if mark not in ACTIVE_INDICATORS:
             mark = " "
         right = text[BODY_END:LINE_WIDTH]
         width = BODY_END - BODY_START

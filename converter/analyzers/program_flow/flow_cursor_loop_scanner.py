@@ -27,7 +27,7 @@ from converter.domain.models import IdmsOperation
 from converter.resolvers.cursor_name_resolver import CursorNameResolver
 from converter.services.name_normalizer import NameNormalizer
 from rules.program_flow_rules import (
-    CURSOR_OPERATIONS,
+    IDMS_RETRIEVAL_VERBS,
     FLOW_MESSAGES,
     LOOP_TYPE_CURSOR,
 )
@@ -56,7 +56,7 @@ class FlowCursorLoopScanner:
 
         for operation in operations or []:
             name = str(getattr(operation, "operation", "") or "").upper()
-            if name not in CURSOR_OPERATIONS:
+            if name not in IDMS_RETRIEVAL_VERBS:
                 continue
 
             record = NameNormalizer.normalize(

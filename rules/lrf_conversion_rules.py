@@ -42,6 +42,31 @@ STATEMENT_TERMINATOR = "."
 END_OF_SET_TOKEN = "DB-END-OF-SET"
 RECORD_NOT_FOUND_TOKEN = "DB-REC-NOT-FOUND"
 
+# The SUCCESS counterpart. Maps to "SQLCODE = 0" - NOT to 100.
+RECORD_FOUND_TOKEN = "DB-REC-FOUND"
+NOT_FOUND_LITERAL_FRAGMENTS = (
+    "NOT-FOUND",
+    "NOT-FND",
+    "NOT-FOND",
+    "NOT-OK",
+    "-NOK",
+)
+
+END_OF_SET_LITERAL_FRAGMENTS = (
+    "-EOA",
+    "END-OF-SET",
+    "-EOS",
+    "-EOF",
+    "NO-MORE",
+)
+
+FOUND_LITERAL_FRAGMENTS = (
+    "FOUND",
+    "-FND",
+    "-OK",
+)
+NEGATION_FRAGMENTS = ("NOT-", "NON-")
+
 # IDMS path status codes that mean "no more rows" / "not found".
 STATUS_END_OF_SET = "0307"
 STATUS_NOT_FOUND = "0326"
@@ -138,7 +163,7 @@ LRF_EXPANSION_MESSAGES = {
     ),
     "status_rewritten": (
         "LRF expansion: rewrote {count} LR-STATUS condition(s) to the "
-        "IDMS end-of-set token."
+        "equivalent IDMS status token."
     ),
     "qualifier_stripped": (
         "LRF expansion: stripped {count} 'OF LR' qualifier(s)."
@@ -159,3 +184,84 @@ LRF_EXPANSION_MESSAGES = {
         "LRF expansion: expanded {expanded} statement(s), skipped {skipped}."
     ),
 }
+
+# LOCATION: rules/lrf_conversion_rules.py
+# ACTION: APPEND at the end of the file
+
+# -------------------------------------------- token -> SQLCODE mapping
+# LrfPathExpander emits an IDMS status token. LrStatusTokenReplacer turns
+# that token into the DB2 condition. ONE dictionary, so a token can never
+# be emitted without a mapping, and the polarity lives in exactly one
+# place.
+#
+# DB-REC-FOUND maps to 0, NOT to 100. It is the SUCCESS counterpart and
+# is deliberately NOT part of the end-token family. Mapping it to 100
+# re-creates, through the replacer, the inversion the classifier was
+# corrected to prevent.
+#
+# The negated form is handled by the expander, which emits
+# "NOT <token>" and therefore yields "NOT SQLCODE = 100" - the exact
+# text rules/sqlcode_wrapper_rules.py already recognises as OUTER_IF_TEXT.
+LR_STATUS_TOKEN_SQLCODE = {
+    RECORD_FOUND_TOKEN: "SQLCODE = 0",
+}
+
+LR_STATUS_TOKEN_REPLACEMENT_ORDER = tuple(
+    sorted(LR_STATUS_TOKEN_SQLCODE, key=len, reverse=True)
+)
+
+ENABLE_LR_STATUS_TOKEN_REPLACEMENT = True
+
+LR_STATUS_TOKEN_MESSAGES = {
+    "replaced": (
+        "LR-STATUS tokens: replaced {count} {token} occurrence(s) with "
+        "the equivalent SQLCODE condition."
+    ),
+    "unmapped": (
+        "LR-STATUS tokens: {token} has no SQLCODE mapping and was left "
+        "in the program; it will be reported as residual IDMS."
+    ),
+    "none": (
+        "LR-STATUS tokens: no token owned by this pass was found. "
+        "DB-END-OF-SET and DB-REC-NOT-FOUND are converted by the IDMS "
+        "statement transformer."
+    ),
+}
+
+FOUND_NEGATION_FRAGMENTS = ("NOT-", "NON-", "NO-")
+
+LR_STATUS_TOKEN_MESSAGES["refused_abbreviated"] = (
+    "LR-STATUS: condition left unchanged; it is an abbreviated combined "
+    "relation ('X' OR 'Y') whose second literal carries an implied "
+    "subject. Expand it manually."
+)
+
+TOKENS_OWNED_DOWNSTREAM = (
+    END_OF_SET_TOKEN,
+    RECORD_NOT_FOUND_TOKEN,
+)
+
+__all__ = [
+    "ENABLE_LRF_PATH_EXPANSION", "REQUIRE_MAPPED_DRIVING_RECORD",
+    "OBTAIN_FIRST_TEMPLATE", "OBTAIN_NEXT_TEMPLATE", "FIND_FIRST_TEMPLATE",
+    "STATEMENT_TERMINATOR",
+    "END_OF_SET_TOKEN", "RECORD_NOT_FOUND_TOKEN", "RECORD_FOUND_TOKEN",
+    "NOT_FOUND_LITERAL_FRAGMENTS", "END_OF_SET_LITERAL_FRAGMENTS",
+    "FOUND_LITERAL_FRAGMENTS", "NEGATION_FRAGMENTS",
+    "LR_STATUS_TOKEN_SQLCODE", "LR_STATUS_TOKEN_REPLACEMENT_ORDER",
+    "ENABLE_LR_STATUS_TOKEN_REPLACEMENT", "LR_STATUS_TOKEN_MESSAGES",
+    "STATUS_END_OF_SET", "STATUS_NOT_FOUND", "STATUS_SET_EMPTY",
+    "LR_STATUS_FIELD", "LR_QUALIFIER", "COMMENT_PREFIX",
+    "EXPANDED_OBTAIN_TEMPLATE", "EXPANDED_PARENT_TEMPLATE",
+    "EXPANDED_FILTER_TEMPLATE", "SKIPPED_NO_PATH_TEMPLATE",
+    "SKIPPED_NO_RECORD_TEMPLATE", "SKIPPED_UNMAPPED_TEMPLATE",
+    "REMOVED_LR_STATUS_TEMPLATE",
+    "MODIFY_TEMPLATE", "STORE_TEMPLATE", "EXPANDED_UPDATE_TEMPLATE",
+    "SKIPPED_STORE_AMBIGUOUS_TEMPLATE",
+    "LRF_UPDATE_MESSAGES", "LRF_EXPANSION_MESSAGES",
+    "FOUND_NEGATION_FRAGMENTS",
+    "LR_STATUS_TOKEN_MESSAGES",
+    "LR_STATUS_TOKEN_SQLCODE",
+    "LR_STATUS_TOKEN_REPLACEMENT_ORDER",
+    "TOKENS_OWNED_DOWNSTREAM",
+]

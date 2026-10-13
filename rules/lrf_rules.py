@@ -83,4 +83,5 @@ DIAG_LRF_NO_RECORDS_IN_SCOPE = (
     "Logical record access, if any, will be reported for manual review."
 )
 
+STATEMENT_TERMINATOR = "!"
 

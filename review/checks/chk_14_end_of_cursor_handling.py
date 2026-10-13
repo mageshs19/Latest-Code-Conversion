@@ -1,6 +1,8 @@
+# LOCATION: review/checks/chk_14_end_of_cursor_handling.py
+# ACTION: REPLACE ENTIRE FILE
 """CHK-14 End-of-cursor handling in the fetch paragraph.
 
-CORRECTION - criterion 05 recognised only ONE of two valid loop shapes
+CORRECTION 1 - criterion 05 recognised only ONE of two valid loop shapes
 
     The converter drives a cursor with whichever idiom the source used,
     and CursorFlowComposer supports both:
@@ -26,8 +28,44 @@ CORRECTION - criterion 05 recognised only ONE of two valid loop shapes
     the loop performs, and whether the statement spans lines, is a
     formatting choice - not a correctness property.
 
-    Criteria 02 and 04 still carry the rest of the contract: the FETCH
-    paragraph must SET the flag, and no loop may test raw SQLCODE.
+CORRECTION 2 - criterion 04 could not see most legacy exit tests
+
+    It read std.LEGACY_EOC_CONDITIONS, which held exactly two entries:
+
+        UNTIL SQLCODE = 100
+        IF NOT SQLCODE = 100
+
+    The converter, meanwhile, rewrites six spellings - including
+    SQLCODE = +100 and the raw IDMS tokens DB-END-OF-SET and
+    DB-REC-NOT-FOUND. A loop left on any of those four passed CHK-14
+    while failing the standard the check exists to enforce. VM7BD200
+    carried UNTIL DB-END-OF-SET in source.
+
+    Worse, the SAME NAME held different meanings on each side of the
+    review boundary: bare CONDITIONS in rules/, whole STATEMENTS here.
+    The reviewer constant is now LEGACY_EOC_LOOP_STATEMENTS, so the two
+    cannot be mistaken for each other.
+
+CORRECTION 3 - criterion 04 overlapped CHK-11
+
+    IF NOT SQLCODE = 100 appears in std.LEGACY_SQLCODE_FORMS, which
+    CHK-11 owns. Two checks reporting one condition is how a finding
+    gets fixed in one place and left in the other. This criterion is
+    titled "Fetch LOOPS", and an IF guard is not a loop, so the
+    vocabulary is now anchored on UNTIL and the IF form stays with
+    CHK-11.
+
+    Anchoring is also what keeps the widened vocabulary safe: criterion
+    04 is a substring test over EVERY code line, and a bare
+    "SQLCODE = 100" would flag the IF SQLCODE = 100 guard the converter
+    correctly emits for ON DB-REC-NOT-FOUND.
+
+EXPECTED EFFECT
+
+    Programs that previously passed criterion 04 may now fail it. That
+    is the check working for the first time on those spellings, not a
+    regression. Confirm each finding against the generated source before
+    treating it as one.
 """
 
 from __future__ import annotations
@@ -118,6 +156,10 @@ class EndOfCursorHandlingCheck(Check):
             )
 
         # ---- 04 loops test the flag, not SQLCODE --------------------
+        #
+        # Vocabulary is UNTIL-anchored. See CORRECTION 2 and 3 in the
+        # module docstring: a bare condition would flag correct
+        # generated code, and the IF form belongs to CHK-11.
         if not std.ENFORCE_EOC_FLAG_LOOP:
             record.skip(
                 "04", "Fetch loops test the end-of-cursor flag",
@@ -130,16 +172,19 @@ class EndOfCursorHandlingCheck(Check):
                     line for line in view.code
                     if any(
                         legacy in sql.norm(line.logical)
-                        for legacy in std.LEGACY_EOC_CONDITIONS
+                        for legacy in std.LEGACY_EOC_LOOP_STATEMENTS
                     )
                 ],
+                note=(
+                    "A loop still exits on a raw SQLCODE test or an IDMS "
+                    "status token instead of the cursor flag."
+                ),
             )
 
         # ---- 05 each cursor is driven by a loop on its flag ---------
         #
         # Accepts BOTH idioms the converter emits, and tolerates a
-        # statement split across physical lines. See the module
-        # docstring for why the verbatim INLINE form was wrong.
+        # statement split across physical lines. See CORRECTION 1.
         if not fetches:
             record.skip(
                 "05",

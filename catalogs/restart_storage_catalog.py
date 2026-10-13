@@ -1,6 +1,3 @@
-# LOCATION: catalogs/restart_storage_catalog.py
-# ACTION: REPLACE ENTIRE FILE
-
 """Site vocabulary for the restart working storage.
 
 catalogs/ is the one layer where a real name may appear. Every name

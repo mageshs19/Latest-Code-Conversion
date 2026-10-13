@@ -61,6 +61,14 @@ from .update_input_selector import (
 )
 from .update_postprocess_pipeline import enhance_update_program
 
+from patterns.lrf_patterns import COPY_IDMS_LR_PATTERN
+from rules.lrf_rules import (
+    DIAG_LRF_NO_RECORDS_IN_SCOPE,
+    DIAG_LRF_RECORDS_IN_SCOPE_TEMPLATE,
+    LRF_VALIDATION_MESSAGES,
+)
+
+from .update_input_loader import load_logical_records
 
 def resolve_target_program_id(source_text: str) -> str:
     """Derive the target PROGRAM-ID from the source (VM...BD... -> VMDZ...)."""
@@ -136,6 +144,45 @@ def _print_results(result, diagnostics, logger):
         print(BULLET_TEMPLATE.format(text=diagnostic))
         logger.info(diagnostic)
 
+def _narrate_lrf(
+    *,
+    source_text: str,
+    logical_records: list,
+    diagnostics: list[str],
+    logger,
+) -> None:
+    """Record what LRF metadata this program run will see.
+
+    A program that copies a logical record while no subschema is loaded
+    is reported once. That silence is what let every "Update with LRF"
+    program ship with raw LR-STATUS conditions.
+    """
+    if logical_records:
+        names = ", ".join(
+            str(getattr(record, "logical_record_name", "") or "")
+            for record in logical_records
+        )
+        diagnostics.append(
+            DIAG_LRF_RECORDS_IN_SCOPE_TEMPLATE.format(
+                count=len(logical_records), names=names
+            )
+        )
+    else:
+        diagnostics.append(DIAG_LRF_NO_RECORDS_IN_SCOPE)
+
+    used: list[str] = []
+    for raw_line in str(source_text or "").splitlines():
+        match = COPY_IDMS_LR_PATTERN.search(raw_line)
+        if not match:
+            continue
+        name = str(match.group("lr") or "").strip().upper()
+        if name and name not in used:
+            used.append(name)
+
+    if used and not logical_records:
+        message = LRF_VALIDATION_MESSAGES["missing_lrf"]
+        diagnostics.append(message)
+        logger.warning(message)
 
 def convert_one_program(
     *,
@@ -164,11 +211,20 @@ def convert_one_program(
     logger.info(LOG_SOURCE_LEN, len(idms_cobol_text))
     logger.info(LOG_DERIVED_PROGRAM_ID, display_id)
 
+    logical_records = load_logical_records(logger, diagnostics)
+    _narrate_lrf(
+        source_text=idms_cobol_text,
+        logical_records=logical_records,
+        diagnostics=diagnostics,
+        logger=logger,
+    )
+
     result = ConversionService().convert(
         ConversionInput(
             sheet_mapping_rows=sheet_rows,
             dclgen_columns=dclgen_columns,
             copybook_fields=copybook_fields,
+            logical_records=logical_records,          # <-- the missing line
             idms_cobol_text=idms_cobol_text,
             target_program_id=target_program_id,
             auto_fix_pic_length_mismatches=AUTO_FIX_PIC_LENGTH_MISMATCHES_DEFAULT,

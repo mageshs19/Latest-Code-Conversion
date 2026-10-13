@@ -60,6 +60,13 @@ class UpdateBusinessSqlStandardizer(
         diagnostics: list[str],
     ) -> str:
         if not context.restart_dclgen:
+            diagnostics.append(
+                "Update business SQL: context carries no restart DCLGEN; "
+                "business SQL standardisation not attempted. "
+                f"restart_dclgen={context.restart_dclgen!r} "
+                f"input_record_name="
+                f"{getattr(context, 'input_record_name', None)!r}"
+            )
             return cobol_text
 
         lines = self.line_utils.lines(cobol_text)
@@ -67,6 +74,7 @@ class UpdateBusinessSqlStandardizer(
         process_paragraph = self._resolve_process_paragraph(
             lines=lines,
             input_record_name=context.input_record_name,
+            diagnostics=diagnostics,
         )
         if not process_paragraph:
             diagnostics.append(DIAG_PROCESS_PARAGRAPH_UNRESOLVED)
@@ -181,24 +189,56 @@ class UpdateBusinessSqlStandardizer(
                 return index
         return -1
 
-    def _resolve_process_paragraph(self, *, lines, input_record_name):
-        target_eof = f"{str(input_record_name or '').strip().upper()}-EOF"
+    def _resolve_process_paragraph(self, *, lines, input_record_name, diagnostics=None):
+        """The driving paragraph of the record loop.
+
+        CORRECTION - the match required <input_record_name>-EOF, and the
+        record name was DERIVED by the metadata resolver while the EOF
+        condition is written in the CODE. When the two disagree - and the
+        same run reported "Legacy EOF switch not resolved" - this returned
+        "" and the whole business SQL pass was skipped. The program kept
+        its restart scaffolding and lost its UPDATE: it ran clean, wrote a
+        checkpoint, committed, and changed no data.
+
+        The exact match is still preferred. When it fails, ANY
+        PERFORM <paragraph> UNTIL <something>-EOF is accepted and the
+        disagreement is REPORTED with both names, because a silent empty
+        return is indistinguishable from "there was nothing here".
+        """
+        record = str(input_record_name or "").strip().upper()
+        target_eof = f"{record}-EOF" if record else ""
+        fallback = ""
+        fallback_condition = ""
 
         for line in lines:
             logical = self._logical(line).upper().rstrip(".")
             match = PERFORM_UNTIL_LINE_PATTERN.search(logical)
             if not match:
                 continue
-            if target_eof and target_eof not in logical:
-                continue
 
             paragraph = str(match.group("paragraph") or "").strip().upper()
             if not paragraph or paragraph == READ_FLAT_FILE_PARAGRAPH:
                 continue
-            return paragraph
+
+            if target_eof and target_eof in logical:
+                return paragraph
+
+            if not fallback and "-EOF" in logical:
+                fallback = paragraph
+                fallback_condition = logical
+
+        if fallback:
+            if diagnostics is not None:
+                diagnostics.append(
+                    "Update business SQL: the resolved input record "
+                    f"'{record or '(none)'}' does not match the loop "
+                    f"condition '{fallback_condition}'; used {fallback}. "
+                    "Check the resolved copybook."
+                )
+            return fallback
 
         return ""
-
+    
     def _paragraph_contains_update_perform(self, *, lines, start, end):
         for index in range(start + 1, end):
             if PERFORM_UPDATE_PARAGRAPH_PATTERN.match(self._logical(lines[index])):

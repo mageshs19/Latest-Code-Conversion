@@ -125,7 +125,7 @@ class UpdateInputRecordRenamer:
         if len(text) >= 72 and text[:6].strip().isdigit():
             left = text[:6]
             right = text[72:80] if len(text) >= 80 else ""
-            return f"{left} {clean} {right}"
+            return f"{left} {clean}{right}"
         if len(text) > 6 and text[:6].strip().isdigit():
             left = text[:6]
             return f"{left} {clean.rstrip()}"

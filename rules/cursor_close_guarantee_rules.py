@@ -33,7 +33,10 @@ and drives the business paragraph from the FETCH paragraph:
 """
 
 from __future__ import annotations
-
+from rules.cursor_eoc_rules import (  # noqa: F401
+    EOC_CONDITION_TEMPLATE,
+    LEGACY_EOC_CONDITIONS,
+)
 #
 # Master switches
 #
@@ -170,11 +173,6 @@ __all__ = [
 # LOCATION: rules/cursor_close_guarantee_rules.py
 # ACTION: APPEND to CURSOR_CLOSE_GUARANTEE_MESSAGES
 
-CURSOR_CLOSE_GUARANTEE_MESSAGES["business_paragraph_unverified"] = (
-    "Cursor close guarantee: candidate business paragraph {paragraph} for "
-    "cursor {cursor} references neither its DCLGEN group nor a nested "
-    "cursor; binding refused."
-)
 CURSOR_CLOSE_GUARANTEE_MESSAGES["when_zero_not_bindable"] = (
     "Cursor close guarantee: the WHEN ZERO branch of {fetch} holds no "
     "CONTINUE to replace; left unchanged."

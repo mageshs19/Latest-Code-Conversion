@@ -25,7 +25,7 @@ The series numbers are retained because they document the shop
 convention and the review check reads them, but nothing classifies on
 them any more.
 
-CORRECTION 2 - CURSOR_OPERATIONS was declared twice.
+CORRECTION 2 - IDMS_RETRIEVAL_VERBS was declared twice.
 
 The same frozenset lives in rules/program_flow_rules.py. One fact, two
 modules: the day a fourth verb is added, one of them will be missed.
@@ -35,7 +35,7 @@ This module re-exports rather than re-declaring.
 from __future__ import annotations
 
 # Single source of truth. Re-exported, never re-declared.
-from rules.program_flow_rules import CURSOR_OPERATIONS  # noqa: F401
+from rules.program_flow_rules import IDMS_RETRIEVAL_VERBS  # noqa: F401
 
 # ---------------------------------------------------------------------
 # Parent / child classification
@@ -90,17 +90,28 @@ HOST_REFERENCE_PREFIX = ":"
 HOST_GROUP_SEPARATOR = "."
 
 __all__ = [
-    "CURSOR_OPERATIONS",
+    "BODY_END_INDEX",
+    "BODY_START_INDEX",
+    "CHILD_CURSOR_MINIMUM_NUMBER",
     "CLASSIFY_PARENT_BY_ABSENT_WHERE",
-    "PARENT_CURSOR_OPEN_NUMBER", "CHILD_CURSOR_MINIMUM_NUMBER",
+    "DCLGEN_GROUP_PREFIX",
+    "HOST_GROUP_SEPARATOR",
+    "HOST_REFERENCE_PREFIX",
+    "IDMS_RETRIEVAL_VERBS",
     "PARAGRAPH_NUMBER_SEPARATOR",
-    "BODY_START_INDEX", "BODY_END_INDEX",
-    "SPEC_SET_NAME", "SPEC_RECORD_NAME", "SPEC_TABLE_NAME",
-    "SPEC_CURSOR_NAME", "SPEC_SELECT_COLUMNS", "SPEC_HOST_VARIABLES",
-    "SPEC_WHERE_CONDITIONS", "SPEC_ORDER_BY_COLUMNS",
-    "SPEC_OPEN_PARAGRAPH", "SPEC_FETCH_PARAGRAPH",
-    "SPEC_CLOSE_PARAGRAPH", "SPEC_CURSOR_ORDER",
-    "SPEC_IS_PARENT_CURSOR",
+    "PARENT_CURSOR_OPEN_NUMBER",
     "RELATIONSHIP_PREDICATE_TEMPLATE",
-    "DCLGEN_GROUP_PREFIX", "HOST_REFERENCE_PREFIX", "HOST_GROUP_SEPARATOR",
+    "SPEC_CLOSE_PARAGRAPH",
+    "SPEC_CURSOR_NAME",
+    "SPEC_CURSOR_ORDER",
+    "SPEC_FETCH_PARAGRAPH",
+    "SPEC_HOST_VARIABLES",
+    "SPEC_IS_PARENT_CURSOR",
+    "SPEC_OPEN_PARAGRAPH",
+    "SPEC_ORDER_BY_COLUMNS",
+    "SPEC_RECORD_NAME",
+    "SPEC_SELECT_COLUMNS",
+    "SPEC_SET_NAME",
+    "SPEC_TABLE_NAME",
+    "SPEC_WHERE_CONDITIONS",
 ]

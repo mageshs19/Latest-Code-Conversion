@@ -1,5 +1,3 @@
-# LOCATION: converter/generators/restart/restart_config.py
-# ACTION: REPLACE ENTIRE FILE
 """Immutable configuration consumed by every restart builder.
 
 RESPONSIBILITY
@@ -23,6 +21,74 @@ TWO VALUES THIS CLASS REFUSES TO AUTHOR
 Both were once constants in rules/. A program whose restart record used
 a different layout would then have had the wrong length written into its
 checkpoint row, silently.
+
+THE INSERT AND THE COMMIT WRITE DIFFERENT LENGTHS. THIS IS DELIBERATE.
+
+An earlier edit collapsed the two into one value, reading the difference
+as drift. It is not. The manual reference writes
+
+    720-WRITE-RESTART-REC   MOVE 1215 TO <payload>-LEN   <- full
+    800-PROCESS-COMMIT      MOVE   15 TO <payload>-LEN   <- counter only
+
+where 1215 is NB-READ PIC 9(15) plus KY-RESTART PIC X(1200), and 15 is
+the read-count picture alone. The INSERT creates the row carrying the
+whole measured payload; every COMMIT after it rewrites only the counter,
+because the restart-found paragraph repositions by COUNT and never reads
+the key.
+
+Unifying them required flipping ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT to
+True, and left the suite asserting three mutually unsatisfiable things:
+
+    insert == full          (test_the_payload_length_is_measured...)
+    commit == read_count    (test_commit_length_follows_the_manual...)
+    insert == commit        (test_insert_and_commit_describe_the_same...)
+
+Together those imply restart_key_size == 0, which is_usable() refuses.
+The third assertion was withdrawn; the manual is the authority.
+
+THREE PROPERTIES, ONE DECISION
+
+    payload_full_length       the measurement. Never a choice.
+    payload_length            the FLAG's choice: full, or read-count.
+    payload_length_on_insert  always full. Does not consult the flag.
+    payload_length_on_commit  payload_length. Consults it through that.
+
+Naming the decision once is what stops the insert and the commit from
+being changed independently again.
+
+CORRECTION - a template may name no key this dictionary lacks
+
+placeholders() is rendered with .format(**values). A template naming a
+key that is absent here raises KeyError at render time and the WHOLE
+program fails to convert - not the one paragraph, the conversion.
+
+COMMIT_TEMPLATE gained {commit_error_message} when its missing SQLCODE
+check was restored: the commit paragraph was the only generated SQL
+block in either program kind that never inspected SQLCODE, so a failed
+COMMIT left the checkpoint row and the data disagreeing with nothing
+said. That key is supplied below, beside the other message texts.
+
+This dictionary and rules/restart_statement_templates.py are one
+contract in two files. Every template must be rendered against it in the
+suite, or the next placeholder added to a template fails in production
+rather than in the tests.
+
+CORRECTION 2 - REQUIRED is a CONTRACT, not a convenience list
+
+An attempt to source the run date added run_date_source,
+date_staging_field and date_staging_redefines here, and duplicated
+run_date_field while doing so. REQUIRED went from 18 entries to 22.
+
+Nothing about that was local. missing() iterates REQUIRED, is_complete()
+reads missing(), is_usable() reads is_complete(), and the injection
+composer refuses when is_usable() is False - so three unresolvable names
+silenced the ENTIRE restart family and took roughly a hundred tests with
+them, including every M5/M6/M7/M8/M9b case that had nothing to do with
+dates.
+
+test_eighteen_entries_are_required exists for exactly this reason. A
+name added here must be resolvable for EVERY program the converter
+accepts, or it must not be REQUIRED at all.
 
 No program, paragraph, record, table, DCLGEN, cursor or host variable
 name is hardcoded. Defaults come from catalogs/, policy from rules/.
@@ -64,7 +130,10 @@ from rules.restart_standard_rules import (
     STATUS_COMPLETE,
     STATUS_INCOMPLETE,
 )
-from rules.restart_statement_templates import COMPLETE_RUN_MESSAGE
+from rules.restart_statement_templates import (
+    COMMIT_ERROR_MESSAGE,
+    COMPLETE_RUN_MESSAGE,
+)
 
 
 @dataclass(frozen=True)
@@ -205,18 +274,62 @@ class RestartConfig:
 
     @property
     def payload_full_length(self) -> int:
-        """Sum of the two restart-record subfield pictures."""
+        """Sum of the two restart-record subfield pictures.
+
+        MEASURED, never declared. A program whose restart record carries
+        a different layout measures differently, which is the whole point
+        of refusing to hold this as a constant.
+        """
         return self.names.read_count_size + self.names.restart_key_size
 
     @property
+    def payload_length(self) -> int:
+        """The FLAG's choice. The decision is named once, here.
+
+        ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT lives in
+        rules/restart_standard_rules.py - the single place the decision
+        is RECORDED - and this property is the single place it is
+        APPLIED:
+
+            False -> the read-count picture. Matches the manual, and
+                     matches what the restart-found paragraph reads: it
+                     repositions by COUNT and never touches the key.
+            True  -> the measured payload, so the key survives every
+                     commit and a key-based reposition becomes possible.
+
+        Never anything else. The INSERT does not consult this at all;
+        see payload_length_on_insert.
+        """
+        if ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT:
+            return self.payload_full_length
+        return self.names.read_count_size
+
+    @property
     def payload_length_on_insert(self) -> int:
+        """The length written when the checkpoint ROW IS CREATED.
+
+        Always the full measurement, flag or no flag. The manual writes
+        1215 on insert and 15 on the first commit, so the 1200-byte key
+        is allocated once and then not rewritten. That asymmetry is the
+        reference's own design: the INSERT establishes the row at its
+        full width and no later statement widens it again.
+        """
         return self.payload_full_length
 
     @property
     def payload_length_on_commit(self) -> int:
-        if ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT:
-            return self.payload_full_length
-        return self.names.read_count_size
+        """The length every COMMIT writes. Reads the one decision."""
+        return self.payload_length
+
+    @property
+    def payload_length_is_full(self) -> bool:
+        """True when a COMMIT persists the restart key as well.
+
+        Exposed so the injection pass can REPORT the decision. A
+        checkpoint row whose length was chosen by a flag nobody can see
+        is the same defect as one chosen at random.
+        """
+        return self.payload_length_on_commit == self.payload_full_length
 
     @property
     def retention_days(self) -> int:
@@ -289,6 +402,7 @@ class RestartConfig:
             "payload_length_insert": self.payload_length_on_insert,
             "payload_length_commit": self.payload_length_on_commit,
             "complete_message": COMPLETE_RUN_MESSAGE,
+            "commit_error_message": COMMIT_ERROR_MESSAGE,
             # queryno
             "queryno_select": self.queryno_select,
             "queryno_update": self.queryno_update,

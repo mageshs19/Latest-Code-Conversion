@@ -22,6 +22,17 @@ marker starts immediately at column 8, so the output reads
       *DB2-KEEP: ...
 
 which matches the marker text declared in rules/.
+
+LR-STATUS CLASSIFICATION
+------------------------
+Three classes and NO DEFAULT. See _status_token for the three defects a
+default produced. An unrecognised literal is left exactly as written so
+the surviving LR-STATUS is reported rather than silently mistranslated.
+
+A condition this module cannot rewrite SAFELY is also left unchanged -
+see the abbreviated combined relation guard in _rewrite_lr_status. A
+half-rewritten condition compiles to nonsense; an untouched one is a
+finding a reviewer can act on.
 """
 
 from __future__ import annotations
@@ -34,20 +45,27 @@ from patterns.lrf_program_patterns import (
     LR_ERASE_WHERE_PATTERN,
     LR_OBTAIN_WHERE_PATTERN,
     LR_OBTAIN_WHERE_PREFIX_PATTERN,
+    LR_STATUS_ABBREVIATED_PATTERN,
     LR_STATUS_CONDITION_PATTERN,
     LR_STATUS_TOKEN_PATTERN,
     OF_LR_SUFFIX_PATTERN,
 )
 from rules.lrf_conversion_rules import (
     ENABLE_LRF_PATH_EXPANSION,
+    END_OF_SET_LITERAL_FRAGMENTS,
     END_OF_SET_TOKEN,
     EXPANDED_FILTER_TEMPLATE,
     EXPANDED_OBTAIN_TEMPLATE,
     EXPANDED_PARENT_TEMPLATE,
     FIND_FIRST_TEMPLATE,
+    FOUND_LITERAL_FRAGMENTS,
+    FOUND_NEGATION_FRAGMENTS,
     LRF_EXPANSION_MESSAGES,
+    NEGATION_FRAGMENTS,
+    NOT_FOUND_LITERAL_FRAGMENTS,
     OBTAIN_FIRST_TEMPLATE,
     OBTAIN_NEXT_TEMPLATE,
+    RECORD_FOUND_TOKEN,
     RECORD_NOT_FOUND_TOKEN,
     REQUIRE_MAPPED_DRIVING_RECORD,
     SKIPPED_NO_PATH_TEMPLATE,
@@ -104,6 +122,7 @@ class LrfPathExpander:
         expanded = 0
         skipped = 0
         status_rewrites = 0
+        status_refusals = 0
         qualifier_strips = 0
         # Source line indices already absorbed as continuation lines of a
         # multi-line OBTAIN ... WHERE statement.
@@ -158,6 +177,13 @@ class LrfPathExpander:
                 skipped += 0 if ok else 1
                 continue
 
+            # Counted HERE, not inside _rewrite_lr_status, so that method
+            # keeps its (text, hits) signature and stays a pure function.
+            # A refusal with no diagnostic is indistinguishable from a
+            # line the pass never looked at.
+            if LR_STATUS_ABBREVIATED_PATTERN.search(logical):
+                status_refusals += 1
+
             new_logical, hits = self._rewrite_lr_status(logical)
             status_rewrites += hits
 
@@ -171,6 +197,8 @@ class LrfPathExpander:
 
         if status_rewrites:
             self._log("status_rewritten", count=status_rewrites)
+        if status_refusals:
+            self._log("status_refused_abbreviated", count=status_refusals)
         if qualifier_strips:
             self._log("qualifier_stripped", count=qualifier_strips)
         if expanded or skipped:
@@ -381,19 +409,131 @@ class LrfPathExpander:
 
     # ------------------------------------------------ status/qualifier
     @staticmethod
+    def _status_token(literal: str) -> str | None:
+        """The DB2 status token for an IDMS LR-STATUS literal, or None.
+
+        CORRECTION 1 - the classifier had two classes and a DEFAULT.
+
+            token = RECORD_NOT_FOUND_TOKEN
+                    if "NOT-FND" in literal or "NOT-FOUND" in literal
+                    else END_OF_SET_TOKEN
+
+        'LR-FOUND' contains FOUND but not NOT-FOUND, so it fell to the
+        else branch and was translated as end-of-set, which maps to
+        SQLCODE = 100. The condition
+
+            IF LR-STATUS NOT = 'LR-FOUND'   ->   abend when NOT found
+
+        became
+
+            IF NOT SQLCODE = 100            ->   abend when FOUND
+
+        The program abends on every successful lookup and continues
+        silently on every miss. It compiles, it runs, and it is wrong on
+        every record.
+
+        CORRECTION 2 - the negation guard on a POSITIVE class.
+
+        'LR-NOT-OK' matches no NOT_FOUND fragment but does match the
+        positive fragment '-OK', so it classified as SUCCESS - the same
+        inversion by a different route. A HARD negation (NOT- / NON-)
+        reaching the end-of-set class is now REFUSED rather than guessed.
+
+        CORRECTION 3 - the 'NO-' prefix, found in live output.
+
+        VM4BD310 carried
+
+            IF LR-STATUS = 'NO-VMBEVEF-FND'
+
+        which matched the positive fragment '-FND' and shipped as
+        SQLCODE = 0. It means NO VMBEVEF FOUND. Inverted again.
+
+        'NO-' could not simply join NEGATION_FRAGMENTS, because the same
+        subschemas return BOTH spellings:
+
+            NO-VMBFAR-FND      not found
+            NO-MORE-VMBFAR     end of set
+
+        END_OF_SET is therefore tested BEFORE the FOUND class, so
+        NO-MORE is classified first and never reaches the negation test.
+        A negated FOUND spelling resolves to NOT FOUND - it is a known
+        meaning, not an unknown literal, so it is translated rather than
+        refused.
+
+        ORDER IS LOAD-BEARING:
+            NOT_FOUND  first - FOUND is a substring of NOT-FOUND, and
+                               FND is a substring of NOT-FND.
+            END_OF_SET next  - claims NO-MORE before 'NO-' is read as
+                               a negation.
+            FOUND      last  - negated spellings resolve to NOT FOUND.
+
+        An unrecognised literal returns None and the condition is LEFT
+        UNCHANGED, so the surviving LR-STATUS is caught downstream by
+        LR_STATUS_TOKEN_PATTERN rather than defaulted to a guess.
+        """
+        text = cobol_name(literal)
+        if not text:
+            return None
+
+        if any(f in text for f in NOT_FOUND_LITERAL_FRAGMENTS):
+            return RECORD_NOT_FOUND_TOKEN
+
+        # END_OF_SET FIRST. 'NO-MORE-X' is end-of-set, not a negated
+        # FOUND, and it shares the 'NO-' prefix with 'NO-X-FND'.
+        if any(f in text for f in END_OF_SET_LITERAL_FRAGMENTS):
+            if any(f in text for f in NEGATION_FRAGMENTS):
+                return None
+            return END_OF_SET_TOKEN
+
+        if any(f in text for f in FOUND_LITERAL_FRAGMENTS):
+            # A negated FOUND spelling is NOT FOUND - it is not unknown.
+            # 'NO-VMBEVEF-FND' shipped as SQLCODE = 0 before this branch.
+            if any(f in text for f in FOUND_NEGATION_FRAGMENTS):
+                return RECORD_NOT_FOUND_TOKEN
+            return RECORD_FOUND_TOKEN
+
+        return None
+
+    @staticmethod
     def _rewrite_lr_status(logical: str) -> tuple[str, int]:
+        """Rewrite 'LR-STATUS <op> <literal>' to an IDMS status token.
+
+        REFUSAL - abbreviated combined relation.
+
+        VM1BD526 carried
+
+            IF LR-STATUS = 'VMBEFF-NOT-FND' OR 'LR-ERROR'
+
+        COBOL implies the subject and the operator on the second
+        literal. LR_STATUS_CONDITION_PATTERN sees only the first, so a
+        rewrite produced
+
+            IF SQLCODE = 100 OR 'LR-ERROR'
+
+        stranding a bare literal as a condition operand. The WHOLE
+        condition is therefore left untouched. The caller counts the
+        refusal and reports it; the surviving LR-STATUS is a finding, not
+        a silent miss.
+
+        hits counts RESOLVED rewrites only. An earlier version
+        incremented before classifying, so refusals were reported as
+        successful conversions in the run log.
+        """
         hits = 0
+
+        if LR_STATUS_ABBREVIATED_PATTERN.search(logical):
+            return logical, 0
 
         def _replace(match) -> str:
             nonlocal hits
-            hits += 1
+
             operator = str(match.group("operator") or "").upper()
-            literal = cobol_name(match.group("literal"))
-            token = (
-                RECORD_NOT_FOUND_TOKEN
-                if "NOT-FND" in literal or "NOT-FOUND" in literal
-                else END_OF_SET_TOKEN
-            )
+            token = LrfPathExpander._status_token(match.group("literal"))
+
+            if token is None:
+                return match.group(0)
+
+            hits += 1
             return f"NOT {token}" if operator.startswith("NOT") else token
 
         return LR_STATUS_CONDITION_PATTERN.sub(_replace, logical), hits

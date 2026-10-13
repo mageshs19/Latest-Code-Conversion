@@ -129,13 +129,20 @@ from __future__ import annotations
 from catalogs.output_sections import (  # noqa: F401
     DECLARE_SQL_LOCATION_FIELD,
 )
+from rules.sql_location_rules import (  # noqa: F401
+    SQL_LOCATION_FIELD,
+    SQL_LOCATION_NAME_TEMPLATE,
+    SQL_LOCATION_NUMBER_PAD,
+    SQL_LOCATION_NUMBER_TEMPLATE,
+    SQL_LOCATION_USES_PARAGRAPH_NUMBER,
+)
 
 # =====================================================================
 # Fixed process / error paragraph names (COBOL-shop standard)
 # =====================================================================
 SQL_ERROR_PARAGRAPH_NAME = "SQLERROR"
 LEGACY_SQL_ERROR_PARAGRAPH_NAME = "SQL-ERROR"
-SQL_LOCATION_FIELD = "SQL-LOCATION"
+
 
 # =====================================================================
 # Termination rule
@@ -155,8 +162,7 @@ LONE_PERIOD = "."
 #
 # SQL-LOCATION is supplied by the SQLERRWS copybook, NOT declared by the
 # converter.
-SQL_LOCATION_USES_PARAGRAPH_NUMBER = True
-SQL_LOCATION_NUMBER_PAD = "    "
+
 
 # The error branch does NOT restate SQL-LOCATION.
 #
@@ -255,8 +261,8 @@ COUNT_PARENT_FETCH_ONLY = True
 # =====================================================================
 # Generated statement templates
 # =====================================================================
-SQL_LOCATION_NUMBER_TEMPLATE = "MOVE {number}{pad}TO {field}"
-SQL_LOCATION_NAME_TEMPLATE = "MOVE '{name}' TO {field}"
+
+
 PARAGRAPH_HEADER_TEMPLATE = "{paragraph}."
 OPEN_STATEMENT_TEMPLATE = "OPEN {cursor}"
 FETCH_STATEMENT_TEMPLATE = "FETCH {cursor}"

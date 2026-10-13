@@ -23,13 +23,58 @@ from rules.update_cobol_final_cleanup_rules import (
     USER_AUDIT_PREFIXES,
 )
 
+ASSIGNMENT_SEPARATOR = ","
+SENTENCE_TERMINATOR = "."
+WHERE_INFIX = " WHERE "
+
 
 class UpdateAuditMoveInserter:
-    """
-    Inserts audit MOVE statements before UPDATE SQL blocks.
+    """Inserts audit MOVE statements before a generated UPDATE SQL block.
 
-    Only inserts moves for audit host variables already present in generated
-    UPDATE SET assignments.
+    Only audit host variables that the UPDATE SET list actually assigns
+    receive a move. A column the statement does not write is none of this
+    pass's business.
+
+    CORRECTION 1 - the first assignment was discarded
+    --------------------------------------------------
+    The SET scan read
+
+        if SET_KEYWORD_PATTERN.match(logical):
+            in_set = True
+            continue
+
+    so a line carrying BOTH the keyword and its first assignment -
+
+        SET DA_INFSDGD_479BFAR = :DCLDZBFARTV.DA-INFSDGD-479BFAR
+
+    which is the manual reference's own shape - was consumed whole and the
+    assignment never parsed. If that first column was the audit column, the
+    move was silently never generated.
+
+    CORRECTION 2 - an assignment had to fit one physical line
+    ---------------------------------------------------------
+    SQL_SET_ASSIGNMENT_PATTERN was matched against each line in turn. A
+    72-column wrap splits an assignment across two lines and neither half
+    matches. The SET clause is now joined into ONE logical string and split
+    on commas, so wrapping is irrelevant.
+
+    CORRECTION 3 - the duplicate guard crossed paragraph boundaries
+    ---------------------------------------------------------------
+    has_recent_move_to_host scanned back UPDATE_FINAL_LOOKBACK_DUPLICATE_LIMIT
+    lines regardless of structure. A MOVE to the same host in an unrelated
+    paragraph 60 lines earlier suppressed the insert, and nothing was said.
+    The walk now stops at the first sentence boundary above the block.
+
+    The stop test also fires on CONTINUE. and END-EXEC., which are not
+    paragraph headers. That is deliberate: stopping EARLY can only cause an
+    extra MOVE, and a duplicate MOVE is harmless where a missing one writes
+    uninitialised bytes into an audit column.
+
+    CORRECTION 4 - every refusal was silent
+    ----------------------------------------
+    The class produced no diagnostics at all, so a run that inserted nothing
+    read exactly like a run with nothing to insert. Every decision is now
+    reported.
     """
 
     def __init__(
@@ -40,24 +85,39 @@ class UpdateAuditMoveInserter:
     ) -> None:
         self.fixed_format = fixed_format
         self.utils = utils
+        self.messages: list[str] = []
 
+    #
+    # Public surface
+    #
     def insert_update_audit_moves(
         self,
         text: str,
     ) -> str:
+        self.messages = []
+
         lines = text.splitlines()
         update_blocks = self.find_update_exec_sql_blocks(lines)
 
         if not update_blocks:
+            self.messages.append(
+                "Update audit moves: no generated UPDATE block found; "
+                "nothing to insert."
+            )
             return text.rstrip() + "\n"
 
         output = list(lines)
+        inserted = 0
 
         for start, end in sorted(update_blocks, reverse=True):
             block = output[start : end + 1]
             audit_targets = self.audit_targets_from_update_block(block)
 
             if not audit_targets:
+                self.messages.append(
+                    f"Update audit moves: the UPDATE at line {start + 1} "
+                    "assigns no audit column; nothing inserted."
+                )
                 continue
 
             reference_line = output[start]
@@ -70,11 +130,21 @@ class UpdateAuditMoveInserter:
                     group=group,
                     host=host,
                 ):
+                    self.messages.append(
+                        f"Update audit moves: {host} OF {group} is already "
+                        "assigned in this sentence; no second move added."
+                    )
                     continue
 
                 source = self.source_for_audit_kind(audit_kind)
 
                 if not source:
+                    self.messages.append(
+                        "Update audit moves: no source field is configured "
+                        f"for audit kind '{audit_kind}'; {host} OF {group} "
+                        "was left unassigned and the UPDATE will write "
+                        "whatever the host variable happens to hold."
+                    )
                     continue
 
                 move_logical = f"MOVE {source} TO {host} OF {group}"
@@ -92,9 +162,19 @@ class UpdateAuditMoveInserter:
                 continue
 
             output[start:start] = insert_lines
+            inserted += len(insert_lines)
+
+        if inserted:
+            self.messages.append(
+                f"Update audit moves: inserted {inserted} audit host "
+                "move(s) before the generated UPDATE."
+            )
 
         return "\n".join(output).rstrip() + "\n"
 
+    #
+    # Block discovery
+    #
     def find_update_exec_sql_blocks(
         self,
         lines: list[str],
@@ -134,28 +214,24 @@ class UpdateAuditMoveInserter:
                 has_update = False
 
         return blocks
-    
+
+    #
+    # SET clause
+    #
     def audit_targets_from_update_block(
         self,
         block: list[str],
     ) -> list[tuple[str, str, str]]:
-        in_set = False
+        region = self.set_clause_text(block)
         targets: list[tuple[str, str, str]] = []
 
-        for line in block:
-            logical = self.fixed_format.logical(line)
+        for segment in region.split(ASSIGNMENT_SEPARATOR):
+            candidate = segment.strip()
 
-            if SET_KEYWORD_PATTERN.match(logical):
-                in_set = True
+            if not candidate:
                 continue
 
-            if in_set and WHERE_KEYWORD_PATTERN.match(logical):
-                break
-
-            if not in_set:
-                continue
-
-            match = SQL_SET_ASSIGNMENT_PATTERN.match(logical.strip())
+            match = SQL_SET_ASSIGNMENT_PATTERN.match(candidate)
 
             if not match:
                 continue
@@ -173,6 +249,59 @@ class UpdateAuditMoveInserter:
 
         return self.unique_targets(targets)
 
+    def set_clause_text(
+        self,
+        block: list[str],
+    ) -> str:
+        """Everything between SET and WHERE, as ONE logical string.
+
+        Joining first is what makes a wrapped assignment parseable. The
+        keyword is stripped from its own line rather than consuming it, so
+        an assignment sharing the SET line survives.
+        """
+        parts: list[str] = []
+        in_set = False
+
+        for line in block:
+            logical = self.fixed_format.logical(line)
+
+            if not logical.strip():
+                continue
+
+            if not in_set:
+                opener = SET_KEYWORD_PATTERN.match(logical)
+
+                if not opener:
+                    continue
+
+                in_set = True
+                remainder = logical[opener.end() :].strip()
+
+                if remainder:
+                    parts.append(remainder)
+
+                continue
+
+            if WHERE_KEYWORD_PATTERN.match(logical):
+                break
+
+            marker = logical.upper().find(WHERE_INFIX)
+
+            if marker >= 0:
+                head = logical[:marker].strip()
+
+                if head:
+                    parts.append(head)
+
+                break
+
+            parts.append(logical.strip())
+
+        return " ".join(parts)
+
+    #
+    # Classification
+    #
     def audit_kind_for_column(
         self,
         column: str,
@@ -207,6 +336,9 @@ class UpdateAuditMoveInserter:
     ) -> str:
         return AUDIT_SOURCE_BY_KIND.get(str(audit_kind or "").lower(), "")
 
+    #
+    # Duplicate suppression
+    #
     def has_recent_move_to_host(
         self,
         *,
@@ -218,10 +350,17 @@ class UpdateAuditMoveInserter:
         target_group = str(group or "").upper()
         target_host = str(host or "").upper()
 
-        start = max(0, insert_index - UPDATE_FINAL_LOOKBACK_DUPLICATE_LIMIT)
+        floor = max(0, insert_index - UPDATE_FINAL_LOOKBACK_DUPLICATE_LIMIT)
 
-        for index in range(start, insert_index):
+        for index in range(insert_index - 1, floor - 1, -1):
             logical = self.fixed_format.logical(lines[index])
+
+            if not logical.strip():
+                continue
+
+            if self.is_sentence_boundary(logical):
+                break
+
             match = MOVE_TO_DCL_OF_REFERENCE_PATTERN.match(logical)
 
             if not match:
@@ -235,6 +374,23 @@ class UpdateAuditMoveInserter:
 
         return False
 
+    @staticmethod
+    def is_sentence_boundary(
+        logical: str,
+    ) -> bool:
+        """A single word closed by a period: header or scope terminator."""
+        text = str(logical or "").strip()
+
+        if not text.endswith(SENTENCE_TERMINATOR):
+            return False
+
+        name = text[: -len(SENTENCE_TERMINATOR)].strip()
+
+        return bool(name) and " " not in name
+
+    #
+    # Helpers
+    #
     def unique_targets(
         self,
         values: list[tuple[str, str, str]],
@@ -259,3 +415,6 @@ class UpdateAuditMoveInserter:
             output.append(key)
 
         return output
+
+
+__all__ = ["UpdateAuditMoveInserter"]

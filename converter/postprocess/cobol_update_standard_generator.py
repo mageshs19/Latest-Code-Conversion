@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from converter.postprocess.dynamic_metadata_resolver import (
     DclgenRoleInfo,
@@ -6,13 +6,10 @@ from converter.postprocess.dynamic_metadata_resolver import (
 )
 from rules.update_restart_rules import (
     RESTART_DEFAULT_PHASE,
-    RESTART_INSERT_QUERYNO,
     RESTART_PARAGRAPH_NAMES,
     RESTART_RETENTION_DAYS,
-    RESTART_SELECT_QUERYNO,
     RESTART_STATUS_COMPLETE,
     RESTART_STATUS_INCOMPLETE,
-    RESTART_UPDATE_QUERYNO,
     UPDATE_RESTART_WS_NAMES,
     UPDATE_STANDARD_DATE_WS_LINES,
 )
@@ -38,6 +35,23 @@ from rules.update_standard_generator_templates import (
     WORKING_STORAGE_TEMPLATE,
     WRITE_RESTART_TEMPLATE,
 )
+
+# LEGACY restart QUERYNOs. This generator is the ONLY consumer, and it is
+# skipped on every program the metadata-driven restart pass owns - every
+# run reports "Restart: legacy paragraph generator skipped" while the
+# generated member carries 376 / 398 / 420 from RestartConfig, not 413.
+#
+# They lived in rules/update_restart_rules.py AND
+# rules/update_program_postprocess_rules.py with INSERT carrying two
+# different values. Both copies were deleted; RestartConfig is the owner.
+# They sit beside their only reader so a dead constant cannot read as
+# authoritative from a rules module again.
+#
+# When this generator is deleted, delete these with it.
+LEGACY_RESTART_SELECT_QUERYNO = "376"
+LEGACY_RESTART_UPDATE_QUERYNO = "398"
+LEGACY_RESTART_INSERT_QUERYNO = "413"
+
 
 
 class CobolUpdateStandardGenerator:
@@ -232,9 +246,9 @@ class CobolUpdateStandardGenerator:
             retention_field=role.retention_field,
             payload_group=role.payload_group,
             table_name=role.table_name,
-            select_queryno=RESTART_SELECT_QUERYNO,
-            update_queryno=RESTART_UPDATE_QUERYNO,
-            insert_queryno=RESTART_INSERT_QUERYNO,
+            select_queryno=LEGACY_RESTART_SELECT_QUERYNO,
+            update_queryno=LEGACY_RESTART_UPDATE_QUERYNO,
+            insert_queryno=LEGACY_RESTART_INSERT_QUERYNO,
             display_error=display_error,
             sql_error=SQL_ERROR_PARAGRAPH,
             abend_call=ABEND_CALL_STATEMENT,

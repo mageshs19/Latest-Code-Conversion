@@ -165,3 +165,4 @@ MSG_NO_PROGRAMS_HINT = (
 
 KIND_LABEL_RETRIEVAL = "retrieval"
 KIND_LABEL_UPDATE = "update"
+MSG_PROGRAM_KIND_AUTO = "Program Kind       : detected per program"

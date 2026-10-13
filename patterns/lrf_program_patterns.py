@@ -74,3 +74,24 @@ COPY_SUBSCHEMA_LR_CTRL_PATTERN = re.compile(
     r"^\s*COPY\s+IDMS\s+SUBSCHEMA-LR-CTRL\s*\.",
     flags=re.IGNORECASE,
 )
+# LOCATION: patterns/lrf_program_patterns.py
+# ACTION: APPEND at the end of the file
+
+from rules.lrf_conversion_rules import LR_STATUS_TOKEN_REPLACEMENT_ORDER
+
+# Any generated IDMS status token, as a whole word.
+#
+# The alternation is built FROM the rules mapping, so adding a token
+# there cannot leave the pattern behind. A hyphen is a non-word
+# character, so \b anchors correctly at both ends of DB-END-OF-SET.
+LR_STATUS_TOKEN_REPLACEMENT_PATTERN = re.compile(
+    r"\b(?P<token>"
+    + "|".join(re.escape(t) for t in LR_STATUS_TOKEN_REPLACEMENT_ORDER)
+    + r")\b",
+    flags=re.IGNORECASE,
+)
+LR_STATUS_ABBREVIATED_PATTERN = re.compile(
+    r"\bLR-STATUS\b\s*(?:NOT\s*=|=|NOT\s+EQUAL\s+TO|EQUAL\s+TO)\s*"
+    r"'[^']*'\s*(?:OR|AND)\s+'",
+    flags=re.IGNORECASE,
+)

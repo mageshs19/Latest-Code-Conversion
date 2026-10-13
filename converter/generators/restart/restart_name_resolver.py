@@ -1,6 +1,3 @@
-# LOCATION: converter/generators/restart/restart_name_resolver.py
-# ACTION: REPLACE ENTIRE FILE
-
 """Resolves the program-side names the restart templates need.
 
 RESPONSIBILITY
@@ -102,6 +99,52 @@ The checkpoint payload length is the sum of the PICTURE sizes of the two
 restart-record subfields. They are read here when the fields exist; the
 catalogued sizes are used only when they do not, and are reported.
 
+CORRECTION D - record_name does NOT get VM..BD../VM..BZ.. derivation
+HERE
+
+A prior edit added a _derive_lines() pass that ran NameDerivationResolver
+over the whole text before measurement, so record_name would come out
+already VMDZ-spelled. That broke this module's own ownership contract
+above: record_name is PROGRAM-owned, read from the source AS IT IS,
+never decorated. The edit also left the file with a duplicate
+`from __future__ import annotations` (illegal after other imports have
+already executed - a SyntaxError on real import, invisible to
+ast.parse(), which does not enforce future-statement placement the way
+compile()/import does) and a call to self._name_resolver, which was
+never actually assigned once the duplicate header got partially cleaned
+up - NameError waiting to happen the moment any record name matched the
+derivable shape.
+
+The derivation this was trying to achieve belongs - and already lives,
+tested - in RestartStorageBuilder._record(), the one place SW-<record>,
+<record>-EOF and <record>-NOT-EOF are actually composed
+(tests/restart/test_m5_storage_builder_derives_record.py). This module
+goes back to measuring record_name faithfully; RestartStorageBuilder
+derives it when building generated identifiers from it. One owner per
+concern.
+
+CORRECTION E - WITHDRAWN. A run_date_source entry was added here
+
+run_date_field is resolved by this module, carried by RestartConfig and
+MOVEd into the checkpoint date column by CONTROL_TEMPLATE - but nothing
+writes a value INTO it, so the checkpoint key is built from an unprimed
+field. That defect is real and still open.
+
+The attempted fix added three names here - run_date_source,
+date_staging_field, date_staging_redefines - and to
+RestartProgramNames.REQUIRED. That was the error. REQUIRED drives
+missing() -> is_complete() -> is_usable(), and the injection composer
+refuses when is_usable() is False, so three names that cannot resolve
+for every accepted program silenced the ENTIRE restart family and failed
+roughly a hundred tests that had nothing to do with dates.
+test_eighteen_entries_are_required exists to catch exactly that.
+
+The entries are withdrawn. When the priming is attempted again it must
+not enlarge REQUIRED: the artefact evidence shows the existing date
+realignment pass already emits the correct three-MOVE sequence whenever
+the SOURCE of a DB2 DATE move is an 8-byte CCYYMMDD field, so the fix is
+to change what CONTROL_TEMPLATE moves FROM, not to add new names here.
+
 No program, paragraph, record, table, cursor or host variable name is
 hardcoded. Regex lives in patterns/restart_patterns.py, constants in
 rules/restart_standard_rules.py, vocabulary in catalogs/.
@@ -133,6 +176,7 @@ from catalogs.restart_storage_catalog import (
     NOT_EOF_CONDITION_SUFFIX,
 )
 from converter.generators.restart.restart_config import RestartProgramNames
+from converter.services import name_derivation_resolver  # noqa: F401 - kept for callers that introspect this module's imports; unused here, see CORRECTION D
 from patterns.restart_patterns import (
     ELEMENTARY_ITEM_PATTERN,
     FD_PATTERN,
@@ -146,6 +190,7 @@ from patterns.restart_patterns import (
     SQL_INCLUDE_PATTERN,
 )
 from rules.restart_standard_rules import RESTART_PARAGRAPH_PREFIXES
+
 
 EOF_SUFFIX = "-EOF"
 NOT_EOF_INFIX = "-NOT-EOF"
@@ -212,7 +257,6 @@ class RestartNameResolver:
         logical = self._logical_lines(lines)
         split = self._procedure_index(logical)
         data, procedure = logical[:split], logical[split:]
-
         declared = self._declared_items(data)
 
         file_name, record_name = self._file_and_record(data, procedure)
@@ -239,7 +283,7 @@ class RestartNameResolver:
             "abend_module": self._declared_or_blank(
                 declared, DEFAULT_ABEND_MODULE
             ),
-            # --- GENERATOR-owned: measured, or supplied ---------------
+            # --- GENERATOR-owned: measured, or supplied -----------------
             "eof_condition": eof,
             "not_eof_condition": not_eof,
             "run_date_field": self._declared_or_generated(
@@ -276,9 +320,14 @@ class RestartNameResolver:
                 "restart_key_size",
             ),
         }
-
-        names = RestartProgramNames(**found)
-        return names, self._report(found, names, list(self._defaulted))
+        names = RestartProgramNames(
+            **{
+                k: v
+                for k, v in found.items()
+                if k in RestartProgramNames.REQUIRED
+            }
+        )
+        return names, self._report(found, names, self._defaulted)
 
     # -----------------------------------------------------------------
     # Line handling

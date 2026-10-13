@@ -340,3 +340,35 @@ def test_orphan_scope_terminator_is_detected():
 def test_paragraph_header_rejects_a_statement():
     assert pat.PARAGRAPH_HEADER_PATTERN.match("700-RESTART-CONTROL.")
     assert not pat.PARAGRAPH_HEADER_PATTERN.match("MOVE 0 TO WS-TELLER.")
+
+
+def test_no_template_line_renders_into_area_a() -> None:
+    """A continuation line's leading spaces are an ABSOLUTE offset from
+    column 8. Two spaces put the body at column 10, inside Area A, and
+    CHK-06.06 reported six such lines on a generated program."""
+    import rules.restart_statement_templates as tpl
+
+    floor = tpl.MINIMUM_CONTINUATION_INDENT
+    offenders = []
+
+    for name in tpl.__all__:
+        template = getattr(tpl, name)
+        if not isinstance(template, tuple):
+            continue
+        for line in template:
+            if not line or not line.startswith(" "):
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent < floor:
+                offenders.append(f"{name}: {indent} space(s) -> {line!r}")
+
+    assert not offenders, (
+        "Template lines that render into Area A:\n" + "\n".join(offenders)
+    )
+
+# tests/restart/test_m1_restart_standards.py
+def test_the_commit_length_flag_is_explicit() -> None:
+    """Was: asserts the flag mirrors the manual. The flag now governs the
+    insert as well, so what matters is that it is declared, not which way
+    it points."""
+    assert isinstance(std.ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT, bool)

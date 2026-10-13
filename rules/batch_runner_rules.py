@@ -27,5 +27,6 @@ OUTPUT_TIMESTAMP_FORMAT = "%d-%m-%Y_%H%M%S"
 OUTPUT_FILE_EXTENSION = ".cbl"
 OUTPUT_FILE_NAME_TEMPLATE = "{stem}_{timestamp}{extension}"
 
+
 # Text encoding used when reading/writing COBOL files.
 COBOL_TEXT_ENCODING = "utf-8"

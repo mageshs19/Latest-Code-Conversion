@@ -9,6 +9,25 @@ report SKIPPED instead of failing.
     python review\\runner\\review_file.py --path out.cbl --source in.txt --kind UPDATE
 
 Exit codes: 0 accepted, 1 rejected, 2 error or nothing to review.
+
+PROGRAM KIND IS A PER-PROGRAM FACT
+----------------------------------
+``--kind`` used to be resolved ONCE and handed to every file in the run.
+The zowe pipeline passes no --kind at all, so the default UNKNOWN reached
+every ReviewContext, and Check.applies() --
+
+    return scope == BOTH or scope == str(ctx.program_kind).upper()
+
+-- silently skipped every APPLIES_TO = UPDATE check on every program. A
+folder of seven programs reviewed as "Program Kind : UNKNOWN" and passed
+while carrying an orphan END-IF and a truncating VARCHAR length.
+
+review.standards.program_kind_detector was written to fix exactly this
+and had no production caller. It does now:
+
+* ``--kind`` remains an operator OVERRIDE and always wins.
+* When it is absent the kind is detected PER FILE from the program text.
+* The banner reports what was actually resolved, not what was requested.
 """
 
 from __future__ import annotations
@@ -30,6 +49,7 @@ for _c in (PROJECT_ROOT, SRC_DIR):
 # ---------------------------------------------------------------------------
 
 import argparse  # noqa: E402
+from collections import Counter  # noqa: E402
 
 from review.engine.context import (  # noqa: E402
     KIND_RETRIEVAL,
@@ -54,8 +74,16 @@ from review.runner._bootstrap import (  # noqa: E402
     stamp,
 )
 from review.standards import wording as w  # noqa: E402
+from review.standards.program_kind_detector import (  # noqa: E402
+    detect_program_kind,
+)
 
 VALID_KINDS = (KIND_RETRIEVAL, KIND_UPDATE, KIND_UNKNOWN)
+
+# Banner formatting for a mixed folder. Values only, no prose: the
+# surrounding sentence stays in wording.py.
+KIND_COUNT_TEMPLATE = "{kind} x{count}"
+KIND_SEPARATOR = ", "
 
 
 class NothingToReview(Exception):
@@ -85,7 +113,10 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--kind",
         default=KIND_UNKNOWN,
-        help="RETRIEVAL, UPDATE or UNKNOWN (default UNKNOWN)",
+        help=(
+            "RETRIEVAL, UPDATE or UNKNOWN. UNKNOWN (the default) detects "
+            "the kind per program from the generated text."
+        ),
     )
     parser.add_argument(
         "--report",
@@ -127,29 +158,71 @@ def resolve_targets(args: argparse.Namespace) -> list[Path]:
 
 
 def resolve_kind(value: str) -> str:
+    """The operator's --kind, or UNKNOWN when absent or unrecognised."""
     kind = str(value or "").strip().upper()
     return kind if kind in VALID_KINDS else KIND_UNKNOWN
 
 
 def build_context(cbl_path: Path, kind: str, source_text: str) -> ReviewContext:
+    """Build the review input for ONE file.
+
+    ``kind`` is the operator override. It wins whenever it names a real
+    kind. UNKNOWN means "nobody told us", and the kind is then recovered
+    from the program text, which is the only per-program evidence a batch
+    run has.
+
+    ReviewContext.__post_init__ normalises the result, so an unexpected
+    value degrades to UNKNOWN rather than raising.
+    """
+    converted = read_text(cbl_path)
+
+    resolved = kind
+    if resolved == KIND_UNKNOWN:
+        resolved = detect_program_kind(converted, source_text)
+
     return ReviewContext(
         program_name=cbl_path.stem,
-        program_kind=kind,
+        program_kind=resolved,
         target_program_id="",
         source_file=cbl_path.name,
-        converted_cobol=read_text(cbl_path),
+        converted_cobol=converted,
         source_cobol=source_text,
     )
 
 
-def print_banner(args, targets: list[Path], kind: str, report_dir: Path) -> None:
+def describe_kinds(contexts: list[ReviewContext]) -> str:
+    """What the run actually resolved, in a stable order.
+
+    One file reports its kind. A mixed folder reports each kind with a
+    count, so "UNKNOWN" can never again stand in for seven programs that
+    were never classified.
+    """
+    if not contexts:
+        return KIND_UNKNOWN
+    if len(contexts) == 1:
+        return contexts[0].program_kind
+
+    counts = Counter(ctx.program_kind for ctx in contexts)
+    return KIND_SEPARATOR.join(
+        KIND_COUNT_TEMPLATE.format(kind=kind, count=counts[kind])
+        for kind in VALID_KINDS
+        if counts.get(kind)
+    )
+
+
+def print_banner(
+    args,
+    targets: list[Path],
+    kind_summary: str,
+    report_dir: Path,
+) -> None:
     print("")
     print(w.H_RUN_FILE)
     print(w.RULE)
     if args.folder:
         print(w.MSG_REVIEWED_FOLDER.format(folder=Path(args.folder)))
     print(w.MSG_FILE_COUNT.format(count=len(targets)))
-    print(w.MSG_PROGRAM_KIND.format(kind=kind))
+    print(w.MSG_PROGRAM_KIND.format(kind=kind_summary))
     print(w.MSG_REPORT_FOLDER.format(folder=report_dir))
     print("")
 
@@ -184,14 +257,21 @@ def run() -> int:
 
     targets = resolve_targets(args)
 
+    # Contexts are built BEFORE the banner so the banner can report the
+    # kinds that were resolved rather than the one that was requested.
+    # Each file is read exactly once, here.
+    contexts = [
+        build_context(cbl_path, kind, source_text) for cbl_path in targets
+    ]
+
     reviewer = Reviewer()
     when = stamp()
     results = []
 
-    print_banner(args, targets, kind, report_dir)
+    print_banner(args, targets, describe_kinds(contexts), report_dir)
 
-    for cbl_path in targets:
-        result = reviewer.review(build_context(cbl_path, kind, source_text))
+    for cbl_path, context in zip(targets, contexts):
+        result = reviewer.review(context)
         results.append(result)
 
         stem = f"{cbl_path.stem}_{when}"

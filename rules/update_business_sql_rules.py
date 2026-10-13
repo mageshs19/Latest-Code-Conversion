@@ -5,17 +5,17 @@ from __future__ import annotations
 
 # --- Fixed-format column geometry ---
 FIXED_BODY_WIDTH = 65
-SEQUENCE_AREA_WIDTH = 6      # columns 1-6 (left sequence)
-INDICATOR_COLUMN = 7        # column 7 (indicator area)
-BODY_START_COLUMN = 7       # body begins after indicator (0-based slice at 7)
-BODY_END_COLUMN = 72        # columns 8-72 are the body
-FULL_LINE_WIDTH = 72        # a full fixed-format line reaches at least col 72
-TOTAL_LINE_WIDTH = 80       # columns 73-80 are the right sequence
-RIGHT_SEQUENCE_WIDTH = 8
+UPDATE_SQL_SEQUENCE_AREA_WIDTH = 6      # columns 1-6 (left sequence)
+UPDATE_SQL_INDICATOR_COLUMN = 7        # column 7 (indicator area)
+UPDATE_SQL_BODY_START_COLUMN = 7       # body begins after indicator (0-based slice at 7)
+UPDATE_SQL_BODY_END_COLUMN = 72        # columns 8-72 are the body
+UPDATE_SQL_FULL_LINE_WIDTH = 72        # a full fixed-format line reaches at least col 72
+UPDATE_SQL_TOTAL_LINE_WIDTH = 80       # columns 73-80 are the right sequence
+UPDATE_SQL_RIGHT_SEQUENCE_WIDTH = 8
 
 # --- Generated indentation ---
-AREA_B_INDENT = "    "        # 4 spaces -> physical column 12
-SQL_BODY_INDENT = "       "   # 7 spaces -> nested SQL body
+UPDATE_SQL_AREA_B_INDENT = "    "        # 4 spaces -> physical column 12
+UPDATE_SQL_SQL_BODY_INDENT = "       "   # 7 spaces -> nested SQL body
 NESTED_INDENT = "        "    # 8 spaces -> nested EVALUATE/IF body
 WHEN_INDENT = "    "          # WHEN clause indent inside EVALUATE
 

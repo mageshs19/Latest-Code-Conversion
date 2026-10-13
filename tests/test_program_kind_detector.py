@@ -68,3 +68,56 @@ def test_explicit_usage_mode_in_source_wins() -> None:
 
 def test_no_evidence_is_unknown() -> None:
     assert detect_program_kind("     MOVE A TO B.") == KIND_UNKNOWN
+
+def test_audit_host_variable_is_not_a_write() -> None:
+    """TS-UPDATE-479BFAR must not make a retrieval cursor look like a write."""
+    converted = (
+        "       EXEC SQL\n"
+        "         DECLARE C1 CURSOR FOR\n"
+        "         SELECT TS_UPDATE_479BFAR\n"
+        "           INTO :DCLDZBFARTV.TS-UPDATE-479BFAR\n"
+        "       END-EXEC."
+    )
+    assert detect_program_kind(converted) == KIND_RETRIEVAL
+
+
+def test_real_sql_update_is_still_a_write() -> None:
+    converted = (
+        "       EXEC SQL\n"
+        "         UPDATE DZBFARTV\n"
+        "            SET DA_INFSDGD_479BFAR = :DCLDZBFARTV.DA-INFSDGD-479BFAR\n"
+        "       END-EXEC."
+    )
+    assert detect_program_kind(converted) == KIND_UPDATE
+
+
+def test_audit_host_variable_is_not_a_write() -> None:
+    """TS-UPDATE-479BFAR must not make a retrieval cursor look like a write."""
+    converted = (
+        "       EXEC SQL\n"
+        "         DECLARE C1 CURSOR FOR\n"
+        "         SELECT TS_UPDATE_479BFAR\n"
+        "           INTO :DCLDZBFARTV.TS-UPDATE-479BFAR\n"
+        "       END-EXEC."
+    )
+    assert detect_program_kind(converted) == KIND_RETRIEVAL
+
+
+def test_real_sql_update_is_still_a_write() -> None:
+    converted = (
+        "       EXEC SQL\n"
+        "         UPDATE DZBFARTV\n"
+        "            SET DA_INFSDGD_479BFAR = :DCLDZBFARTV.DA-INFSDGD-479BFAR\n"
+        "       END-EXEC."
+    )
+    assert detect_program_kind(converted) == KIND_UPDATE
+
+
+def test_real_sql_insert_into_is_still_a_write() -> None:
+    converted = (
+        "       EXEC SQL\n"
+        "         INSERT INTO DZ01RSTV (NM_ID_RS_PROGRAM)\n"
+        "         VALUES (:DCLDZ01RSTV.NM-ID-RS-PROGRAM)\n"
+        "       END-EXEC."
+    )
+    assert detect_program_kind(converted) == KIND_UPDATE

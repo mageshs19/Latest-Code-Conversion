@@ -4,7 +4,7 @@ from converter.domain.models import IdmsOperation
 from converter.resolvers.cursor_name_resolver import CursorNameResolver
 from converter.services.name_normalizer import NameNormalizer
 from converter.services.program_flow_models import CursorLoop
-from rules.program_flow_rules import CURSOR_OPERATIONS
+from rules.program_flow_rules import IDMS_RETRIEVAL_VERBS
 
 
 class ProgramCursorLoopAnalyzer:
@@ -30,7 +30,7 @@ class ProgramCursorLoopAnalyzer:
         for operation in operations:
             operation_name = str(operation.operation or "").upper()
 
-            if operation_name not in CURSOR_OPERATIONS:
+            if operation_name not in IDMS_RETRIEVAL_VERBS:
                 continue
 
             record_name = NameNormalizer.normalize(operation.record_name)

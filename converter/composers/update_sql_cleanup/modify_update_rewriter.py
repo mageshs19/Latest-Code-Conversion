@@ -2,7 +2,6 @@
 # ACTION: CREATE NEW FILE
 
 """Rewrites generated MODIFY markers into conservative DB2 UPDATE blocks."""
-
 from __future__ import annotations
 
 from converter.composers.update_sql_cleanup.composer_patterns import (
@@ -12,9 +11,19 @@ from converter.composers.update_sql_cleanup.composer_patterns import (
     STRING_INTO_DCL_DOT_HOST_PATTERN,
     STRING_INTO_DCL_HOST_PATTERN,
 )
+from converter.generators.db2_infrastructure.sql_location_move_builder import (
+    SqlLocationMoveBuilder,
+)
 from converter.services.name_normalizer import NameNormalizer
-
-# ADD to the imports at the top of modify_update_rewriter.py:
+from patterns.cobol_cleanup_patterns import PARAGRAPH_HEADER_PATTERN
+from rules.cobol_paragraph_scan_rules import (
+    NON_PARAGRAPH_SENTENCE_WORDS,
+    PARAGRAPH_SCAN_LIMIT,
+)
+from rules.sql_location_rules import (
+    LEGACY_OPERATION_UPDATE,
+    LEGACY_RECORD_LOCATION_TEMPLATE,
+)
 from rules.update_sql_cleanup_rules import UPDATE_QUERYNO
 
 class ModifyUpdateRewriter:
@@ -68,6 +77,7 @@ class ModifyUpdateRewriter:
                     update_columns=update_columns,
                     key_columns=key_columns,
                     leading=self.owner._leading_spaces(lines[index]),
+                    paragraph=self._enclosing_paragraph(lines, index),
                 )
             )
             changed = True
@@ -81,6 +91,57 @@ class ModifyUpdateRewriter:
 
         return "\n".join(output).rstrip() + "\n"
 
+    def _enclosing_paragraph(
+        self,
+        lines: list[str],
+        index: int,
+    ) -> str:
+        """Label of the paragraph containing lines[index], or "".
+
+        The whole point of NEW-8: SQL-LOCATION carries a paragraph
+        NUMBER at this site -
+
+            VMDZ1567   MOVE 1100 TO SQL-LOCATION
+            VMDZ4302   MOVE 700 / 710 / 720 TO SQL-LOCATION
+
+        - and the emitters had no paragraph to take it from, so they
+        substituted the RECORD name. rewrite() holds the whole text, so
+        the enclosing paragraph is a backward walk from the statement.
+
+        WHY IT STRIPS BEFORE MATCHING
+            PARAGRAPH_HEADER_PATTERN is anchored ^...$ with no leading
+            \\s*, while CONVERTED_MODIFY_PATTERN in this same flow uses
+            ^\\s* - so _logical() keeps indentation and the anchored
+            pattern would never fire on an Area A header. Stripping here
+            is cheaper and safer than widening a pattern that already
+            has another consumer.
+
+        WHY IT STOPS AT THE FIRST HEADER, NUMBERED OR NOT
+            Skipping an unnumbered header to find a numbered one further
+            up would attribute the statement to a paragraph it is not
+            in, and emit a confidently wrong number. An unnumbered
+            enclosing paragraph is a REAL answer: it means this program
+            has no numbered paragraph here yet, and the caller correctly
+            falls back to the legacy label.
+        """
+        start = max(0, index - PARAGRAPH_SCAN_LIMIT)
+
+        for position in range(index - 1, start - 1, -1):
+            logical = self.owner._logical(lines[position]).strip()
+            if not logical:
+                continue
+
+            match = PARAGRAPH_HEADER_PATTERN.match(logical)
+            if not match:
+                continue
+
+            name = str(match.group("name") or "").strip().upper()
+            if not name or name in NON_PARAGRAPH_SENTENCE_WORDS:
+                continue
+
+            return name
+
+        return ""
     def _conservative_update_block(
         self,
         record: str,
@@ -88,16 +149,63 @@ class ModifyUpdateRewriter:
         update_columns: list[str],
         key_columns: list[str],
         leading: str,
+        paragraph: str = "",
     ) -> list[str]:
-        lines = [
-            f"{leading}*DB2: Converted MODIFY for "
-            f"{NameNormalizer.to_cobol(record)}.",
+        """The converted MODIFY block, SQL-LOCATION included.
+
+        CORRECTION - this method rendered the MOVE itself
+        -------------------------------------------------
+        The line was an inline f-string:
+
             f"{leading}MOVE 'UPDATE-{NameNormalizer.to_cobol(record)}' "
-            f"TO SQL-LOCATION.",
-            f"{leading}EXEC SQL",
-            f"{leading}   UPDATE {table}",
-            f"{leading}   SET",
+            f"TO SQL-LOCATION."
+
+        which hardcoded a COBOL host-variable name inside a logic layer,
+        and moved the RECORD name into a field whose every site
+        occurrence is a paragraph NUMBER:
+
+            VMDZ1567   MOVE 1100 TO SQL-LOCATION
+            VMDZ4302   MOVE 700 / 710 / 720 TO SQL-LOCATION
+
+        Rendering now belongs to SqlLocationMoveBuilder, the one renderer
+        shared with the cursor path.
+
+        WHY `paragraph` IS OPTIONAL
+            rewrite() holds the whole text and can resolve the enclosing
+            paragraph; this method cannot. Until that resolution lands,
+            the identity falls back to the pre-unification record label,
+            so generated text is unchanged byte for byte. Pass a numbered
+            paragraph and the numeric form switches on with no further
+            edit here.
+
+        REFUSAL
+            sentence() returns "" when there is no safe literal to emit.
+            The line is then DROPPED, never emitted half-built.
+        """
+        record_label = NameNormalizer.to_cobol(record)
+
+        location = str(paragraph or "").strip()
+        if not location:
+            location = LEGACY_RECORD_LOCATION_TEMPLATE.format(
+                operation=LEGACY_OPERATION_UPDATE,
+                record=record_label,
+            )
+
+        lines = [
+            f"{leading}*DB2: Converted MODIFY for {record_label}.",
         ]
+
+        sql_location = SqlLocationMoveBuilder().sentence(location, leading)
+        if sql_location:
+            lines.append(sql_location)
+
+        lines.extend(
+            [
+                f"{leading}EXEC SQL",
+                f"{leading}   UPDATE {table}",
+                f"{leading}   SET",
+            ]
+        )
         lines.extend(
             self.owner._set_lines(table, update_columns, leading + "      ")
         )
@@ -121,7 +229,7 @@ class ModifyUpdateRewriter:
         lines.append(f"{leading}.")
 
         return lines
-    
+        
     def _changed_columns_after_obtain_calc(
         self,
         record: str,

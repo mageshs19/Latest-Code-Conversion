@@ -46,6 +46,37 @@ CORRECTION 4 - CRLF
 rstrip("\\n") left a trailing '\\r' at position 80, displacing the right
 sequence slice by one. Both line endings are removed.
 
+CORRECTION 5 - a six-digit PARAGRAPH NUMBER was read as a sequence area
+------------------------------------------------------------------------
+The abend paragraph is named 810000-CALL-USERABEN. Presented to
+is_fixed_format_line() it satisfied BOTH tests:
+
+    text[0:6].isdigit()            -> "810000"  -> True
+    text[6] in VALID_INDICATORS    -> "-"       -> True   (continuation)
+
+The header was therefore classified as a fully framed record. From that
+point logical_body() returned "CALL-USERABEN.", replace_body() rebuilt
+the line as left="810000" + indicator="-" + body, and the final
+resequencer overwrote columns 1-6 with its running number, producing:
+
+    005680-CALL-USERABEN.                                      05680000
+
+A paragraph name beginning with a hyphen does not compile. It is the
+ONLY paragraph in the scheme whose number is six digits wide, which is
+why nothing else broke: 700-, 720- and 1100- all fail isdigit().
+
+THE DISCRIMINATOR
+
+A continuation indicator is followed by Area A/B whitespace or a quote.
+A paragraph-name hyphen is followed IMMEDIATELY by an alphanumeric
+character, and the line carries no right sequence because it has not
+been framed yet. Requiring the right sequence only in that narrow case
+keeps genuine continuation lines - including truncated hand-maintained
+ones - working exactly as before.
+
+tests/restart/conftest.py already encodes this rule for its own line
+utility; this module is the production owner that had not caught up.
+
 CONTRACT (unchanged for callers)
 --------------------------------
 strip_sequence_numbers(line) removes columns 1-6 and 73-80, KEEPING
@@ -96,13 +127,25 @@ BLANK_INDICATOR = " "
 STRIP_NESTED_SEQUENCE = True
 MAX_NESTED_SEQUENCE_PASSES = 2
 
+# CORRECTION 5. When column 7 is a hyphen AND column 8 is alphanumeric,
+# the six digits are the head of a paragraph NAME unless the line also
+# carries its right sequence. Switchable so the old, permissive
+# behaviour can be restored for a single run if a site needs it.
+CONTINUATION_REQUIRES_RIGHT_SEQUENCE = True
+
 # =====================================================================
 # Patterns
 # =====================================================================
 _INDICATOR_CLASS = r"[ */\-Dd]"
 
+# CORRECTION 5. Nested-sequence detection must NOT accept the hyphen:
+# "810000-CALL-USERABEN." is a name, not a leaked sequence area followed
+# by a continuation indicator.
+_NESTED_INDICATOR_CLASS = r"[ */Dd]"
+
 # Left sequence followed by the indicator area. The body group accepts
-# ANY valid indicator, not whitespace only. Kept for direct importers.
+# ANY valid indicator, not whitespace only. Kept for direct importers;
+# strip_left_sequence() applies the CORRECTION 5 guard on top of it.
 LEFT_SEQUENCE_PATTERN = re.compile(
     rf"^\s*(?P<seq>\d{{{LEFT_SEQUENCE_WIDTH}}})(?P<body>{_INDICATOR_CLASS}.*)?$",
 )
@@ -113,9 +156,11 @@ RIGHT_SEQUENCE_PATTERN = re.compile(
 )
 
 # A sequence area that has leaked INTO a body: six digits immediately
-# followed by a valid indicator character.
+# followed by a valid indicator character. The hyphen is excluded - see
+# CORRECTION 5.
 NESTED_SEQUENCE_PATTERN = re.compile(
-    rf"^(?P<seq>\d{{{LEFT_SEQUENCE_WIDTH}}})(?P<rest>{_INDICATOR_CLASS}.*)?$",
+    rf"^(?P<seq>\d{{{LEFT_SEQUENCE_WIDTH}}})"
+    rf"(?P<rest>{_NESTED_INDICATOR_CLASS}.*)?$",
 )
 
 # A body that is nothing but a leaked sequence number. The digit run is
@@ -123,7 +168,7 @@ NESTED_SEQUENCE_PATTERN = re.compile(
 # "<paragraph>.  0074700" reached the paragraph scanner.
 SEQUENCE_ARTIFACT_PATTERN = re.compile(
     rf"^\s*\d{{{LEFT_SEQUENCE_WIDTH},{RIGHT_SEQUENCE_WIDTH}}}"
-    rf"\s*{_INDICATOR_CLASS}?\s*\.?\s*$",
+    rf"\s*{_NESTED_INDICATOR_CLASS}?\s*\.?\s*$",
 )
 
 _ALL_DIGITS_PATTERN = re.compile(r"^\d+$")
@@ -141,12 +186,46 @@ def _clean(line: str) -> str:
     return str(line or "").rstrip(LINE_ENDINGS)
 
 
+def is_paragraph_number_prefix(line: str) -> bool:
+    """True when a six-digit run is the HEAD OF A NAME, not a sequence area.
+
+    CORRECTION 5. Recognises exactly one shape:
+
+        six digits, a hyphen in column 7, an alphanumeric in column 8,
+        and NO right sequence
+
+    which is an unframed generated paragraph header such as
+    "810000-CALL-USERABEN.". A genuine continuation line inside a
+    sequenced member carries its right sequence and is unaffected; a
+    continuation whose column 8 is a space or a quote is unaffected
+    whether or not it is framed.
+    """
+    text = _clean(line)
+
+    if len(text) <= BODY_START:
+        return False
+
+    if not text[LEFT_SEQUENCE_START:LEFT_SEQUENCE_END].isdigit():
+        return False
+
+    if text[INDICATOR_INDEX] != CONTINUATION_INDICATOR:
+        return False
+
+    if not text[BODY_START:BODY_START + 1].isalnum():
+        return False
+
+    return not has_right_sequence(text)
+
+
 def is_fixed_format_line(line: str) -> bool:
     """True when columns 1-6 are numeric and column 7 is a valid indicator.
 
     The right sequence is deliberately optional: hand-maintained members
     often leave it blank or truncate the line, and demanding it was what
     caused sequence numbers to be parsed as COBOL text.
+
+    CORRECTION 5 - a six-digit paragraph number is refused here. See the
+    module docstring and is_paragraph_number_prefix().
     """
     text = _clean(line)
 
@@ -156,7 +235,13 @@ def is_fixed_format_line(line: str) -> bool:
     if not text[LEFT_SEQUENCE_START:LEFT_SEQUENCE_END].isdigit():
         return False
 
-    return text[INDICATOR_INDEX] in VALID_INDICATORS
+    if text[INDICATOR_INDEX] not in VALID_INDICATORS:
+        return False
+
+    if CONTINUATION_REQUIRES_RIGHT_SEQUENCE and is_paragraph_number_prefix(text):
+        return False
+
+    return True
 
 
 def has_right_sequence(line: str) -> bool:
@@ -216,7 +301,8 @@ def has_nested_sequence_area(body: str) -> bool:
     """True when a BODY still begins with a leaked sequence area.
 
     Accepts an optional leading indicator character, because
-    strip_sequence_numbers() returns column 7 onwards.
+    strip_sequence_numbers() returns column 7 onwards. The hyphen is not
+    accepted as the separator - CORRECTION 5.
     """
     text = str(body or "")
 
@@ -252,15 +338,31 @@ def is_sequence_artifact(line: str) -> bool:
 # Stripping
 # =====================================================================
 def strip_left_sequence(line: str) -> str:
-    """Remove columns 1-6, keeping the indicator and the body."""
+    """Remove columns 1-6, keeping the indicator and the body.
+
+    CORRECTION 5 - the regex fallback is guarded as well. Without it the
+    column-based path refused the paragraph header and the fallback
+    stripped it anyway, which is the same defect one line lower.
+    """
     text = _clean(line)
+
+    if CONTINUATION_REQUIRES_RIGHT_SEQUENCE and is_paragraph_number_prefix(text):
+        return text
 
     if is_fixed_format_line(text):
         return text[LEFT_SEQUENCE_END:]
 
     match = LEFT_SEQUENCE_PATTERN.match(text)
     if match:
-        return match.group("body") or ""
+        body = match.group("body") or ""
+        if (
+            CONTINUATION_REQUIRES_RIGHT_SEQUENCE
+            and body[:1] == CONTINUATION_INDICATOR
+            and body[1:2].isalnum()
+            and not has_right_sequence(text)
+        ):
+            return text
+        return body
 
     return text
 
@@ -319,6 +421,9 @@ def strip_sequence_numbers(line: str) -> str:
     """
     text = _clean(line)
 
+    if CONTINUATION_REQUIRES_RIGHT_SEQUENCE and is_paragraph_number_prefix(text):
+        return text
+
     if is_fixed_format_line(text):
         padded = text.ljust(RIGHT_SEQUENCE_END)
         body = padded[INDICATOR_INDEX:RIGHT_SEQUENCE_START].rstrip()
@@ -331,6 +436,9 @@ def strip_sequence_numbers(line: str) -> str:
 def logical_body(line: str) -> str:
     """Columns 8-72 only, stripped. Indicator excluded."""
     text = _clean(line)
+
+    if CONTINUATION_REQUIRES_RIGHT_SEQUENCE and is_paragraph_number_prefix(text):
+        return text.strip()
 
     if is_fixed_format_line(text):
         padded = text.ljust(RIGHT_SEQUENCE_END)
@@ -349,6 +457,9 @@ def replace_body(line: str, new_body: str) -> str:
     Returns the line unchanged when the replacement will not fit, so a
     rewrite can never displace the right sequence. Callers that must know
     should compare the result with the input.
+
+    CORRECTION 5 - an unframed paragraph header is treated as free-form,
+    so its six-digit number is never promoted into a sequence area.
     """
     text = _clean(line)
     body = str(new_body or "").rstrip()
@@ -390,6 +501,7 @@ __all__ = [
     "CONTINUATION_INDICATOR",
     "BLANK_INDICATOR",
     # switches
+    "CONTINUATION_REQUIRES_RIGHT_SEQUENCE",
     "STRIP_NESTED_SEQUENCE",
     "MAX_NESTED_SEQUENCE_PASSES",
     # patterns
@@ -399,6 +511,7 @@ __all__ = [
     "SEQUENCE_ARTIFACT_PATTERN",
     # classification
     "is_fixed_format_line",
+    "is_paragraph_number_prefix",
     "has_right_sequence",
     "indicator_of",
     "is_comment_or_control",

@@ -77,14 +77,6 @@ CURSOR_COLUMN_MESSAGES["usage_selector_failed"] = (
     "Cursor columns: {record} field-usage selection failed ({reason}); "
     "the SELECT list is full-record only."
 )
-CURSOR_COLUMN_MESSAGES["usage_selector_missing"] = (
-    "Cursor columns: {record} has no field-usage selector; the SELECT "
-    "list is full-record only and column order is not usage-driven."
-)
-CURSOR_COLUMN_MESSAGES["usage_selector_failed"] = (
-    "Cursor columns: {record} field-usage selection failed ({reason}); "
-    "the SELECT list is full-record only."
-)
 
 ENFORCE_ORDER_BY_COLUMN_VALIDATION = True
 

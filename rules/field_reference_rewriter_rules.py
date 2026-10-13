@@ -49,7 +49,7 @@ DCLGEN_GROUP_PREFIX = "DCL"
 
 # --- Host-reference formatting constants (used by the host resolver) ---
 # Separator between a host field and its DCLGEN group.
-HOST_GROUP_SEPARATOR = " OF "
+HOST_QUALIFIER_CONNECTOR = " OF "
 
 # Leading character stripped from a raw host reference (e.g. ":HOST").
 HOST_REFERENCE_LEADING_CHAR = ":"
@@ -95,3 +95,4 @@ FIELD_REFERENCE_GEOMETRY_MESSAGES = {
         "columns 8-72 and was left unchanged for manual review: {body}"
     ),
 }
+COBOL_QUALIFIER = " OF "

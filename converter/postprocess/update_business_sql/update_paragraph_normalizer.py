@@ -8,7 +8,7 @@ from patterns.update_business_sql_patterns import (
 )
 from rules.update_business_sql_rules import (
     NESTED_INDENT,
-    SQL_BODY_INDENT,
+    UPDATE_SQL_SQL_BODY_INDENT,
     TOKEN_END_EVALUATE,
     TOKEN_END_EXEC,
     TOKEN_EVALUATE_SQLCODE,
@@ -78,7 +78,7 @@ class UpdateParagraphNormalizer:
                 output.append(
                     self._active_line_like(
                         reference_line=line,
-                        body=f"{SQL_BODY_INDENT}{logical.rstrip('.')}",
+                        body=f"{UPDATE_SQL_SQL_BODY_INDENT}{logical.rstrip('.')}",
                     )
                 )
                 continue
