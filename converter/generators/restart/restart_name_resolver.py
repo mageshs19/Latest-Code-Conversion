@@ -176,7 +176,7 @@ from catalogs.restart_storage_catalog import (
     NOT_EOF_CONDITION_SUFFIX,
 )
 from converter.generators.restart.restart_config import RestartProgramNames
-from converter.services import name_derivation_resolver  # noqa: F401 - kept for callers that introspect this module's imports; unused here, see CORRECTION D
+from converter.services.name_derivation_resolver import NameDerivationResolver
 from patterns.restart_patterns import (
     ELEMENTARY_ITEM_PATTERN,
     FD_PATTERN,
@@ -535,15 +535,80 @@ class RestartNameResolver:
 
     @staticmethod
     def _eof_by_record(record_name: str) -> tuple[str, str]:
-        """<record>-EOF / <record>-NOT-EOF, the catalogued convention."""
+        """<record>-EOF / <record>-NOT-EOF, the catalogued convention,
+        composed on the DERIVED record name.
+
+        CORRECTION F - the BUILT pair carried the SOURCE spelling
+
+        CORRECTION D is right that record_name is PROGRAM-owned and must
+        be measured, never decorated. That stands: this method does not
+        alter record_name, and nothing that consumes record_name changes.
+
+        CORRECTION D is wrong about one fact. It states that
+        RestartStorageBuilder._record() is "the one place SW-<record>,
+        <record>-EOF and <record>-NOT-EOF are actually composed". There
+        are TWO. The builder composes the 88 DECLARATIONS. This method
+        composes the pair RestartConfig.placeholders() hands to every
+        template that SETs or TESTs the condition:
+
+            restart_statement_templates :87
+                PERFORM {process_paragraph} UNTIL {eof_condition}.
+            restart_statement_templates :176   IF {eof_condition}
+            restart_statement_templates :231
+                     AT END SET {eof_condition} TO TRUE.
+            restart_statement_templates :233   IF {not_eof_condition}
+
+        The builder was corrected; this site was not, so one program
+        shipped in two spellings of one name. Proven on disk in
+        VM1BD567_13-10-2026_120134.cbl:
+
+            000550  88  VMDZ205I-NOT-EOF  VALUE 'N'.    <- builder
+            000560  88  VMDZ205I-EOF      VALUE 'Y'.    <- builder
+            002150  PERFORM VERWERKING UNTIL VMBD205I-EOF.    <- here
+            002840     AT END SET VMBD205I-EOF TO TRUE.       <- here
+            002860     IF VMBD205I-NOT-EOF                    <- here
+            004420  IF VMBD205I-EOF                           <- here
+
+        Three condition names referenced four times with no 88 backing
+        them. The program does not compile; this is not a runtime hang.
+        The manual reference VMDZ1567 writes all four in the DERIVED
+        spelling (018200, 024300, 024500, 033100).
+
+        No postprocess renamer can repair it afterwards - see the design
+        note in restart_storage_builder. Both word-boundary templates
+        reject a name carrying a hyphen on the trailing side, which is
+        what every compound name has. A compound must be correct AT
+        COMPOSITION, and this is the composition point.
+
+        ONLY the BUILT pair changes. CORRECTION C's resolution order is
+        untouched: a pair the SOURCE declares (steps 1 and 2) is a
+        MEASUREMENT and is still returned verbatim, because when the
+        source already declares the switch RestartStorageInjector
+        declines to declare another and the two agree by construction.
+        Step 3 is the only path that composes a NEW identifier, and the
+        EOF pair is GENERATOR-owned under this module's own ownership
+        contract.
+
+        derive() returns a non-matching name unchanged - OPERATIES stays
+        OPERATIES, an already-derived VMDZ... stays itself - so this is
+        safe to apply unconditionally, the same guarantee
+        RestartStorageBuilder._record() relies on.
+
+        An empty record still refuses with ("", ""), so
+        test_the_eof_pair_is_refused_without_a_record_name is unaffected.
+        """
         record = str(record_name or "").strip().upper()
         if not record:
             return "", ""
-        return (
-            f"{record}{EOF_CONDITION_SUFFIX}",
-            f"{record}{NOT_EOF_CONDITION_SUFFIX}",
-        )
 
+        derived = str(
+            NameDerivationResolver().derive(record) or record
+        ).strip().upper()
+
+        return (
+            f"{derived}{EOF_CONDITION_SUFFIX}",
+            f"{derived}{NOT_EOF_CONDITION_SUFFIX}",
+        )
     @staticmethod
     def _eof_by_convention(data: list[str]) -> tuple[str, str]:
         """The documented <record>-EOF / <record>-NOT-EOF naming."""

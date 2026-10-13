@@ -95,6 +95,7 @@ COMMIT_VERB = "COMMIT"
 PERFORM_VERB = "PERFORM"
 PERIOD = "."
 
+SQL_LOCATION_TOKEN = "TO SQL-LOCATION"
 
 class ProcessParagraphInjector:
     """Cleans and completes the business processing paragraph."""
@@ -156,9 +157,44 @@ class ProcessParagraphInjector:
     # -----------------------------------------------------------------
 
     def _strip_inline_commit(self, lines: list[str]) -> list[str]:
+        """Remove the per-record COMMIT block AND its label.
+
+        CORRECTION - the removal stopped at the COMMIT
+
+        _commit_block_span only recognises a span that BEGINS at
+        EXEC SQL, so the diagnostic line immediately above it survived:
+
+            MOVE 'COMMIT' TO SQL-LOCATION.      <- left behind
+            EXEC SQL COMMIT END-EXEC.           <- removed
+
+        Proven on disk: the run reported "removed 1 per-record COMMIT
+        block" while the artefact still carried the MOVE. The label then
+        names a statement that no longer exists, and it is the only
+        quoted literal left in any generated program. Every manual
+        reference loads SQL-LOCATION with a NUMBER - VMDZ1567
+        MOVE 1100, VMDZ4302 700 / 710 / 720 - and emits no move at all
+        before EXEC SQL COMMIT.
+
+        REMOVING IT BLINDS NOTHING
+
+        retrieval_commit_cleanup_composer._commit_span carries a Form B
+        that matches a bare EXEC SQL COMMIT END-EXEC block with no
+        marker, so that pass still finds a COMMIT after this one has
+        taken the label away.
+
+        Only a marker IMMEDIATELY above the removed block is dropped:
+        blank lines are skipped, the first non-blank line decides, and
+        anything else is left untouched.
+
+        The "per-record COMMIT" message is unchanged - three tests in
+        tests/restart/test_m7_process_injector.py assert its wording.
+        The label removal is reported SEPARATELY so neither count can be
+        mistaken for the other.
+        """
         out: list[str] = []
         index = 0
         removed = 0
+        orphans = 0
 
         while index < len(lines):
             span = self._commit_block_span(lines, index)
@@ -168,14 +204,39 @@ class ProcessParagraphInjector:
                 continue
             index = span
             removed += 1
+            orphans += self._drop_trailing_sql_location(out)
 
         if removed:
             self.messages.append(
                 f"Process paragraph: removed {removed} per-record COMMIT "
                 "block; the checkpoint paragraph owns the unit of work."
             )
+
+        if orphans:
+            self.messages.append(
+                f"Process paragraph: removed {orphans} SQL-LOCATION "
+                "label(s) left by the COMMIT removal; the label named a "
+                "statement that no longer exists."
+            )
+
         return out
 
+    def _drop_trailing_sql_location(self, out: list[str]) -> int:
+        """Drop a SQL-LOCATION label immediately above a removed block."""
+        for position in range(len(out) - 1, -1, -1):
+            logical = self._logical(out[position])
+
+            if not logical:
+                continue
+
+            if SQL_LOCATION_TOKEN in logical.upper():
+                del out[position]
+                return 1
+
+            return 0
+
+        return 0
+    
     def _commit_block_span(self, lines: list[str], start: int) -> int | None:
         """Index after a bare COMMIT block starting at `start`, else None."""
         logical = self._logical(lines[start])

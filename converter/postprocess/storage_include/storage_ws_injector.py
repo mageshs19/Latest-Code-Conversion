@@ -9,6 +9,7 @@ from patterns.update_restart_patterns import (
 from patterns.update_storage_include_patterns import (
     CS_PROGRAM_01_PATTERN,
     PROGRAM_NAME_MOVE_PATTERN,
+    CS_PROGRAM_DECLARATION_PATTERN ,
 )
 from rules.update_restart_rules import (
     UPDATE_RESTART_DIAGNOSTICS,
@@ -17,9 +18,14 @@ from rules.update_restart_rules import (
 from rules.update_storage_include_rules import (
     CS_PROGRAM_77_TEMPLATE,
     DATE_WS_ANCHORS,
+    DATE_WS_EXISTS_UNDER_OTHER_GROUP,
     PROGRAM_NAME_MOVE_REPLACEMENT_TEMPLATE,
     SKIP_DATA_DIVISION_DATE_WS,
     SKIP_DATA_DIVISION_WS,
+)
+from patterns.db2_date_patterns import (
+    DB2_DATE_WORKING_STORAGE_BASE_PATTERN,
+    PROCEDURE_DIVISION_PATTERN,
 )
 
 
@@ -39,33 +45,51 @@ class StorageWsInjector:
         return updated
 
     def normalize_program_name(self, cobol_text, context, diagnostics):
-        """
-        Normalize program name and ensure CS-PROGRAM at 77-level.
-        
-        ENHANCED: 
-        - Removes incorrectly-placed CS-PROGRAM at subordinate levels
-        - Ensures injection only at 77-level
-        - Validates final placement
+        """Normalise the PROGRAM-NAME move and the program constant.
+
+        CORRECTION - a 77-level item was appended to the PROCEDURE
+        DIVISION
+
+        Three checks guarded the insertion and not one could fire:
+
+          Step 1  r'...PIC\\s+X$\\s*8\\s*$...'     - "\\(" arrived as "$"
+          Step 2  CS_PROGRAM_01_PATTERN  "X$8$"  - same corruption
+          Step 3  r"^\\s*77\\s+CS-PROGRAM" on RAW text - every line
+                  starts with a six-digit sequence number, so the
+                  anchor can never match a fixed-format record
+
+        So step 4 always ran, and _find_77_level_insert_point returned a
+        position past the PROCEDURE DIVISION. Proven on disk in both
+        output families:
+
+          001240     10  CS-PROGRAM  PIC X(8) VALUE 'VMDZ1567'.
+          004400     77  CS-PROGRAM  PIC X(8) VALUE 'VMDZ1567'.   <- here
+          004410     CALL USERABEN.
+
+        A duplicated data name AND a data item in the PROCEDURE
+        DIVISION. The program does not compile.
+
+        WHAT CHANGED
+
+        Presence is now decided on the LOGICAL line, at ANY level,
+        scanning only the DATA DIVISION - the program constant already
+        exists as a level 10 inside the generated work group, which is
+        what rules/timestamp_audit_rules prescribes. When it is there,
+        nothing is added and the pass says so.
+
+        When it is genuinely absent, the insertion point must fall
+        inside the DATA DIVISION. Outside it the pass REFUSES and
+        reports, because writing a 77 into the PROCEDURE DIVISION is
+        never a smaller error than writing nothing.
+
+        Step 1 is removed. It never matched, so its removal changes no
+        output; keeping a regex that cannot fire only hides the next
+        defect.
         """
         program_id = str(context.program_id or "").strip().upper()
         if not program_id:
             return cobol_text
 
-        # Step 1: Remove incorrectly-placed CS-PROGRAM (e.g., at level 10)
-        import re
-        updated = re.sub(
-            r'\s+10\s+CS-PROGRAM\s+PIC\s+X$\s*8\s*$\s+VALUE\s+[\'"]([^\'"]*)[\'"]\.?\s*\n',
-            "",
-            cobol_text,
-            flags=re.IGNORECASE
-        )
-        if updated != cobol_text:
-            diagnostics.append(
-                "CORRECTED: Removed CS-PROGRAM from subordinate level (level 10)"
-            )
-            cobol_text = updated
-
-        # Step 2: Replace 01-level CS-PROGRAM with 77-level (existing logic)
         updated = PROGRAM_NAME_MOVE_PATTERN.sub(
             PROGRAM_NAME_MOVE_REPLACEMENT_TEMPLATE.format(program_id=program_id),
             cobol_text,
@@ -77,30 +101,69 @@ class StorageWsInjector:
             ),
             updated,
         )
-        
-        # Step 3: Validate CS-PROGRAM is at 77-level (or add it if missing)
-        if "77" in updated and "CS-PROGRAM" in updated:
-            # Check if at 77-level
-            if re.search(r"^\s*77\s+CS-PROGRAM", updated, re.IGNORECASE | re.MULTILINE):
-                if updated != cobol_text:
-                    diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["program_name_normalized"])
-                return updated
-        
-        # Step 4: If CS-PROGRAM not found at 77-level, add it
-        if not re.search(r"77\s+CS-PROGRAM", updated, re.IGNORECASE):
-            # Find insertion point (after other 77-level items or before first 01 group)
-            insert_index = self._find_77_level_insert_point(updated)
-            if insert_index >= 0:
-                lines = self.line_utils.lines(updated)
-                cs_prog_line = f"77  CS-PROGRAM                 PIC X(8) VALUE '{program_id}'."
-                updated_lines = lines[:insert_index] + [cs_prog_line] + lines[insert_index:]
-                updated = self.line_utils.join(updated_lines)
-                diagnostics.append("Added CS-PROGRAM at 77-level")
-        
+
+        if self._program_constant_declared(updated):
+            diagnostics.append(
+                "Program constant: CS-PROGRAM is already declared in the "
+                "DATA DIVISION; no second declaration was added."
+            )
+            if updated != cobol_text:
+                diagnostics.append(
+                    UPDATE_RESTART_DIAGNOSTICS["program_name_normalized"]
+                )
+            return updated
+
+        lines = self.line_utils.lines(updated)
+        boundary = self._data_division_end_index(lines)
+        insert_index = self._find_77_level_insert_point(updated)
+
+        if 0 <= insert_index <= boundary:
+            cs_prog_line = CS_PROGRAM_77_TEMPLATE.format(
+                prefix="", program_id=program_id
+            )
+            updated = self.line_utils.join(
+                lines[:insert_index] + [cs_prog_line] + lines[insert_index:]
+            )
+            diagnostics.append("Added CS-PROGRAM at 77-level")
+        else:
+            diagnostics.append(
+                "Program constant: no safe DATA DIVISION insertion point "
+                f"(index {insert_index}; the PROCEDURE DIVISION starts at "
+                f"{boundary}). CS-PROGRAM was NOT added - a 77-level item "
+                "in the PROCEDURE DIVISION does not compile."
+            )
+
         if updated != cobol_text:
-            diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["program_name_normalized"])
+            diagnostics.append(
+                UPDATE_RESTART_DIAGNOSTICS["program_name_normalized"]
+            )
         return updated
-    
+
+    def _program_constant_declared(self, cobol_text) -> bool:
+        """CS-PROGRAM declared at ANY level, DATA DIVISION only."""
+        for line in self.line_utils.lines(cobol_text):
+            logical = str(self.line_utils.logical(line) or "")
+
+            if not logical or logical.lstrip().startswith("*"):
+                continue
+
+            if PROCEDURE_DIVISION_PATTERN.match(logical):
+                return False
+
+            if CS_PROGRAM_DECLARATION_PATTERN.match(logical):
+                return True
+
+        return False
+
+    def _data_division_end_index(self, lines) -> int:
+        """Index of the PROCEDURE DIVISION header, or the line count."""
+        for index, line in enumerate(lines):
+            logical = str(self.line_utils.logical(line) or "")
+            if PROCEDURE_DIVISION_PATTERN.match(logical):
+                return index
+
+        return len(lines)
+        
     def _find_77_level_insert_point(self, cobol_text: str) -> int:
         """
         Find line index where 77-level declarations should be inserted.
@@ -323,11 +386,56 @@ class StorageWsInjector:
         return '\n'.join(result)
 
     def ensure_date_working_storage(self, cobol_text, diagnostics):
+        """Declare the date layout once, under ANY group name.
+
+        CORRECTION - the guard asked about a GROUP, the defect is a FIELD
+
+        The test was:
+
+            if any(logical_contains(cobol_text, anchor)
+                   for anchor in DATE_WS_ANCHORS)
+
+        where DATE_WS_ANCHORS is ("01 WS-DATUMVELDEN.",
+        "01  WS-DATUMVELDEN."). RestartStorageInjector runs BEFORE this
+        pass and declares the SAME fields under WS-DATE-CONVERSION -
+        proven in the batch log:
+
+            164: Restart storage: WS-DATE-CONVERSION was absent; declared it.
+            352: Injected manual-style date working-storage.
+
+        The anchor never matched, a second full copy was injected, and
+        VM1BD567 and VM1BD526 each shipped with DA-CCYYMMDD,
+        DA-CCYYMMDD-R and DA-DD-MM-CCYY declared TWICE under two
+        different 01 groups. Every generated reference to them is
+        unqualified, so the compiler rejects them as not uniquely
+        defined. Every update program was affected; no retrieval program
+        was, because only the update path runs both injectors.
+
+        RestartStorageInjector._plan_groups already states the correct
+        principle - "the resolved name that proves the layout already
+        exists under some other group" - and declines on the FIELD. This
+        pass now applies the same test, which is also what
+        Db2DateWorkingStorageManager._has_date_working_storage has always
+        done. Three sites, one rule.
+
+        SCOPE MATTERS. DB2_DATE_WORKING_STORAGE_BASE_PATTERN also matches
+        a USE of the fields:
+
+            MOVE CORR DA-CCYYMMDD-R TO DA-DD-MM-CCYY   -> True
+
+        so the scan stops at PROCEDURE DIVISION. Unscoped, a program that
+        references the layout without declaring it would be refused the
+        storage it needs.
+        """
         if any(
             self.line_utils.logical_contains(cobol_text, anchor)
             for anchor in DATE_WS_ANCHORS
         ):
             diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["date_ws_exists"])
+            return cobol_text
+
+        if self._date_layout_declared(cobol_text):
+            diagnostics.append(DATE_WS_EXISTS_UNDER_OTHER_GROUP)
             return cobol_text
 
         lines = self.line_utils.lines(cobol_text)
@@ -340,3 +448,22 @@ class StorageWsInjector:
         updated_lines = lines[:insert_index] + block + [""] + lines[insert_index:]
         diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["date_ws_injected"])
         return self.line_utils.join(updated_lines)
+
+    def _date_layout_declared(self, cobol_text) -> bool:
+        """True when the date fields are DECLARED under any 01 group.
+
+        DATA DIVISION only - see the scope note above.
+        """
+        for line in self.line_utils.lines(cobol_text):
+            logical = str(self.line_utils.logical(line) or "")
+
+            if not logical or logical.lstrip().startswith("*"):
+                continue
+
+            if PROCEDURE_DIVISION_PATTERN.match(logical):
+                return False
+
+            if DB2_DATE_WORKING_STORAGE_BASE_PATTERN.search(logical):
+                return True
+
+        return False

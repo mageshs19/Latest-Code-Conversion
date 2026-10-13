@@ -71,7 +71,7 @@ PARAGRAPH_NUMBER_SEPARATOR = "-"
 
 # False = refuse to emit rather than write an unproven alphanumeric
 # literal into a field whose site usage is numeric. NOT yet flipped.
-EMIT_SQL_LOCATION_WITHOUT_PARAGRAPH_NUMBER = True
+EMIT_SQL_LOCATION_WITHOUT_PARAGRAPH_NUMBER = False
 
 # The pre-unification label the update emitters built from the record.
 # Used ONLY when no paragraph identity is available. See CORRECTION 2.

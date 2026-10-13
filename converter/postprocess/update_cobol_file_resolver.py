@@ -10,22 +10,26 @@ from converter.postprocess.update_metadata_models import (
 
 from patterns.dynamic_metadata_patterns import (
     COPY_RE,
-    EOF_IF_RE,
-    EOF_MOVE_RE,
-    EOF_UNTIL_RE,
+    DECLARED_88_RE,
+    EOF_ANY_MOVE_RE,
+    EOF_CONDITION_REF_RE,
     FD_LINE_RE,
     FD_RECORD_01_RE,
     FIELD_USE_RE,
     MOVE_FIELD_RE,
     PROGRAM_RE,
+    QUALIFIER_RE,
     READ_LINE_RE,
     READ_RE,
     RECORD_CONTAINS_RE,
+    RELATIONAL_HEAD_RE,
     SECTION_END_RE,
     SELECT_LINE_RE,
     SELECT_RE,
 )
 
+EOF_MARKER = "EOF"
+EOF_TAIL_WINDOW = 80
 
 class UpdateCobolFileResolver:
     def resolve_program_id(
@@ -110,35 +114,132 @@ class UpdateCobolFileResolver:
         source_cobol: str,
         generated_cobol: str,
     ) -> str:
-        combined = "\n".join(
-            [
-                self.logical_statement_text(source_cobol),
-                self.logical_statement_text(generated_cobol),
-            ]
-        )
+        """The end-of-file CONDITION NAME the SOURCE program used.
 
-        candidates: dict[str, int] = {}
+        CORRECTION 1 - the generated text was a candidate source
 
-        for pattern in [EOF_UNTIL_RE, EOF_IF_RE, EOF_MOVE_RE]:
-            for match in pattern.finditer(combined):
-                name = norm_name(match.group(1))
+        The method joined source_cobol and generated_cobol and returned
+        the MOST FREQUENT match. The generated program declares and uses
+        its own EOF condition, which occurs more often than the legacy
+        one, so a "legacy" resolver could return the name the generator
+        had just created - making any rewrite built on it a no-op.
+        Candidates now come from the SOURCE alone.
 
-                if not name:
-                    continue
+        CORRECTION 2 - the switch had to be spelled with 'Y'
 
-                if "EOF" not in name:
-                    continue
+        EOF_UNTIL_RE / EOF_IF_RE / EOF_MOVE_RE each required a quoted
+        'Y', so VM1BD526 resolved nothing:
 
-                candidates[name] = candidates.get(name, 0) + 1
+            05  SW-EOF  VALUE +0  PIC S9  COMP.
+                88 EOF  VALUE +1.
+            AT END MOVE +1 TO SW-EOF.
+            PERFORM 200-VERWERK-INFIL UNTIL EOF.
+            IF EOF
 
-        if not candidates:
-            return ""
+        A switch is a switch whatever its PICTURE - the conclusion
+        CORRECTION C reached in restart_name_resolver. Recognition is by
+        MEANING: a bare condition-name reference, or any MOVE into a
+        name carrying the EOF marker.
 
-        return sorted(
-            candidates.items(),
-            key=lambda item: item[1],
-            reverse=True,
-        )[0][0]
+        CORRECTION 3 - the exclusion rejected the name it was hunting
+
+        The first cut dropped any candidate the GENERATED program
+        declares at 88 level, reasoning that a generated name cannot be
+        legacy. But the generated program CARRIES THE LEGACY
+        DECLARATION FORWARD - the orphaned
+
+            05  SW-EOF  VALUE +0  PIC S9  COMP.
+                88 EOF  VALUE +1.
+
+        is still there, unreferenced by any write. So 'EOF' was excluded
+        and only the MOVE target 'SW-EOF' survived. Proven on disk:
+        resolve_legacy_eof_switch returned 'SW-EOF' for VM1BD526.
+
+        Only a condition the generated program declares AND the source
+        does NOT is generator-owned. That is the exclusion applied here.
+
+        CORRECTION 4 - the CONDITION and the SWITCH shared one bucket
+
+        A MOVE names the SWITCH (storage); IF / UNTIL name the
+        CONDITION. A rewrite of surviving legacy references must target
+        the CONDITION, so the two are counted separately and the
+        condition wins whenever the source uses one. The switch name is
+        returned only when no condition name exists, which keeps the
+        diagnostic informative for a program that tests its switch
+        relationally.
+
+        A name followed by a relational operator - optionally through an
+        OF / IN qualification - is a comparison, not a condition name,
+        and is rejected. That keeps "IF CO-ID-RS IN DCLDZ01RSTV = '1'"
+        out of the candidate set.
+
+        Returns "" when the source shows no legacy EOF switch, the
+        normal case for a program the generator built from scratch.
+        """
+        source_text = self.logical_statement_text(source_cobol)
+        generated_text = self.logical_statement_text(generated_cobol)
+
+        source_conditions = {
+            norm_name(match.group("name"))
+            for match in DECLARED_88_RE.finditer(source_text)
+        }
+        generated_only_conditions = {
+            norm_name(match.group("name"))
+            for match in DECLARED_88_RE.finditer(generated_text)
+        } - source_conditions
+
+        conditions: dict[str, int] = {}
+        switches: dict[str, int] = {}
+
+        def _offer(bucket: dict[str, int], raw_name: str) -> None:
+            name = norm_name(raw_name)
+
+            if not name or EOF_MARKER not in name:
+                return
+
+            if name in generated_only_conditions:
+                return
+
+            bucket[name] = bucket.get(name, 0) + 1
+
+        for match in EOF_CONDITION_REF_RE.finditer(source_text):
+            # CORRECTION 5 - the tail was read from a capture group.
+            #
+            # EOF_CONDITION_REF_RE captures the NAME only, so there is
+            # no "tail" group - match.group("tail") raised IndexError.
+            # Reading the following text by SLICING also keeps the
+            # pattern free of logic and lets finditer return every
+            # reference on a line instead of only the first.
+            #
+            # logical_statement_text() emits one statement per line, so
+            # the window is clipped at the newline: a relational
+            # operator belonging to the NEXT statement must never
+            # disqualify this one.
+            tail = source_text[match.end():match.end() + EOF_TAIL_WINDOW]
+            tail = tail.split("\n", 1)[0]
+
+            qualified = QUALIFIER_RE.match(tail)
+            while qualified:
+                tail = tail[qualified.end():]
+                qualified = QUALIFIER_RE.match(tail)
+
+            if RELATIONAL_HEAD_RE.match(tail):
+                continue
+
+            _offer(conditions, match.group("name"))
+
+        for match in EOF_ANY_MOVE_RE.finditer(source_text):
+            _offer(switches, match.group("name"))
+
+        for bucket in (conditions, switches):
+            if bucket:
+                return sorted(
+                    bucket.items(),
+                    key=lambda item: (item[1], item[0]),
+                    reverse=True,
+                )[0][0]
+
+        return ""
 
     def _parse_from_logical_text(
         self,

@@ -78,15 +78,36 @@ def resolve_target_program_id(source_text: str) -> str:
     return NameDerivationResolver().derive(source_id)
 
 
-def _build_output_path(output_dir: Path, program_path: Path) -> Path:
+def _build_output_path(
+    output_dir: Path,
+    program_path: Path,
+    target_program_id: str = "",
+) -> Path:
+    """Name the artefact after the DERIVED PROGRAM-ID when one resolves.
+
+    CORRECTION - one pipeline, two naming rules
+
+    This builder used program_path.stem unconditionally, while
+    retrieval_program_converter._build_output_path (line 131) uses
+
+        stem = str(target_program_id or "").strip() or program_path.stem
+
+    so a single run of runners/convert_programs.py emitted VM1BD567_*
+    for update programs and VMDZ4302_* for retrieval ones - two
+    conventions from one pipeline, with the PROGRAM-ID-named file
+    looking authoritative. The rule is now identical in both paths.
+
+    The parameter is defaulted so an existing caller that does not pass
+    it keeps the previous behaviour rather than failing.
+    """
+    stem = str(target_program_id or "").strip() or program_path.stem
     timestamp = datetime.now().strftime(OUTPUT_TIMESTAMP_FORMAT)
     file_name = OUTPUT_FILE_NAME_TEMPLATE.format(
-        stem=program_path.stem,
+        stem=stem,
         timestamp=timestamp,
         extension=OUTPUT_FILE_EXTENSION,
     )
     return output_dir / file_name
-
 
 def _print_summary(*, program_path, sheet_rows, dclgen_columns, copybook_fields,
                    idms_len, target_program_id, project_root, src_dir):
@@ -241,7 +262,9 @@ def convert_one_program(
         logger=logger,
     )
 
-    output_cobol_path = _build_output_path(output_dir, program_path)
+    output_cobol_path = _build_output_path(
+        output_dir, program_path, target_program_id
+    )
     output_cobol_path.write_text(converted_cobol, encoding=COBOL_TEXT_ENCODING)
 
     logger.info(LOG_GENERATION_COMPLETED)

@@ -52,3 +52,10 @@ COPY_EXISTS_BY_RECORD_TEMPLATE = (
     "Input copybook include already exists by record name: {record}"
 )
 COPY_INJECTED_TEMPLATE = "{base}: {include}"
+
+DATE_WS_EXISTS_UNDER_OTHER_GROUP = (
+    "Manual-style date working-storage not injected: the date layout is "
+    "already declared under another 01 group. Declaring it twice makes "
+    "every unqualified reference ambiguous and the program will not "
+    "compile."
+)

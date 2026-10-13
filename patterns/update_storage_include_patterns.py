@@ -81,3 +81,8 @@ LEGACY_ABEND_MARKER_77_HEADER_NAMED_PATTERN = re.compile(
     r"^\s*(?:\d{6}\s*)?77\s+(?P<name>[A-Z0-9-]+)\s+PIC\s+X$\d+$\s*(?:\d{8})?\s*$",
     flags=re.IGNORECASE,
 )
+
+CS_PROGRAM_DECLARATION_PATTERN = re.compile(
+    r"^\s*\d{2}\s+CS-PROGRAM\b",
+    flags=re.IGNORECASE,
+)

@@ -122,6 +122,9 @@ from converter.postprocess.restart_logic_pipeline import RestartLogicPipeline
 from converter.postprocess.cobol_restart_logic_generator import (
     CobolRestartLogicGenerator,
 )
+from converter.postprocess.legacy_eof_condition_rewriter import (
+    LegacyEofConditionRewriter,
+)
 
 PROGRAM_KIND_RETRIEVAL = "retrieval"
 PROGRAM_KIND_UPDATE = "update"
@@ -315,6 +318,15 @@ class UpdateProgramEnhancer:
             output, context, diagnostics
         )
         output = self.restart_paragraph_manager.ensure_restart_paragraphs(
+            output, context, diagnostics
+        )
+        output = LegacyEofConditionRewriter().apply(
+            output,
+            legacy_condition=getattr(context, "legacy_eof_switch", ""),
+            diagnostics=diagnostics,
+        )
+
+        output = self.business_sql_standardizer.standardize(
             output, context, diagnostics
         )
 
