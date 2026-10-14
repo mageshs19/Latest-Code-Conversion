@@ -1,2 +1,0 @@
-FAILED tests/test_rules_constants_agree_across_modules.py::test_a_constant_name_carries_one_value_everywhere
-FAILED tests/test_standards_no_duplicate_constants.py::test_no_module_declares_a_constant_twice

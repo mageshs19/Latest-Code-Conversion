@@ -1,5 +1,5 @@
 # LOCATION: rules/restart_sql_templates.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """SQL fragment vocabulary for the restart / checkpoint statements.
 
 This module contains constants only.
@@ -10,10 +10,11 @@ here. Column and host names arrive as placeholder values.
 
 WHY SEPARATE FROM restart_statement_templates.py
 
-That module owns PARAGRAPH SHAPE - fixed line sequences. The three SQL
-paragraphs have a VARIABLE line count: one line per column, one per
-host field, one per key predicate. Their lines are assembled, not
-substituted, so their vocabulary lives apart from the fixed shapes.
+That module owns PARAGRAPH SHAPE - fixed line sequences. SELECT and
+UPDATE assemble a VARIABLE line count: one line per column, one per
+host field, one per key predicate. INSERT does NOT - it binds the
+whole DCLGEN host-structure group in one VALUES clause, so its
+vocabulary is a single line, not an assembled list.
 
 PARAGRAPH SHAPE THIS VOCABULARY SERVES
 
@@ -90,15 +91,19 @@ UPDATE_NEXT_SET = "          , {column} = :{group}.{field}"
 # ---------------------------------------------------------------------
 # INSERT
 # ---------------------------------------------------------------------
+# The restart table is bound through its DCLGEN host-structure group as
+# a single unit, not column-by-column. DB2 maps the group's 01-level
+# fields onto the table's columns by ordinal position, so one line
+# carries the whole statement:
+#
+#      INSERT INTO DZ01RSTV
+#             VALUES (:DCLDZ01RSTV)
+#
+# INSERT_HEADER and INSERT_VALUES_HOST are therefore a FIXED pair, not
+# an assembled list. There is no per-column loop for this statement.
 
 INSERT_HEADER = "     INSERT INTO {table}"
-INSERT_FIRST_COLUMN = "            ({column}"
-INSERT_NEXT_COLUMN = "            ,{column}"
-INSERT_LAST_COLUMN = "            ,{column})"
-INSERT_VALUES_KEYWORD = "            VALUES"
-INSERT_FIRST_VALUE = "            (:{group}.{field}"
-INSERT_NEXT_VALUE = "            ,:{group}.{field}"
-INSERT_LAST_VALUE = "            ,:{group}.{field})"
+INSERT_VALUES_HOST = "            VALUES (:{group})"
 
 # ---------------------------------------------------------------------
 # Shared clauses
@@ -139,14 +144,8 @@ __all__ = [
     "EVALUATE_OPEN",
     "EXEC_SQL_CLOSE",
     "EXEC_SQL_OPEN",
-    "INSERT_FIRST_COLUMN",
-    "INSERT_FIRST_VALUE",
     "INSERT_HEADER",
-    "INSERT_LAST_COLUMN",
-    "INSERT_LAST_VALUE",
-    "INSERT_NEXT_COLUMN",
-    "INSERT_NEXT_VALUE",
-    "INSERT_VALUES_KEYWORD",
+    "INSERT_VALUES_HOST",
     "PARAGRAPH_HEADER",
     "PARAGRAPH_TERMINATOR_LINE",
     "QUERYNO_CLAUSE",

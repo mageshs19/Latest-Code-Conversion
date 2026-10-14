@@ -1,5 +1,5 @@
 # LOCATION: converter/generators/restart/restart_sql_builder.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """Builds the three SQL paragraphs on the restart table.
 
     select  - read the checkpoint row for program + phase + run date
@@ -18,9 +18,12 @@ CONTRACTS THIS BUILDER HONOURS
    not restate it inside WHEN OTHER, and neither do we: two writers of
    one diagnostic field is how a stale location reaches the job log.
 
-3. Distinct QUERYNO per statement. Reusing one number across two
-   statements makes EXPLAIN output ambiguous and was a defect in the
-   first generated output.
+3. Distinct QUERYNO per statement, EXCEPT insert. The restart INSERT
+   binds the whole DCLGEN host-structure group in one VALUES clause
+   (see rules/restart_sql_templates.py); the manual-reference standard
+   for this one statement carries no QUERYNO clause, so build_insert()
+   does not emit one. select and update keep their distinct QUERYNO
+   values.
 
 4. The paragraph body is ONE COBOL sentence. No period on END-EXEC or
    END-EVALUATE; a lone period closes the paragraph.
@@ -57,14 +60,8 @@ from rules.restart_sql_templates import (
     EVALUATE_OPEN,
     EXEC_SQL_CLOSE,
     EXEC_SQL_OPEN,
-    INSERT_FIRST_COLUMN,
-    INSERT_FIRST_VALUE,
     INSERT_HEADER,
-    INSERT_LAST_COLUMN,
-    INSERT_LAST_VALUE,
-    INSERT_NEXT_COLUMN,
-    INSERT_NEXT_VALUE,
-    INSERT_VALUES_KEYWORD,
+    INSERT_VALUES_HOST,
     PARAGRAPH_HEADER,
     PARAGRAPH_TERMINATOR_LINE,
     QUERYNO_CLAUSE,
@@ -92,12 +89,6 @@ from rules.restart_standard_rules import (
     SQLCODE_OK,
     SQL_LOCATION_USES_PARAGRAPH_NUMBER,
 )
-
-from converter.generators.restart.restart_paragraph import RestartParagraph
-
-# M4 shipped this name. The class now lives in restart_paragraph.py so
-# M5 can return the same type; the alias keeps every import working.
-SqlParagraph = RestartParagraph
 
 VERB_SELECT = "SELECT"
 VERB_UPDATE = "UPDATE"
@@ -183,14 +174,17 @@ class RestartSqlBuilder:
         )
 
     def build_insert(self) -> SqlParagraph:
+        """INSERT binds the whole DCLGEN host-structure group.
+
+        No per-column list, no per-field VALUES list, and - per the
+        manual-reference standard for this one statement - no QUERYNO
+        clause. select and update keep QUERYNO; insert does not.
+        """
         role = self.config.role
         statement = [
             EXEC_SQL_OPEN,
             INSERT_HEADER.format(table=role.table_name),
-            *self._insert_columns(),
-            INSERT_VALUES_KEYWORD,
-            *self._insert_values(),
-            QUERYNO_CLAUSE.format(queryno=self.config.queryno_insert),
+            INSERT_VALUES_HOST.format(group=role.host_record),
             EXEC_SQL_CLOSE,
         ]
         return self._paragraph(
@@ -253,27 +247,6 @@ class RestartSqlBuilder:
             WHERE_NEXT_PREDICATE.format(column=column, group=group, field=field)
             for column, field in pairs[1:]
         )
-        return lines
-
-    def _insert_columns(self) -> list[str]:
-        columns = self.config.role.columns()
-        lines = [INSERT_FIRST_COLUMN.format(column=columns[0])]
-        lines.extend(
-            INSERT_NEXT_COLUMN.format(column=column)
-            for column in columns[1:-1]
-        )
-        lines.append(INSERT_LAST_COLUMN.format(column=columns[-1]))
-        return lines
-
-    def _insert_values(self) -> list[str]:
-        group = self.config.role.host_record
-        fields = self.config.role.host_fields()
-        lines = [INSERT_FIRST_VALUE.format(group=group, field=fields[0])]
-        lines.extend(
-            INSERT_NEXT_VALUE.format(group=group, field=field)
-            for field in fields[1:-1]
-        )
-        lines.append(INSERT_LAST_VALUE.format(group=group, field=fields[-1]))
         return lines
 
     # -----------------------------------------------------------------

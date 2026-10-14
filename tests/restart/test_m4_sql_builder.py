@@ -1,5 +1,5 @@
 # LOCATION: tests/restart/test_m4_sql_builder.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """M4 contract tests: the three restart SQL paragraphs."""
 
 from __future__ import annotations
@@ -291,18 +291,37 @@ def test_update_names_the_table(config, paragraphs):
 
 # ---------------------------------------------------------------------
 # INSERT
+#
+# The restart INSERT binds the whole DCLGEN host-structure group in one
+# VALUES clause (VALUES (:DCLDZ01RSTV)) - it does not list columns or
+# fields individually, and it carries no QUERYNO clause. These tests
+# lock that shape in and guard against a regression back to the
+# column-by-column form.
 # ---------------------------------------------------------------------
 
-def test_insert_lists_every_column(config, paragraphs):
+def test_insert_binds_the_host_structure_group(config, paragraphs):
+    text = _joined(paragraphs[std.ROLE_INSERT])
+    assert f":{config.role.host_record}" in text
+
+
+def test_insert_binds_the_group_exactly_once(config, paragraphs):
+    text = _joined(paragraphs[std.ROLE_INSERT])
+    assert text.count(f":{config.role.host_record}") == 1
+
+
+def test_insert_does_not_list_individual_columns(config, paragraphs):
+    """Regression guard: the INSERT must not expand into a column list."""
     text = _joined(paragraphs[std.ROLE_INSERT])
     for column in config.role.columns():
-        assert column in text
+        assert column not in text
 
 
-def test_insert_column_and_value_counts_match(config, paragraphs):
+def test_insert_does_not_qualify_the_group_with_a_field(config, paragraphs):
+    """Regression guard: no :{group}.{field} form for this statement."""
     text = _joined(paragraphs[std.ROLE_INSERT])
-    expected = len(config.role.columns())
-    assert text.count(f":{config.role.host_record}.") == expected
+    group = config.role.host_record
+    for field in config.role.host_fields():
+        assert f":{group}.{field}" not in text
 
 
 def test_insert_parentheses_are_balanced(paragraphs):
@@ -310,9 +329,12 @@ def test_insert_parentheses_are_balanced(paragraphs):
     assert text.count("(") == text.count(")")
 
 
-def test_insert_has_a_values_keyword(paragraphs):
+def test_insert_has_a_values_host_clause(config, paragraphs):
     body = _bodies(paragraphs[std.ROLE_INSERT])
-    assert sqltpl.INSERT_VALUES_KEYWORD.strip() in body
+    expected = sqltpl.INSERT_VALUES_HOST.format(
+        group=config.role.host_record
+    ).strip()
+    assert expected in body
 
 
 def test_insert_names_the_table(config, paragraphs):
@@ -366,51 +388,58 @@ def test_the_error_text_names_the_verb_and_table(
     )
 
 
-
 # ---------------------------------------------------------------------
 # QUERYNO
+#
+# SELECT and UPDATE each carry a distinct QUERYNO. INSERT carries none:
+# it binds the host-structure group in a single VALUES clause and the
+# manual-reference standard for that one statement omits QUERYNO.
 # ---------------------------------------------------------------------
 
-def test_every_statement_carries_a_queryno(paragraphs):
-    for paragraph in paragraphs.values():
-        body = _bodies(paragraph)
+def test_select_and_update_each_carry_a_queryno(paragraphs):
+    for role in (std.ROLE_SELECT, std.ROLE_UPDATE):
+        body = _bodies(paragraphs[role])
         assert any(line.startswith("QUERYNO") for line in body)
 
 
+def test_insert_carries_no_queryno(paragraphs):
+    body = _bodies(paragraphs[std.ROLE_INSERT])
+    assert not any(line.startswith("QUERYNO") for line in body)
+
+
 def test_the_queryno_precedes_end_exec(paragraphs):
-    for paragraph in paragraphs.values():
-        body = _bodies(paragraph)
+    for role in (std.ROLE_SELECT, std.ROLE_UPDATE):
+        body = _bodies(paragraphs[role])
         queryno = next(
             i for i, l in enumerate(body) if l.startswith("QUERYNO")
         )
         assert queryno < body.index(sqltpl.EXEC_SQL_CLOSE)
 
 
-def test_the_three_querynos_are_distinct(paragraphs):
+def test_the_two_querynos_are_distinct(paragraphs):
     numbers = []
-    for paragraph in paragraphs.values():
+    for role in (std.ROLE_SELECT, std.ROLE_UPDATE):
         line = next(
-            l for l in _bodies(paragraph) if l.startswith("QUERYNO")
+            l for l in _bodies(paragraphs[role]) if l.startswith("QUERYNO")
         )
         numbers.append(line.split()[1])
-    assert len(set(numbers)) == 3
+    assert len(set(numbers)) == 2
 
 
 def test_each_queryno_matches_the_config(config, paragraphs):
     expected = {
         std.ROLE_SELECT: config.queryno_select,
         std.ROLE_UPDATE: config.queryno_update,
-        std.ROLE_INSERT: config.queryno_insert,
     }
     for role, paragraph in paragraphs.items():
+        if role not in expected:
+            continue
         assert f"QUERYNO {expected[role]}" in _joined(paragraph)
 
 
 # ---------------------------------------------------------------------
 # Error branch
 # ---------------------------------------------------------------------
-
-
 
 def test_perform_error_paragraph_is_the_last_statement(config, paragraphs):
     for paragraph in paragraphs.values():
