@@ -162,3 +162,17 @@ DB2_COLON_COMMENT_BODY_PATTERN = re.compile(r"^\*?\s*DB2:", flags=re.IGNORECASE)
 DB2_SPACE_COMMENT_BODY_PATTERN = re.compile(
     r"^\*?\s*DB2\s+", flags=re.IGNORECASE
 )
+# A quoted COBOL literal. Scoping the rewrite to literals is what keeps
+# a data name from ever being touched.
+COBOL_LITERAL_PATTERN = re.compile(r"'[^']*'")
+
+# A VM<site>?BD<tail> program id appearing INSIDE text, not anchored.
+#
+# rules/name_derivation_rules.VM_BD_NAME_PATTERN is anchored ^...$ so it
+# can validate a whole name but cannot find one inside a sentence. This
+# is the search form of the same shape; NameDerivationResolver remains
+# the single owner of the TRANSFORM.
+VM_BD_TOKEN_PATTERN = re.compile(
+    r"\bVM[A-Z0-9]?B[DZ][A-Z0-9]+\b",
+    flags=re.IGNORECASE,
+)

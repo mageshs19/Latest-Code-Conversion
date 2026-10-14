@@ -1,5 +1,5 @@
 # LOCATION: converter/composers/cursor_guarantee/cursor_repair.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 
 """Every mutation this pass performs.
 
@@ -12,10 +12,55 @@ Four repairs, each independently safe to skip:
 
 Nothing here decides WHICH repair a cursor needs - that is the
 composer's single responsibility.
+
+CORRECTION A - two shadowed NOT_FOUND imports
+-----------------------------------------------
+This module imported NOT_FOUND from mainframe.zowe_commands AND from
+record_materialisation.record_sites, then defined its own. The local
+assignment won, so the code worked by accident - but the first import
+dragged the entire Zowe package (requests, urllib3, .env resolution)
+into the converter's import graph from a module that converts COBOL.
+Both imports are gone; the local constant stands.
+
+CORRECTION B - double-drive recursion
+---------------------------------------
+bind_fetch_to_business writes PERFORM <business> [THRU <exit>] into the
+FETCH paragraph's WHEN ZERO branch. That is correct for the
+FETCH-DRIVEN idiom and WRONG for the MAINLINE-DRIVEN one:
+
+  MAINLINE-DRIVEN   PERFORM <business> THRU <business>-EXIT
+                            UNTIL <cursor>-EOC.
+                    <business> performs <fetch> at its tail
+                    <fetch> WHEN ZERO -> CONTINUE
+
+Binding there produces BOTH edges. COBOL PERFORM holds ONE return
+address per paragraph, so the nested call overwrites the outer one and
+the pair loops forever. It compiles clean, hangs at run time, and every
+static check passes - CHK-14.05 reported PASS on exactly such a program
+and the review engine scored it ACCEPTED.
+
+Measured on VMDZ7200: four PERFORM sites where three are correct.
+
+The guard asks ONE question through ONE owner -
+fetch_business_binder.already_externally_driven - and both halves must
+hold: an external loop drives <business> on this cursor's EOC AND
+<business> re-fetches at its own tail. An external driver with no tail
+fetch still needs the bind, or nothing ever fetches and the recursion is
+traded for a stall.
+
+WHY THE IMPORT CROSSES PACKAGES
+
+already_externally_driven is a pure function over a list of physical
+lines. It imports nothing from either cursor package's internals, so it
+is safe to call from here. Keeping the detection in one place is the
+point: a second copy is the defect this guard exists to close.
 """
 
 from __future__ import annotations
 
+from converter.composers.cursor_close_guarantee.fetch_business_binder import (
+    already_externally_driven,
+)
 from converter.composers.cursor_guarantee.cursor_lines import CursorLines
 from converter.composers.cursor_guarantee.cursor_models import (
     CONTINUE_PATTERN,
@@ -26,9 +71,10 @@ from converter.composers.cursor_guarantee.cursor_models import (
     LoopShape,
     MessageLog,
 )
-from mainframe.zowe_commands import NOT_FOUND
-from converter.composers.record_materialisation.record_sites import NOT_FOUND
-from patterns.cursor_close_guarantee_patterns import ANY_WHEN_PATTERN, END_EVALUATE_PATTERN
+from patterns.cursor_close_guarantee_patterns import (
+    ANY_WHEN_PATTERN,
+    END_EVALUATE_PATTERN,
+)
 from rules.cursor_close_guarantee_rules import (
     ENFORCE_FETCH_DRIVES_BUSINESS_PARAGRAPH,
     EXIT_PARAGRAPH_SUFFIX,
@@ -43,6 +89,14 @@ from rules.cursor_close_guarantee_rules import (
 
 NOT_FOUND = -1
 ALREADY_BOUND = -2
+
+# Operations that head a generated cursor paragraph, e.g.
+# 720-FETCH-DZBFASC1. Used to recover the cursor name from the
+# paragraph name, since bind_fetch_to_business is not given one.
+CURSOR_PARAGRAPH_OPERATIONS = ("OPEN", "FETCH", "CLOSE")
+CURSOR_PARAGRAPH_SEPARATOR = "-"
+CURSOR_NAME_PART_INDEX = 2
+
 
 class CursorRepair:
     """Rewrites, inserts and deletes. Owns no path selection."""
@@ -249,11 +303,9 @@ class CursorRepair:
 
         return output
 
-# LOCATION: converter/composers/cursor_guarantee/cursor_repair.py
-# ACTION: REPLACE the whole bind_fetch_to_business method and ADD
-#         _continue_in_branch and _compress below it.
-#         _business_body is unchanged.
-
+    # =================================================================
+    # Business paragraph binding
+    # =================================================================
     def bind_fetch_to_business(
         self,
         lines: list[str],
@@ -287,6 +339,12 @@ class CursorRepair:
         returned in silence. A refusal with no diagnostic is worse than
         no guard at all - it cost a full debugging cycle to find this.
         Every exit now reports.
+
+        CORRECTION 3 - the mainline-driven idiom must NOT be bound
+
+        See CORRECTION B in the module docstring. The guard runs before
+        any line is touched and reports its refusal, so a program that
+        is left alone says why in the run log.
         """
         if not fetch_paragraph or not business:
             self.log.log(
@@ -306,6 +364,20 @@ class CursorRepair:
             return lines
 
         start, end = span
+
+        cursor = self._cursor_of(fetch_paragraph)
+
+        if cursor and already_externally_driven(
+            lines, cursor, business, fetch_paragraph
+        ):
+            self.log.log(
+                "already_driven_by_span",
+                paragraph=business,
+                cursor=cursor,
+                fetch=fetch_paragraph,
+            )
+            return lines
+
         body = self._business_body(headers, business)
         target_key = self._compress(body)
 
@@ -394,7 +466,28 @@ class CursorRepair:
     def _compress(text: str) -> str:
         """Whitespace-insensitive, case-insensitive comparison key."""
         return " ".join(str(text or "").split()).upper().rstrip(".")
-    
+
+    @staticmethod
+    def _cursor_of(fetch_paragraph: str) -> str:
+        """DZBFASC1 from 720-FETCH-DZBFASC1. Empty when not that shape.
+
+        bind_fetch_to_business is not given a cursor name, and adding a
+        parameter would change every call site. The generated paragraph
+        name already carries it.
+        """
+        parts = str(fetch_paragraph or "").upper().split(
+            CURSOR_PARAGRAPH_SEPARATOR
+        )
+
+        if len(parts) <= CURSOR_NAME_PART_INDEX:
+            return ""
+
+        if parts[1] not in CURSOR_PARAGRAPH_OPERATIONS:
+            return ""
+
+        return CURSOR_PARAGRAPH_SEPARATOR.join(
+            parts[CURSOR_NAME_PART_INDEX:]
+        )
 
     @staticmethod
     def _business_body(headers, business: str) -> str:

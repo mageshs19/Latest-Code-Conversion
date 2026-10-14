@@ -96,8 +96,8 @@ UPDATE_NEXT_SET = "          , {column} = :{group}.{field}"
 # fields onto the table's columns by ordinal position, so one line
 # carries the whole statement:
 #
-#      INSERT INTO DZ01RSTV
-#             VALUES (:DCLDZ01RSTV)
+#      INSERT INTO {table}
+#             VALUES (:{group})
 #
 # INSERT_HEADER and INSERT_VALUES_HOST are therefore a FIXED pair, not
 # an assembled list. There is no per-column loop for this statement.

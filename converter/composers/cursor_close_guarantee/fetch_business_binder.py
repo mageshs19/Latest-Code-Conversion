@@ -1,5 +1,5 @@
 # LOCATION: converter/composers/cursor_close_guarantee/fetch_business_binder.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """Binds a generated FETCH paragraph to its business paragraph.
 
 WHY THIS EXISTS
@@ -22,19 +22,83 @@ DELIBERATELY SELF-CONTAINED
 No import of CursorLines, CursorGuaranteeLineUtils, ParagraphIndex,
 CursorRepair or any rules module, because the package has shipped in two
 different internal layouts. This module takes a list of physical lines
-and returns one, so it cannot break when the internals change.
+and returns one, so it cannot break when the internals change, and it can
+be imported from EITHER layout.
 
 REFUSES RATHER THAN GUESSES
 ---------------------------
 A candidate business paragraph must VERIFY: it either references the
 cursor's own DCLGEN group, or it opens a nested cursor. An unverified
 candidate is reported and the FETCH is left unchanged.
+
+CORRECTION 1 - double-drive recursion
+--------------------------------------
+Two legal shapes exist, and a program must carry EXACTLY ONE:
+
+  MAINLINE-DRIVEN   PERFORM <business> THRU <business>-EXIT
+                            UNTIL <cursor>-EOC.
+                    <business> performs <fetch> at its tail
+                    <fetch> WHEN ZERO -> CONTINUE
+
+  FETCH-DRIVEN      PERFORM <fetch> UNTIL <cursor>-EOC.
+                    <fetch> WHEN ZERO -> PERFORM <business>
+                    <business> does NOT fetch
+
+cursor_flow's SPAN strategy is deliberately conservative: "Restructuring
+a span loop would rewrite working business flow, which the business-flow
+rule forbids." It therefore leaves a mainline-driven program alone. This
+binder runs LATER and PATH-INDEPENDENTLY, sees a bare CONTINUE under
+WHEN ZERO, and adds the second edge - producing both at once.
+
+COBOL PERFORM holds ONE return address per paragraph. The nested call
+overwrites the outer one and the pair loops forever. It compiles clean,
+hangs at run time, and every static check passes - CHK-14.05 reported
+PASS on exactly such a program - which is why the guard lives here,
+before the bind, and SAYS SO when it fires.
+
+CORRECTION 2 - one detector, not two
+-------------------------------------
+Two methods used to answer one question. _already_span_driven was
+defined, documented and never called; _already_driven WAS called but
+tested `"UNTIL" in body` on ONE physical line, so it could not see
+
+    PERFORM <business> THRU <business>-EXIT
+        UNTIL <cursor>-EOC.
+
+and never fired. Both are replaced by a single detector,
+already_externally_driven, which:
+
+  * resolves an UNTIL that continues on the next physical line,
+  * accepts the THRU and the THRU-less idiom - a bare
+    PERFORM <business> UNTIL <cond> drives just as hard,
+  * ignores a driver found INSIDE a generated cursor paragraph, because
+    that is this binder's own output and not an external loop, which
+    makes the guard idempotent across re-runs,
+  * KEEPS BOTH HALVES of the old test: an external driver alone is not
+    enough. <business> must also re-fetch at its tail. Refusing to bind
+    when nothing fetches would trade a recursion for a stall.
+
+CORRECTION 3 - silent returns
+------------------------------
+_bind_when_zero returned unchanged lines without a word when the FETCH
+paragraph was absent and when the bind was already in place. A silent
+pass cannot be reviewed. Both now report.
+
+PUBLIC SURFACE
+--------------
+    FetchBusinessBinder.bind(...)                    full bind
+    FetchBusinessBinder.already_externally_driven(.) the guard alone
+    already_externally_driven(...)                   module-level guard
+
+The module-level function exists for a caller that binds through its own
+line utilities and message log and only needs the ANSWER. One owner for
+the question, any number of callers.
 """
 
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Tuple
 
 # ---------------------------------------------------------------------
 # Fixed-format geometry
@@ -45,6 +109,22 @@ BODY_END = 72
 COMMENT_INDICATORS = ("*", "/")
 
 PERFORM_BUSINESS_TEMPLATE = "PERFORM {paragraph}"
+EOC_CONDITION_TEMPLATE = "{cursor}-EOC"
+
+# How many physical lines to look ahead when a PERFORM and its UNTIL
+# clause are split across a continuation line.
+UNTIL_LOOKAHEAD_LIMIT = 4
+
+# Conditions that mean "the legacy end test is still in place", kept
+# local (not imported) per this module's self-contained design.
+_LEGACY_EOC_FORMS = (
+    "SQLCODE=100",
+    "SQLCODE = 100",
+    "SQLCODE=+100",
+    "SQLCODE = +100",
+    "DB-END-OF-SET",
+    "DB-REC-NOT-FOUND",
+)
 
 # ---------------------------------------------------------------------
 # Regex
@@ -76,6 +156,23 @@ HOST_GROUP_REFERENCE_PATTERN = re.compile(
     r":(?P<group>DCL[A-Z0-9]+)\.", re.IGNORECASE
 )
 
+# A driving PERFORM in EITHER idiom, UNTIL optionally on the same line:
+#   PERFORM <para>                                 (no drive)
+#   PERFORM <para> UNTIL <condition>               (inline drive)
+#   PERFORM <para> THRU <exit>                     (span, UNTIL follows)
+#   PERFORM <para> THRU <exit> UNTIL <condition>   (span drive)
+PERFORM_DRIVER_PATTERN = re.compile(
+    rf"^PERFORM\s+(?P<paragraph>{_NAME})"
+    rf"(?:\s+(?:THRU|THROUGH)\s+(?P<through>{_NAME}))?"
+    rf"(?:\s+UNTIL\s+(?P<condition>.+?))?\s*\.?$",
+    re.IGNORECASE,
+)
+
+# A standalone UNTIL line, for the split-continuation case.
+UNTIL_LINE_PATTERN = re.compile(
+    r"^UNTIL\s+(?P<condition>.+?)\s*\.?$", re.IGNORECASE
+)
+
 NON_PARAGRAPH_WORDS = frozenset({
     "CONTINUE", "EXIT", "GOBACK", "STOP", "END-IF", "END-EVALUATE",
     "END-EXEC", "END-PERFORM", "END-READ", "END-SEARCH", "END-STRING",
@@ -96,6 +193,10 @@ MESSAGES = {
         "Cursor close guarantee: FETCH paragraph {fetch} now performs "
         "business paragraph {paragraph}."
     ),
+    "already_bound": (
+        "Cursor close guarantee: {fetch} already performs {paragraph}; "
+        "no change needed."
+    ),
     "unknown": (
         "Cursor close guarantee: could not identify the business "
         "paragraph for cursor {cursor}; WHEN ZERO left unchanged."
@@ -109,6 +210,16 @@ MESSAGES = {
         "Cursor close guarantee: the WHEN ZERO branch of {fetch} holds no "
         "CONTINUE to replace; left unchanged."
     ),
+    "fetch_not_found": (
+        "Cursor close guarantee: FETCH paragraph {fetch} was not found in "
+        "the program; WHEN ZERO left unchanged."
+    ),
+    "already_driven_by_span": (
+        "Cursor close guarantee: business paragraph {paragraph} is "
+        "already driven by an external SPAN loop on cursor {cursor} "
+        "(UNTIL {cursor}-EOC) and performs {fetch} at its own tail; "
+        "binding refused to prevent FETCH <-> business recursion."
+    ),
 }
 
 
@@ -120,7 +231,7 @@ class FetchBusinessBinder:
         self.messages: List[str] = []
 
     # ------------------------------------------------------------------
-    # Public entry point
+    # Public entry points
     # ------------------------------------------------------------------
 
     def bind(
@@ -141,10 +252,137 @@ class FetchBusinessBinder:
             self._note("unknown", cursor=cursor)
             return lines, ""
 
+        # Refuse rather than create a mutual PERFORM. See CORRECTION 1.
+        if self.already_externally_driven(
+            lines, cursor, business, fetch_paragraph
+        ):
+            self._note(
+                "already_driven_by_span",
+                paragraph=business,
+                cursor=cursor,
+                fetch=fetch_paragraph,
+            )
+            return lines, business
+
         return (
             self._bind_when_zero(lines, fetch_paragraph, business),
             business,
         )
+
+    def already_externally_driven(
+        self,
+        lines: List[str],
+        cursor: str,
+        business: str,
+        fetch_paragraph: str = "",
+    ) -> bool:
+        """True when binding WHEN ZERO would create a mutual PERFORM.
+
+        Both halves must hold:
+
+          1. an EXTERNAL loop drives `business` to this cursor's
+             end-of-cursor condition, and
+          2. `business` performs `fetch_paragraph` at its own tail.
+
+        Half 1 alone is not enough: if nothing re-fetches, refusing the
+        bind leaves a loop that never advances. When fetch_paragraph is
+        omitted, half 2 is not testable and half 1 decides.
+
+        Recognised driver forms:
+            PERFORM <business> THRU <exit> UNTIL <cursor>-EOC.
+            PERFORM <business> UNTIL <cursor>-EOC.
+            PERFORM <business> THRU <exit>
+                UNTIL <cursor>-EOC.                 (split across lines)
+        """
+        target = str(business or "").strip().upper()
+        if not target:
+            return False
+
+        eoc_token = self._squash(
+            EOC_CONDITION_TEMPLATE.format(cursor=str(cursor or "").upper())
+        )
+        if not eoc_token:
+            return False
+
+        generated = [
+            (start, end)
+            for name, start, end in self.paragraph_spans(lines)
+            if self.is_generated(name)
+        ]
+
+        for index, line in enumerate(lines):
+            if not self._is_code(line):
+                continue
+            if any(start <= index <= end for start, end in generated):
+                continue
+
+            body = self._body(line).upper()
+            match = PERFORM_DRIVER_PATTERN.match(body)
+            if not match:
+                continue
+            if match.group("paragraph").upper() != target:
+                continue
+
+            condition = match.group("condition") or ""
+            if not condition:
+                condition = self._until_lookahead(lines, index + 1)
+
+            probe = self._squash(condition)
+            if not probe:
+                continue
+
+            driven = eoc_token in probe or any(
+                self._squash(legacy) in probe
+                for legacy in _LEGACY_EOC_FORMS
+            )
+            if not driven:
+                continue
+
+            if not fetch_paragraph:
+                return True
+            return self._business_fetches(lines, business, fetch_paragraph)
+
+        return False
+
+    # ------------------------------------------------------------------
+    # External-driver helpers
+    # ------------------------------------------------------------------
+
+    def _business_fetches(
+        self, lines: List[str], business: str, fetch_paragraph: str
+    ) -> bool:
+        """True when <business> performs <fetch> inside its own span."""
+        span = self.span_of(lines, business)
+        if span is None:
+            return False
+
+        start, end = span
+        target = f"PERFORM {str(fetch_paragraph or '').upper()}"
+
+        for index in range(start, end + 1):
+            if not self._is_code(lines[index]):
+                continue
+            if self._body(lines[index]).upper().startswith(target):
+                return True
+
+        return False
+
+    def _until_lookahead(self, lines: List[str], start_index: int) -> str:
+        """The condition of an UNTIL clause on a continuation line.
+
+        Stops at the first code line. An UNTIL that is not the very next
+        statement does not belong to this PERFORM.
+        """
+        start = max(int(start_index), 0)
+        end = min(len(lines), start + UNTIL_LOOKAHEAD_LIMIT)
+
+        for index in range(start, end):
+            if not self._is_code(lines[index]):
+                continue
+            match = UNTIL_LINE_PATTERN.match(self._body(lines[index]).upper())
+            return match.group("condition") if match else ""
+
+        return ""
 
     # ------------------------------------------------------------------
     # Line geometry
@@ -356,6 +594,7 @@ class FetchBusinessBinder:
         """
         span = self.span_of(lines, fetch_paragraph)
         if span is None:
+            self._note("fetch_not_found", fetch=fetch_paragraph)
             return lines
 
         start, end = span
@@ -379,6 +618,11 @@ class FetchBusinessBinder:
                 continue
 
             if self._compress(body) == target:
+                self._note(
+                    "already_bound",
+                    fetch=fetch_paragraph,
+                    paragraph=business,
+                )
                 return lines
 
             if ANY_WHEN_PATTERN.match(body) or END_EVALUATE_PATTERN.match(
@@ -404,12 +648,22 @@ class FetchBusinessBinder:
     def _compress(text: str) -> str:
         return " ".join(str(text or "").split()).upper().rstrip(".")
 
+    @staticmethod
+    def _squash(text: str) -> str:
+        """Upper case with every space removed - for condition matching."""
+        return "".join(str(text or "").split()).upper().rstrip(".")
+
     def _note(self, key: str, **values) -> None:
         template = MESSAGES.get(key, "")
         if not template:
             return
 
-        message = template.format(**values)
+        try:
+            message = template.format(**values)
+        except KeyError:
+            # A missing placeholder must not abort a conversion pass.
+            message = template
+
         self.messages.append(message)
 
         if self.log is None:
@@ -420,4 +674,24 @@ class FetchBusinessBinder:
             pass
 
 
-__all__ = ["FetchBusinessBinder"]
+# ---------------------------------------------------------------------
+# Module-level guard, for a caller that owns its own line utilities
+# ---------------------------------------------------------------------
+def already_externally_driven(
+    lines: List[str],
+    cursor: str,
+    business: str,
+    fetch_paragraph: str = "",
+) -> bool:
+    """Stateless form of FetchBusinessBinder.already_externally_driven.
+
+    A binding site in a sibling package needs the ANSWER, not this class.
+    One import, one call, no construction, no shared state - and only ONE
+    implementation of the question in the repository.
+    """
+    return FetchBusinessBinder().already_externally_driven(
+        lines, cursor, business, fetch_paragraph
+    )
+
+
+__all__ = ["FetchBusinessBinder", "already_externally_driven"]

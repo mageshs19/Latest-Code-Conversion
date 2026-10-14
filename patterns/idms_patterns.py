@@ -1,4 +1,4 @@
-# LOCATION: patterns/idms_patterns.py
+﻿# LOCATION: patterns/idms_patterns.py
 # ACTION: REPLACE ENTIRE FILE
 """IDMS regex patterns.
 
@@ -292,7 +292,13 @@ MOVE_TO_STATEMENT_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+IDMS_STOP_PERFORM_PATTERN = re.compile(
+    r"\bPERFORM\b.*\bIDMS-STOP\b",
+    flags=re.IGNORECASE,
+)
+
 __all__ = [
+    "IDMS_STOP_PERFORM_PATTERN",
     "BIND_STATEMENT_PATTERN",
     "COMMIT_PATTERN",
     "CONNECT_STATEMENT_PATTERN",

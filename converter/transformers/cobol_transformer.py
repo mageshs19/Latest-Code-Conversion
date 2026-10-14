@@ -43,6 +43,61 @@ ProgramNameSyncService already performs this rewrite safely - it reads
 the FINAL PROGRAM-ID out of the converted text and touches only a
 MOVE literal TO PROGRAM-NAME. It was simply never called. It runs as the
 last pass, AFTER fix_program_id_period, so the id it reads is final.
+
+The same id survived in a SECOND place, measured on VMDZ7200 line 442:
+
+    DISPLAY 'VM7BD200: ** DATE ARCHIVAGE NOT OK **'
+
+A MOVE rewrite cannot reach a DISPLAY literal, so the abend message -
+the one line an operator reads when the job fails - still named the
+source program. sync() now also derives any VM<site>?BD<tail> token
+found INSIDE a quoted literal, delegating the transform to
+NameDerivationResolver, the single owner of that rule. The derived name
+is always the same length as the source name, so no literal can grow
+and no line can overflow column 72.
+
+CORRECTION 3 - a second copy of Converter 4 was pasted into this class
+-----------------------------------------------------------------------
+A ``_convert_status_abort_perform`` method was added at the end of
+CobolTransformer. It referenced six names this module does not own:
+
+    IDMS_STATUS_PERFORM_PATTERN   not imported here
+    IDMS_ABORT_PERFORM_PATTERN    not imported here
+    text / statement / division   local variables that were never bound
+    self._remove                  a method of IdmsStatementTransformer
+
+The real Converter 4 lives in the idms_statement package, alongside the
+BIND / READY / CONNECT / DISCONNECT / FIND CURRENT converters and the
+``_remove`` and ``_division`` helpers it depends on. CobolTransformer
+reaches it the way it reaches every other IDMS converter - through
+
+    self.idms_statement_transformer.transform_line(...)
+
+Two copies of one converter is the same defect class as a constant
+declared twice: editing the dead copy changes nothing and reads like a
+tooling fault. There is now ONE owner of PERFORM IDMS-STATUS /
+IDMS-ABORT / IDMS-STOP removal, and it is not this file.
+
+CORRECTION 4 - two passes ran SILENTLY
+----------------------------------------
+``IdmsResidualCleanup.removed_field_lines`` and
+``ProgramNameSyncService.sync`` were both wired into this method, but
+neither collector was reset and neither was drained. Two consequences:
+
+  - a removal, a rename or a refusal was invisible in the run log,
+    which is precisely what CHK-29.05 ("LR-STATUS replacement should be
+    documented") reports as a failure, and
+
+  - ONE instance of each helper is built in __init__ and reused for
+    every program, so in a batch run the second program inherited the
+    first program's messages and the log named fields and ids that the
+    second program never contained.
+
+``reset()`` is called for both with the other per-transformation state,
+and ``messages`` is drained into ``validation_messages`` - the residual
+cleanup immediately after the line loop, the name sync immediately
+after it runs. That is the same contract every composer in the pipeline
+already honours.
 """
 
 from __future__ import annotations
@@ -70,6 +125,11 @@ from converter.transformers.idms_residual_cleanup import IdmsResidualCleanup
 from converter.transformers.idms_statement_transformer import (
     IdmsStatementTransformer,
 )
+
+# DIVISION_PATTERN is imported from cobol_patterns, NOT from
+# final_feedback_fix_patterns. Both modules declare a name spelled that
+# way; only the cobol_patterns form carries the capture group that
+# `division_match.group(1)` below depends on. Do not "tidy" this import.
 from patterns.cobol_patterns import DIVISION_PATTERN
 from patterns.db2_patterns import SQL_ERROR_PARAGRAPH_PATTERN
 from patterns.final_feedback_fix_patterns import (
@@ -127,9 +187,17 @@ class CobolTransformer:
         compiler_option_seen = False
         current_division = ""
         sql_error_paragraph = self._detect_sql_error_paragraph(cobol_text)
-        
-        # Reset state for this transformation
+
+        # ---- Per-transformation state.
+        #
+        # residual_cleanup and program_name_sync are built ONCE in
+        # __init__ and reused for every program, so their collectors
+        # must be emptied here. Without this a batch run reports
+        # program 1's removals and renames against program 2.
+        # See CORRECTION 4.
         self._in_working_storage = False
+        self.residual_cleanup.reset()
+        self.program_name_sync.reset()
 
         skip_idms_abort_body = False
         idms_abort_skipped = 0
@@ -179,6 +247,7 @@ class CobolTransformer:
                     )
                 )
                 continue
+
             if self.residual_cleanup.is_idms_abort_paragraph(logical_stripped):
                 output_lines.append(
                     "* DB2: Removed orphan IDMS-ABORT paragraph."
@@ -236,7 +305,7 @@ class CobolTransformer:
                 self._in_working_storage = True
                 output_lines.append(line)
                 continue
-            
+
             # Track section changes within a division. IDMS control/schema
             # sections are left for the residual cleanup below to remove.
             if (
@@ -250,16 +319,27 @@ class CobolTransformer:
                 output_lines.append(line)
                 continue
 
-            # Apply COMP-3 and FILLER cleaning to WORKING-STORAGE data declarations
+            # Apply COMP-3 and FILLER cleaning to WORKING-STORAGE data
+            # declarations.
             if self._in_working_storage and "PIC" in logical_stripped and any(
-                marker in logical_stripped for marker in ["COMP-3", "COMP-2", "COMP-1", "COMPUTATIONAL", "FILLER", "PACKED"]
+                marker in logical_stripped
+                for marker in [
+                    "COMP-3",
+                    "COMP-2",
+                    "COMP-1",
+                    "COMPUTATIONAL",
+                    "FILLER",
+                    "PACKED",
+                ]
             ):
                 cleaned_line = self._clean_data_declaration_line(line)
                 if cleaned_line is not None:  # Only append if not removed
                     output_lines.append(cleaned_line)
                 continue
 
-            if self.residual_cleanup.is_idms_declarative_or_control(logical_stripped):
+            if self.residual_cleanup.is_idms_declarative_or_control(
+                logical_stripped
+            ):
                 output_lines.extend(
                     self.residual_cleanup.removed_declarative_lines(
                         logical_stripped
@@ -267,7 +347,9 @@ class CobolTransformer:
                 )
                 continue
 
-            if self.residual_cleanup.is_idms_executable_cleanup(logical_stripped):
+            if self.residual_cleanup.is_idms_executable_cleanup(
+                logical_stripped
+            ):
                 output_lines.extend(
                     self.residual_cleanup.removed_executable_lines(
                         logical_line=logical_stripped,
@@ -276,6 +358,23 @@ class CobolTransformer:
                 )
                 continue
 
+            # Orphaned copybook-field references. COPY_IDMS_PATTERN
+            # removed the member that declared LR-STATUS / ERROR-STATUS
+            # / DML-SEQUENCE; this catches what that deletion orphans.
+            # Its diagnostics are drained after the loop - CORRECTION 4.
+            if self.residual_cleanup.references_removed_field(
+                logical_stripped
+            ):
+                output_lines.extend(
+                    self.residual_cleanup.removed_field_lines(
+                        logical_stripped
+                    )
+                )
+                continue
+
+            # Every IDMS statement converter - including Converter 4,
+            # which removes PERFORM IDMS-STATUS / IDMS-ABORT / IDMS-STOP -
+            # is reached through this one call. See CORRECTION 3.
             transformed_lines, _opened_set = (
                 self.idms_statement_transformer.transform_line(
                     line=logical_stripped,
@@ -297,6 +396,14 @@ class CobolTransformer:
                 )
             else:
                 output_lines.append(line)
+
+        # ---- Drain the cleanup diagnostics.
+        #
+        # Drained here, AFTER the loop, because every removal and every
+        # refusal must reach the run log. A pass that silently deletes
+        # generated output cannot be reviewed. See CORRECTION 4.
+        validation_messages.extend(self.residual_cleanup.messages)
+
         if not compiler_option_seen:
             self._ensure_compiler_option(output_lines, validation_messages)
 
@@ -309,9 +416,13 @@ class CobolTransformer:
 
         # PROGRAM-NAME must agree with the FINAL PROGRAM-ID, so this runs
         # last. Safe by construction: ProgramNameSyncService reads the id
-        # out of the converted text and rewrites only a
-        # MOVE literal TO PROGRAM-NAME.
+        # out of the converted text, rewrites only a
+        # MOVE literal TO PROGRAM-NAME, and derives any VM..BD.. id found
+        # INSIDE a quoted literal. The derived name is the same length as
+        # the source name, so the fixed-format geometry is untouched and
+        # no resequencing is needed. See CORRECTION 2.
         converted_text = self.program_name_sync.sync(converted_text)
+        validation_messages.extend(self.program_name_sync.messages)
 
         return converted_text, validation_messages, operations
 
@@ -412,78 +523,84 @@ class CobolTransformer:
         self,
         line: str,
     ) -> str | None:
-        """Remove COMP-3 and FILLER fields from data declarations in WORKING-STORAGE.
-        
+        """Remove COMP-3 and FILLER fields from WORKING-STORAGE entries.
+
         Removes:
-        - Binary encoding: COMP-3, COMP-2, COMP-1, COMPUTATIONAL variants, PACKED-DECIMAL
+        - Binary encoding: COMP-3, COMP-2, COMP-1, COMPUTATIONAL variants,
+          PACKED-DECIMAL
         - FILLER field declarations
-        
+
         Adds:
-        - VALUE ZEROES to numeric PIC clauses without existing VALUE
-        
+        - VALUE ZEROES to numeric PIC clauses without an existing VALUE
+
         Returns:
-        - None if line should be skipped (e.g., FILLER)
-        - Modified line if changes made
-        - Original line if no changes needed
+        - None if the line should be skipped (e.g. FILLER)
+        - Modified line if changes were made
+        - Original line if no change was needed
         """
         logical = self.line_utils.logical_line(line)
         logical_stripped = logical.strip()
-        
+
         # Don't process non-data lines
         if not logical_stripped:
             return line
-        
+
         # Skip comments
         if logical_stripped.startswith("*"):
             return line
-        
-        # Skip FILLER declarations entirely - return None to exclude from output
+
+        # Skip FILLER declarations entirely - None excludes from output
         if any(marker in logical for marker in ["FILLER", "filler"]):
             return None
-        
+
         # Remove binary encoding clauses
         modified_logical = logical
         binary_patterns = [
             " COMP-3", " COMP-2", " COMP-1",
-            " COMPUTATIONAL-3", " COMPUTATIONAL-2", " COMPUTATIONAL-1", 
+            " COMPUTATIONAL-3", " COMPUTATIONAL-2", " COMPUTATIONAL-1",
             " COMP-3.", " COMP-2.", " COMP-1.",
             " COMPUTATIONAL-3.", " COMPUTATIONAL-2.", " COMPUTATIONAL-1.",
-            " PACKED-DECIMAL", " PACKED-DECIMAL."
+            " PACKED-DECIMAL", " PACKED-DECIMAL.",
         ]
-        
+
         for pattern in binary_patterns:
             modified_logical = modified_logical.replace(pattern, "")
-        
-        # Drop the sign on plain integer record-key fields (PIC S9(n) -> PIC 9(n)).
-        # Signed decimal fields (PIC S9(x)V99, e.g. money) keep their sign.
+
+        # Drop the sign on plain integer record-key fields
+        # (PIC S9(n) -> PIC 9(n)). Signed decimal fields (PIC S9(x)V99,
+        # e.g. money) keep their sign.
         if "V" not in modified_logical.upper():
             modified_logical = re.sub(
                 r"(PIC\s+)S9", r"\g<1>9", modified_logical
             )
-        
+
         # Add VALUE ZEROES to numeric fields
         if "PIC" in modified_logical and "VALUE" not in modified_logical:
             # Check if it's a numeric PIC
-            if any(pic in modified_logical.upper() for pic in ["PIC 9", "PIC S9"]):
+            if any(
+                pic in modified_logical.upper()
+                for pic in ["PIC 9", "PIC S9"]
+            ):
                 # Find the PIC clause and add VALUE ZEROES after it
                 if "." in modified_logical:
                     # Has period - insert before it
                     modified_logical = modified_logical.replace(
                         ".",
-                        " VALUE ZEROES."
+                        " VALUE ZEROES.",
                     )
                 else:
                     # No period - add VALUE ZEROES at end
-                    modified_logical = modified_logical.rstrip() + " VALUE ZEROES"
-        
+                    modified_logical = (
+                        modified_logical.rstrip() + " VALUE ZEROES"
+                    )
+
         # If something changed, apply it to the original line's structure
         if modified_logical != logical:
-            result = self.line_utils.replace_logical_body(
+            return self.line_utils.replace_logical_body(
                 original_line=line,
-                replacement_body=modified_logical.strip()
+                replacement_body=modified_logical.strip(),
             )
-            return result
-        
+
         return line
 
 

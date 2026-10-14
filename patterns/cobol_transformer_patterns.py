@@ -66,7 +66,7 @@ IDMS_EXECUTABLE_PATTERNS = [
 
 
 IDMS_ABORT_PARAGRAPH_PATTERN = re.compile(
-    r"^IDMS-ABORT\.?$",
+    r"^(?:IDMS-ABORT|IDMS-STOP)\.?$",
     flags=re.IGNORECASE,
 )
 

@@ -39,14 +39,39 @@ DIAG_RETRIEVAL_SKIPPED_TEMPLATE = (
 )
 
 
-def build_output_path(*, mode: BatchMode, program_path: Path) -> Path:
+def build_output_path(
+    *,
+    mode: BatchMode,
+    program_path: Path,
+    target_program_id: str = "",
+) -> Path:
+    """The output path for one converted program.
+
+    CORRECTION - three builders of one name, and this was the third.
+
+    retrieval_program_converter._build_output_path (line 131) and
+    update_program_converter._build_output_path (lines 93, 103) both
+    resolve the stem as
+
+        target_program_id or program_path.stem
+
+    This builder used program_path.stem UNCONDITIONALLY, so a batch run
+    wrote VM4BD420_<stamp>.cbl while the program inside carried
+    PROGRAM-ID. VMDZ4420. Content and filename disagreed, and the COBOL
+    team had no way to tell which run produced which file.
+
+    The update builder's own docstring already records this exact fix
+    being applied there. The same question had three owners; it now has
+    one answer in all three.
+    """
     timestamp = datetime.now().strftime(OUTPUT_TIMESTAMP_FORMAT)
-    file_name = OUTPUT_FILE_NAME_TEMPLATE.format(
-        stem=program_path.stem,
+    stem = str(target_program_id or "").strip() or program_path.stem
+
+    return mode.output_dir / OUTPUT_FILE_NAME_TEMPLATE.format(
+        stem=stem,
         timestamp=timestamp,
         extension=OUTPUT_FILE_EXTENSION,
     )
-    return mode.output_dir / file_name
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +198,11 @@ def convert_one_program(
             diagnostics.append(message)
             logger.warning(message)
 
-    output_path = build_output_path(mode=mode, program_path=program_path)
+    output_path = build_output_path(
+        mode=mode,
+        program_path=program_path,
+        target_program_id=target_program_id,
+    )
     output_path.write_text(converted_cobol, encoding=COBOL_TEXT_ENCODING)
 
     log_program_result(

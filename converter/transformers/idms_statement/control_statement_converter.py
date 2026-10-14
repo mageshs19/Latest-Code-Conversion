@@ -78,6 +78,7 @@ from patterns.idms_patterns import (
     FINISH_PATTERN,
     IDMS_ABORT_PERFORM_PATTERN,
     IDMS_STATUS_PERFORM_PATTERN,
+    IDMS_STOP_PERFORM_PATTERN,
     READY_PATTERN,
     USAGE_MODE_PATTERN,
 )
@@ -265,6 +266,12 @@ class ControlStatementConverterMixin:
         if IDMS_ABORT_PERFORM_PATTERN.search(text):
             return self._remove(
                 f"* DB2: Removed IDMS PERFORM IDMS-ABORT: {statement}",
+                division,
+            )
+
+        if IDMS_STOP_PERFORM_PATTERN.search(text):
+            return self._remove(
+                f"* DB2: Removed IDMS PERFORM IDMS-STOP: {statement}",
                 division,
             )
 

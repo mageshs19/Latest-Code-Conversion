@@ -88,10 +88,15 @@ def test_sql_templates_assign_no_constant_twice():
 
 
 def test_sql_templates_carry_no_site_names():
+    """Prose is held to the same rule as code.
+
+    inspect.getsource() returns comments and docstrings too, on
+    purpose: a real table or DCLGEN group in a worked example is one
+    copy-paste away from becoming a hardcoded default.
+    """
     source = inspect.getsource(sqltpl).upper()
     for token in ("DCLDZ", "DZ01RST", "DZBFAR", "VMDZ", "NM_ID_RS"):
         assert token not in source, token
-
 
 # ---------------------------------------------------------------------
 # Structure

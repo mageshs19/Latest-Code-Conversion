@@ -40,8 +40,8 @@ class OrderByLogicPythonCheck(Check):
         # Child: FROM relationship keys (ORDER_BY_SOURCE_CHILD_KEY)
         record.pass_all(
             "01",
-            "ORDER BY columns sourced from Sheet Mapping or relationship keys",
-            f"Found {len(order_blocks)} ORDER BY clause(s)",
+            f"ORDER BY columns sourced from Sheet Mapping or "
+            f"relationship keys ({len(order_blocks)} clause(s) found)",
         )
 
         # ---- 02 ORDER BY COLUMN VALIDATION ---------

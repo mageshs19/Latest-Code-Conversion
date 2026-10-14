@@ -95,3 +95,16 @@ REMOVED_REDUNDANT_OBTAIN_NEXT = (
 REMOVED_REDUNDANT_SQLCODE_WRAPPER = (
     "*DB2: Removed redundant SQLCODE wrapper after cursor EOC loop."
 )
+REMOVED_FIELD_LINE_TEMPLATE = (
+    "*DB2: Removed {field} operand; its copybook declaration was "
+    "deleted by the IDMS conversion. Original: {line}"
+)
+REMOVED_FIELD_REFUSED_TEMPLATE = (
+    "*DB2 WARNING: {field} is undefined after copybook removal but "
+    "shares a line with live operands; left for manual review."
+)
+ERROR_STATUS_MOVE_OWNED_ELSEWHERE = (
+    "Residual cleanup: MOVE ... TO ERROR-STATUS left in place; "
+    "CobolCleanupComposer converts it into the SW-STATUS-D flag and the "
+    "child-fetch early stop."
+)
