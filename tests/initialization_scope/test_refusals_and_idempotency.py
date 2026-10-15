@@ -28,7 +28,16 @@ def test_a_program_with_no_procedure_division_is_untouched(program, run):
     assert messages
 
 
-def test_a_program_with_no_cursor_open_is_untouched(program, run):
+def test_a_program_with_no_cursor_open_and_no_dclgen_write_is_untouched(
+    program, run
+):
+    """Was: "no cursor means nothing to do" - which IS the defect.
+
+    A cursorless program that never writes into a DCLGEN group still
+    has nothing to initialise. A cursorless program that DOES write
+    into one is covered by tests/initialization_scope/
+    test_population_scope.py and must NOT be untouched.
+    """
     source = program(
         [
             "WORKING-STORAGE SECTION.",
@@ -39,10 +48,8 @@ def test_a_program_with_no_cursor_open_is_untouched(program, run):
         ]
     )
     result, messages = run(source)
-
     assert result == source
     assert messages
-
 
 def test_an_unresolvable_group_rolls_the_pass_back(program, run):
     source = program(

@@ -172,6 +172,45 @@ class ConversionComponentFactory:
     it on a factory-built object would let one program's context leak
     into the next in a batch run.
 
+    CORRECTION 4 - the LRF populator was wired blind, and silently
+    --------------------------------------------------------------
+    The LRF host-variable population setup was called like this:
+
+        try:
+            setup_lrf_host_variable_population(
+                cursor_paragraph_generator=cursor_paragraph_generator,
+                host_variable_resolver=resolvers["host_variable"],
+                table_name_resolver=resolvers["table_name"],
+                cursor_name_resolver=resolvers["cursor_name"],
+            )
+        except Exception:
+            pass
+
+    TWO defects, and together they cost three conversion cycles.
+
+    (a) NO PATH RESOLVER WAS SUPPLIED. The populator needs to turn an LRF
+        path keyword into a record, a set or an area. Without that it
+        cannot tell a join from an unqualified area sweep, so it has to
+        refuse every marker. resolvers["lrf_path"] - an LrfPathResolver
+        already built two methods above, already wrapping the LRF
+        repository - was never handed over. Every program logged
+        "[LRF-POPULATOR] no_lrf_markers" and the pass did nothing.
+
+    (b) THE BARE `except Exception: pass` HID IT. A failure to WIRE a
+        pass is not the same thing as a program that has no logical
+        records. Silence cannot tell those apart, which is precisely why
+        nobody noticed for three runs. The exception is now reported on
+        the component that LOST the feature - the cursor paragraph
+        generator, whose messages the pipeline already drains.
+
+    TRANSITIONAL: `lrf_repository` is passed alongside `lrf_path_resolver`
+    because the populator's path lookup still reads the raw repository.
+    DELETE the lrf_repository argument once the populator consumes
+    LrfPathResolver.plan_for_keyword() and its LrfAccessPlan, which is
+    the permanent owner of path semantics. Two routes to one fact is
+    this codebase's dominant defect class; this one is temporary and
+    carries its own removal condition.
+
     LRF (Logical Record Facility)
     -----------------------------
     LRF metadata is OPTIONAL. With no subschema supplied, LrfRepository is
@@ -199,6 +238,16 @@ class ConversionComponentFactory:
     LrStatusTokenReplacer takes NO collaborators: it reads only rules/, so
     it cannot be mis-wired, and it is a byte-for-byte no-op on any program
     that carries no generated status token.
+
+    A THIRD LRF component runs later, on the GENERATED text:
+    LrfHostVariablePopulator, attached to the cursor paragraph generator
+    by setup_lrf_host_variable_population below. It reads the
+    "*DB2: Expanded LRF ..." markers the expander left behind and loads
+    the DCLGEN host group before OPEN for any cursor that declares a
+    predicate. A cursor with no WHERE clause takes no parameter, so the
+    populator correctly generates nothing and says so. Creating a
+    predicate from a COBOL IF is predicate pushdown - a different
+    capability with a different owner.
     """
 
     def __init__(self) -> None:
@@ -206,6 +255,12 @@ class ConversionComponentFactory:
         # batch run cannot leak program 1's kind into program 2.
         self._source_text: str = ""
         self._source_known: bool = False
+
+        # Factory-level diagnostics. The primary sink for a wiring
+        # failure is the component that lost the feature; this list is
+        # the fallback when that component exposes no messages, and the
+        # assertion point for tests.
+        self.messages: list[str] = []
 
     # ------------------------------------------------------------------
     # Program kind
@@ -247,6 +302,10 @@ class ConversionComponentFactory:
         # First component built for a program, so this is the one place
         # every caller passes the source through.
         self._remember_source(conversion_input)
+
+        # Per-program reset. A wiring failure on program 1 must not be
+        # reported again against program 2.
+        self.messages = []
 
         return {
             "mapping": MappingRepository(conversion_input.sheet_mapping_rows),
@@ -324,17 +383,11 @@ class ConversionComponentFactory:
             sql_error_generator=sql_error_generator,
         )
 
-        # Setup LRF host variable population support
-        try:
-            setup_lrf_host_variable_population(
-                cursor_paragraph_generator=cursor_paragraph_generator,
-                host_variable_resolver=resolvers["host_variable"],
-                table_name_resolver=resolvers["table_name"],
-                cursor_name_resolver=resolvers["cursor_name"],
-            )
-        except Exception:  # noqa: BLE001
-            # Silently fail; LRF support is optional
-            pass
+        self._wire_lrf_host_variable_population(
+            cursor_paragraph_generator=cursor_paragraph_generator,
+            repositories=repositories,
+            resolvers=resolvers,
+        )
 
         timestamp_generator = TimestampGenerator(
             mapping_repository=repositories["mapping"],
@@ -351,6 +404,69 @@ class ConversionComponentFactory:
             "timestamp": timestamp_generator,
             "select_paragraph": select_paragraph_generator,
         }
+
+    # ------------------------------------------------------------------
+    # LRF host-variable population wiring
+    # ------------------------------------------------------------------
+    def _wire_lrf_host_variable_population(
+        self,
+        *,
+        cursor_paragraph_generator,
+        repositories,
+        resolvers,
+    ) -> bool:
+        """Attach the LRF host-variable populator. Report every outcome.
+
+        See CORRECTION 4 in the class docstring. The two things that
+        matter here are that the PATH RESOLVER is supplied, and that a
+        failure is never swallowed.
+
+        Returns True when the populator was attached.
+        """
+        try:
+            attached = setup_lrf_host_variable_population(
+                cursor_paragraph_generator=cursor_paragraph_generator,
+                host_variable_resolver=resolvers["host_variable"],
+                table_name_resolver=resolvers["table_name"],
+                cursor_name_resolver=resolvers["cursor_name"],
+                # The permanent owner of path-keyword resolution.
+                lrf_path_resolver=resolvers["lrf_path"],
+                # TRANSITIONAL. Delete once the populator reads
+                # LrfPathResolver.plan_for_keyword(). See CORRECTION 4.
+                lrf_repository=repositories.get("lrf"),
+            )
+        except Exception as error:  # noqa: BLE001
+            self._report_lrf_wiring(
+                cursor_paragraph_generator,
+                "LRF populator: host-variable population could not be "
+                f"wired ({type(error).__name__}: {error}); the pass will "
+                "not run for this program.",
+            )
+            return False
+
+        if attached is False:
+            self._report_lrf_wiring(
+                cursor_paragraph_generator,
+                "LRF populator: setup returned False, so no populator was "
+                "attached. A required collaborator was missing; the pass "
+                "will not run for this program.",
+            )
+            return False
+
+        return True
+
+    def _report_lrf_wiring(self, cursor_paragraph_generator, text: str) -> None:
+        """Send a wiring diagnostic to the component that lost the feature.
+
+        The cursor paragraph generator's messages are already drained by
+        the pipeline, so a message placed there reaches the run log. The
+        factory list is the fallback and the test assertion point.
+        """
+        self.messages.append(text)
+
+        messages = getattr(cursor_paragraph_generator, "messages", None)
+        if isinstance(messages, list):
+            messages.append(text)
 
     # ------------------------------------------------------------------
     # Transformers

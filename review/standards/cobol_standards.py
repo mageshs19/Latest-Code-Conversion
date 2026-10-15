@@ -1,3 +1,5 @@
+# LOCATION: review/standards/cobol_standards.py
+# ACTION: REPLACE ENTIRE FILE
 """Expected values. THIS FILE IS OWNED BY THE COBOL TEAM.
 
 Constants only. No regex, no logic, no program names, no DB2 table names.
@@ -42,7 +44,23 @@ IDMS_DECLARATIVE_PREFIXES = (
     "IDMS-CONTROL SECTION", "PROTOCOL", "SCHEMA SECTION",
     "IDMS-RECORDS WITHIN", "COPY IDMS",
 )
-IDMS_TOKENS = ("IDMS-STATUS", "IDMS-ABORT", "DB-REC-NOT-FOUND", "DB-END-OF-SET")
+
+# CORRECTION - DB-REC-FOUND was missing.
+#
+# LrfPathExpander classifies an LR-STATUS literal into THREE tokens:
+# DB-END-OF-SET, DB-REC-NOT-FOUND and DB-REC-FOUND. All three are
+# CONDITION NAMES declared by COPY IDMS SUBSCHEMA-LR-CTRL, which the
+# converter removes. Only two were listed here, so a surviving
+# DB-REC-FOUND reached the compiler undefined and no check reported it.
+# The success token is the one most likely to survive, because it is
+# handled by a different pass (LrStatusTokenReplacer) from the other two.
+IDMS_TOKENS = (
+    "IDMS-STATUS",
+    "IDMS-ABORT",
+    "DB-REC-NOT-FOUND",
+    "DB-END-OF-SET",
+    "DB-REC-FOUND",
+)
 IDMS_CLAUSES = ("USAGE-MODE IS UPDATE", "USAGE-MODE IS RETRIEVAL")
 
 # ---- CHK-04 program header -------------------------------------------
@@ -241,6 +259,19 @@ AUDIT_MOVE_LOOKBACK = 12
 ENFORCE_AUDIT_MOVES_BEFORE_UPDATE = True
 ENFORCE_DATE_STAGING = True
 
+# ======================================================================
+# RESTART CONSTANTS
+#
+# LABEL DRIFT, NOT A VALUE DEFECT. The three headers below read CHK-19,
+# CHK-20 and CHK-21, but restart is scored by CHK-17 "Restart table
+# logic - structure, SQL, safe skip". CHK-19/20/21 are SELECT column
+# names, INTO binding and child-cursor WHERE predicates.
+#
+# The VALUES are correct and in use. Only the comment labels drifted.
+# Renaming the headers is safe; renaming the CONSTANTS is not, because
+# review/checks/chk_17_* reads them by name. Left as found, recorded here.
+# ======================================================================
+
 # ---- CHK-19 restart paragraph structure ------------------------------
 RESTART_PARAGRAPHS = {
     "control": "700-RESTART-CONTROL",
@@ -301,6 +332,69 @@ VARCHAR_TYPES = (
 
 # ---- CHK-25 copybook and record usage validation ---------------------
 ENFORCE_NO_IDMS_QUALIFIER = True
+
+# ======================================================================
+# CHK-29 / CHK-30  LOGICAL RECORD FACILITY
+#
+# ADDED 15-10-2026. Both checks previously scored nothing.
+#
+# CHK-29 gated on LR-STATUS text SURVIVING, so a clean conversion and a
+# program that never used LRF both SKIPped. It could fail, but it could
+# never meaningfully pass. Relevance is now evidence that LRF conversion
+# HAPPENED; the criteria then assert that it FINISHED.
+#
+# CHK-30 resolved all five criteria to an unconditional record.ok(), so
+# a PASS carried no information at all.
+#
+# These are literal TOKENS, not regex. The review engine scores a .cbl on
+# disk and must never import the converter, so it keeps its own copy of
+# the marker text - the same deliberate duplication recorded above for
+# NON_PARAGRAPH_WORDS. If the converter changes
+# rules/lrf_conversion_rules.EXPANDED_OBTAIN_TEMPLATE, this must change
+# with it. That coupling is recorded here so it cannot drift unnoticed.
+# ======================================================================
+
+# The audit comment LrfPathExpander writes for every expanded access.
+LRF_EXPANSION_MARKER = "EXPANDED LRF"
+
+# The audit comment it writes when it REFUSES to expand.
+LRF_KEEP_MARKER = "DB2-KEEP:"
+
+LRF_WITHIN_KEYWORD = "WITHIN"
+
+# The emitter wraps the marker at word boundaries, so the WITHIN clause
+# can land on a continuation comment line. Reading only the first
+# physical line is the same defect recorded against CHK-15.06.
+LRF_MARKER_CONTINUATION_LINES = 2
+
+LR_STATUS_FIELD = "LR-STATUS"
+LR_CTRL_TOKENS = ("LR-CTRL", "SUBSCHEMA-LR")
+LR_QUALIFIER = "OF LR"
+
+# Derived from IDMS_TOKENS so the status-token list has ONE owner.
+# Adding a token to IDMS_TOKENS automatically extends CHK-29.03.
+IDMS_STATUS_TOKENS = tuple(
+    token for token in IDMS_TOKENS if token.startswith("DB-")
+)
+
+# Evidence the status test was TRANSLATED, not merely deleted. Derived
+# from END_OF_CURSOR_CONDITION above rather than restating the literal.
+SQLCODE_END_TESTS = (
+    END_OF_CURSOR_CONDITION,
+    END_OF_CURSOR_CONDITION.replace(" ", ""),
+    "SQLCODE = +100",
+    "SQLCODE=+100",
+)
+
+# Text the expander writes when a path keyword cannot be resolved.
+LRF_UNRESOLVED_TEXTS = (
+    "not found in the supplied subschema",
+    "no resolvable driving record",
+)
+LRF_UNMAPPED_TEXT = "has no Sheet Mapping entry"
+LRF_EXTRA_FILTER_TEXT = "extra filter"
+
+ENFORCE_LRF_PATH_RESOLUTION = True
 
 # =====================================================================
 # DECISIONS CLOSED BY THE MANUAL REFERENCE PROGRAM (VMDZ4420)
@@ -396,6 +490,9 @@ LEGACY_EOC_LOOP_STATEMENTS = (
     "UNTIL SQLCODE=+100",
     "UNTIL DB-END-OF-SET",
     "UNTIL DB-REC-NOT-FOUND",
+    # ADDED 16-10. VMDZ4302 drove its cursor on the raw IDMS status
+    # field and CHK-14.04 passed, because the idiom was not listed.
+    "UNTIL ERROR-STATUS",
 )
 
 # Retained for any caller still reading the old name.

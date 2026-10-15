@@ -1,3 +1,5 @@
+# LOCATION: review/engine/cursors.py
+# ACTION: REPLACE ENTIRE FILE
 """Shared cursor parsing for checks.
 
 Recognises the two shapes the converter emits:
@@ -12,6 +14,22 @@ Recognises the two shapes the converter emits:
     730-CLOSE-<cursor>.
 
 Read-only. Knows nothing about standards or wording.
+
+CORRECTION - THREE FUNCTIONS WERE DEFINED TWICE
+
+open_statements, close_statements and cursor_name each appeared twice:
+once in the middle of the module with the full CHK-27 rationale, and
+again at the end with a one-line docstring. Python keeps the LAST
+definition, so the richly documented copies were DEAD TEXT that still
+read as authoritative - editing them changed nothing.
+
+The two sets were behaviourally identical (same comprehension, different
+loop variable), so the merge is safe. The surviving definitions carry the
+CHK-27 rationale, which is the part that was worth keeping.
+
+Same defect, same resolution, as the duplicate-assignment correction in
+rules/db2_infrastructure_rules.py. NO FUNCTION MAY BE DEFINED TWICE IN
+THIS MODULE.
 """
 
 from __future__ import annotations
@@ -32,7 +50,9 @@ PARAGRAPH = re.compile(
 PERFORM = re.compile(
     r"^PERFORM\s+(?P<name>[A-Z0-9][A-Z0-9-]*)\b(?P<rest>.*)$"
 )
-CURSOR_VERB = re.compile(r"\b(?P<operation>OPEN|FETCH|CLOSE)\s+(?P<cursor>[A-Z][A-Z0-9-]*)\b")
+CURSOR_VERB = re.compile(
+    r"\b(?P<operation>OPEN|FETCH|CLOSE)\s+(?P<cursor>[A-Z][A-Z0-9-]*)\b"
+)
 
 # COBOL scope terminators that look like a paragraph header because they
 # are a single word followed by a period. These are language facts, not
@@ -132,6 +152,17 @@ def cursors_used(view, operation: str) -> set[str]:
             out.add(match.group("cursor").upper())
     return out
 
+
+def open_statements(view) -> list[sql.SqlBlock]:
+    """Every EXEC SQL OPEN block, in source order.
+
+    Added for CHK-27 (cursor lifecycle), which pairs each OPEN with its
+    CLOSE. Returns the SQL blocks rather than cursor names so the check
+    can report the offending line.
+    """
+    return [block for block in sql.sql_blocks(view) if block.verb == "OPEN"]
+
+
 def close_statements(view) -> list[sql.SqlBlock]:
     """Every EXEC SQL CLOSE block, in source order.
 
@@ -150,15 +181,6 @@ def cursor_name(block) -> str:
     """
     match = CURSOR_VERB.search(getattr(block, "text", "") or "")
     return match.group("cursor").upper() if match else ""
-
-def open_statements(view) -> list[sql.SqlBlock]:
-    """Every EXEC SQL OPEN block, in source order.
-
-    Added for CHK-27 (cursor lifecycle), which pairs each OPEN with its
-    CLOSE. Returns the SQL blocks rather than cursor names so the check
-    can report the offending line.
-    """
-    return [block for block in sql.sql_blocks(view) if block.verb == "OPEN"]
 
 
 def is_paragraph_header(logical: str, stop_words) -> bool:
@@ -203,21 +225,19 @@ def paragraph_body(view, para: CursorParagraph, stop_words=None) -> list[str]:
         out.append(logical)
     return out
 
-def open_statements(view) -> list[sql.SqlBlock]:
-    """Every EXEC SQL OPEN block, in source order."""
-    return [b for b in sql.sql_blocks(view) if b.verb == "OPEN"]
 
-
-def close_statements(view) -> list[sql.SqlBlock]:
-    """Every EXEC SQL CLOSE block, in source order."""
-    return [b for b in sql.sql_blocks(view) if b.verb == "CLOSE"]
-
-
-def cursor_name(block) -> str:
-    """The cursor named by an OPEN / CLOSE / FETCH block.
-
-    Returns "" when the block names no cursor, so a caller can build a
-    name set without guarding every element.
-    """
-    match = CURSOR_VERB.search(getattr(block, "text", "") or "")
-    return match.group("cursor").upper() if match else ""
+__all__ = [
+    "CursorParagraph",
+    "SCOPE_TERMINATORS",
+    "close_statements",
+    "cursor_name",
+    "cursor_paragraphs",
+    "cursors_used",
+    "declare_blocks",
+    "declared_cursors",
+    "is_paragraph_header",
+    "open_statements",
+    "paragraph_body",
+    "paragraph_sets",
+    "performed_names",
+]

@@ -29,10 +29,9 @@ from __future__ import annotations
 LEGACY_EOC_CONDITIONS = (
     "SQLCODE = 100",
     "SQLCODE=100",
-    "SQLCODE = +100",
-    "SQLCODE=+100",
     "DB-END-OF-SET",
     "DB-REC-NOT-FOUND",
+    "ERROR-STATUS",
 )
 
 EOC_CONDITION_TEMPLATE = "{cursor}-EOC"

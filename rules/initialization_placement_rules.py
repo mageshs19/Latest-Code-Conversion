@@ -114,6 +114,11 @@ INITIALIZATION_PLACEMENT_MESSAGES = {
         "Initialization: scoped {run} run-level and {row} row-level "
         "DCLGEN group(s)."
     ),
+    "placed_population_scope": (
+        "Initialization: placed INITIALIZE {group} in {scope} before "
+        "{paragraph}; the group is cleared once per record, at the "
+        "paragraph that populates it."
+    ),
 }
 
 __all__ = [

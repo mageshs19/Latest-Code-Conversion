@@ -2,13 +2,32 @@
 # ACTION: REPLACE ENTIRE FILE
 """M1 contract tests: the standards layer holds shape, not names.
 
-CORRECTION - the payload geometry test asserted deleted constants
+CORRECTION 1 - the payload geometry test asserted deleted constants
 
 PAYLOAD_FULL_LENGTH, PAYLOAD_COUNTER_DIGITS and PAYLOAD_KEY_DIGITS no
 longer exist. The checkpoint payload length is MEASURED from the two
 restart-record pictures, and the retention value is SUPPLIED with the
 restart DCLGEN role. Both tests below now assert the opposite of what
 the old one did: that this layer owns NEITHER value.
+
+CORRECTION 2 - one flag was asserted twice, two different ways
+
+    test_the_commit_length_flag_defaults_to_the_manual   ->  is False
+    test_the_commit_length_flag_is_explicit              ->  isinstance bool
+
+Both passed only because the flag happens to be False. Set it True and
+the pair contradicts itself with no stated winner. The strict assertion
+is kept - it is the policy statement - and the weak duplicate is gone.
+The behaviour that reads the flag is asserted separately in the config
+suite (test_commit_length_follows_the_manual_by_default), so nothing is
+lost.
+
+CORRECTION 3 - a local import shadowed the module-level one
+
+test_no_template_line_renders_into_area_a re-imported
+rules.restart_statement_templates as `tpl`, which is already bound at
+module scope. Two bindings for one name means an edit to the top import
+silently fails to reach that test. The local import is removed.
 """
 
 from __future__ import annotations
@@ -122,6 +141,10 @@ def test_sql_location_is_never_restated_in_the_error_branch():
 
 
 def test_the_commit_length_flag_defaults_to_the_manual():
+    """The reference writes the COUNTER length on commit, not the full
+    payload. This asserts the POLICY VALUE; the behaviour that reads it
+    is asserted by the config suite. One statement of intent, one place.
+    """
     assert std.ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT is False
 
 
@@ -198,6 +221,17 @@ def test_main_flow_order_is_fixed():
 
 
 def test_restart_found_blocks_a_completed_run():
+    """Token PRESENCE only.
+
+    Block STRUCTURE - the counter MOVE nested INSIDE the replay loop,
+    before END-PERFORM - is asserted in
+    tests/restart/test_m5b_restart_found_nesting.py.
+
+    This test passed for the whole life of the defect, because every
+    token it names was present while the MOVE sat outside the loop.
+    Presence is not structure. Do not delete the structural suite as
+    redundant with this one.
+    """
     body = " ".join(tpl.RESTART_FOUND_TEMPLATE)
     assert "{abend_paragraph}" in body
     assert "{read_count_field}" in body
@@ -226,6 +260,33 @@ def test_read_paragraph_increments_both_counters():
     assert "ADD +1 TO {commit_counter}" in body
     assert "ADD +1 TO {input_counter}" in body
     assert "MOVE {record_name} TO {input_save_area}" in body
+
+
+def test_no_template_line_renders_into_area_a() -> None:
+    """A continuation line's leading spaces are an ABSOLUTE offset from
+    column 8. Two spaces put the body at column 10, inside Area A, and
+    CHK-06.06 reported six such lines on a generated program.
+
+    Reads the module-level `tpl`; a local re-import would shadow it and
+    silently detach this test from the top of the file.
+    """
+    floor = tpl.MINIMUM_CONTINUATION_INDENT
+    offenders = []
+
+    for name in tpl.__all__:
+        template = getattr(tpl, name)
+        if not isinstance(template, tuple):
+            continue
+        for line in template:
+            if not line or not line.startswith(" "):
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent < floor:
+                offenders.append(f"{name}: {indent} space(s) -> {line!r}")
+
+    assert not offenders, (
+        "Template lines that render into Area A:\n" + "\n".join(offenders)
+    )
 
 
 # ---------------------------------------------------------------------
@@ -340,35 +401,3 @@ def test_orphan_scope_terminator_is_detected():
 def test_paragraph_header_rejects_a_statement():
     assert pat.PARAGRAPH_HEADER_PATTERN.match("700-RESTART-CONTROL.")
     assert not pat.PARAGRAPH_HEADER_PATTERN.match("MOVE 0 TO WS-TELLER.")
-
-
-def test_no_template_line_renders_into_area_a() -> None:
-    """A continuation line's leading spaces are an ABSOLUTE offset from
-    column 8. Two spaces put the body at column 10, inside Area A, and
-    CHK-06.06 reported six such lines on a generated program."""
-    import rules.restart_statement_templates as tpl
-
-    floor = tpl.MINIMUM_CONTINUATION_INDENT
-    offenders = []
-
-    for name in tpl.__all__:
-        template = getattr(tpl, name)
-        if not isinstance(template, tuple):
-            continue
-        for line in template:
-            if not line or not line.startswith(" "):
-                continue
-            indent = len(line) - len(line.lstrip(" "))
-            if indent < floor:
-                offenders.append(f"{name}: {indent} space(s) -> {line!r}")
-
-    assert not offenders, (
-        "Template lines that render into Area A:\n" + "\n".join(offenders)
-    )
-
-# tests/restart/test_m1_restart_standards.py
-def test_the_commit_length_flag_is_explicit() -> None:
-    """Was: asserts the flag mirrors the manual. The flag now governs the
-    insert as well, so what matters is that it is declared, not which way
-    it points."""
-    assert isinstance(std.ENFORCE_FULL_PAYLOAD_LENGTH_ON_COMMIT, bool)

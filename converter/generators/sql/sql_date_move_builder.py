@@ -1,10 +1,18 @@
 # LOCATION: converter/generators/sql/sql_date_move_builder.py
 # ACTION: REPLACE ENTIRE FILE
 
-"""DB2 date column detection and CCYYMMDD -> DD.MM.CCYY move builder."""
+"""DB2 date column detection and CCYYMMDD -> DD.MM.CCYY move builder.
+
+The null-date sentinel decision is NOT taken here. It belongs to
+Db2DateSentinelPolicy, which is the single owner shared with
+update_sql_cleanup/date_move_builder.py and
+postprocess/update_date_host_converter.py. Three copies of one rule is
+how a PARM-sourced date acquired a guard it never needed.
+"""
 
 from __future__ import annotations
 
+from converter.services.db2_date_sentinel_policy import Db2DateSentinelPolicy
 from converter.services.name_normalizer import NameNormalizer
 from rules.sql_generation_rules import (
     DATE_COLUMN_PREFIXES,
@@ -14,7 +22,17 @@ from rules.sql_generation_rules import (
 
 
 class SqlDateMoveBuilder:
+    """Builds the manual CCYYMMDD -> DD.MM.CCYY host move."""
 
+    def __init__(self) -> None:
+        # Owners drain component diagnostics by attribute. Declaring the
+        # list here means a decision can never be taken silently, and no
+        # call site has to change: the constructor takes no arguments.
+        self.messages: list[str] = []
+
+    # ------------------------------------------------------------------ #
+    # Detection
+    # ------------------------------------------------------------------ #
     def is_db2_date_column(self, column_name: str) -> bool:
         column = NameNormalizer.normalize(column_name)
         return any(
@@ -31,6 +49,9 @@ class SqlDateMoveBuilder:
         """
         return str(source or "").strip().upper() in DATE_STAGING_FIELDS
 
+    # ------------------------------------------------------------------ #
+    # Generation
+    # ------------------------------------------------------------------ #
     def date_ymd8_to_db2_external_move(
         self,
         source_value: str,
@@ -42,8 +63,9 @@ class SqlDateMoveBuilder:
         Manual standard:
         - Clear DA-CCYYMMDD.
         - Move the source date into DA-CCYYMMDD.
-        - If the date is ZERO or SPACES, substitute the DB2 low-date sentinel
-          (00010101) instead of moving SPACES to the target.
+        - Guard the value with the DB2 low-date sentinel ONLY when it can
+          actually be unset. Db2DateSentinelPolicy decides; a JCL PARM date
+          is always populated and is therefore not guarded.
         - Realign via DA-CCYYMMDD-R -> DA-DD-MM-CCYY.
 
         Precondition: source_value must be a CCYYMMDD (8-position) field.
@@ -66,12 +88,17 @@ class SqlDateMoveBuilder:
                 f"MOVE DA-DD-MM-CCYY TO {host_key}",
             ]
 
+        sentinel = Db2DateSentinelPolicy(DB2_DATE_NULL_SENTINEL)
+        guard = sentinel.guard_lines(source)
+        self.messages.extend(sentinel.messages)
+
         return [
             "MOVE ZEROES TO DA-CCYYMMDD",
             f"MOVE {source} TO DA-CCYYMMDD",
-            "IF DA-CCYYMMDD = ZERO OR DA-CCYYMMDD = SPACES",
-            f"    MOVE {DB2_DATE_NULL_SENTINEL} TO DA-CCYYMMDD",
-            "END-IF",
+            *guard,
             "MOVE CORR DA-CCYYMMDD-R TO DA-DD-MM-CCYY",
             f"MOVE DA-DD-MM-CCYY TO {host_key}",
         ]
+
+
+__all__ = ["SqlDateMoveBuilder"]

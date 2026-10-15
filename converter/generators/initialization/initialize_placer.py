@@ -80,6 +80,7 @@ class InitializePlacer:
 
     def _report(self, site: CursorOpenSite, lines: List[str]) -> None:
         paragraph = self.geometry.body(lines[site.index + 1])
+
         if site.scope == SCOPE_RUN:
             self.diagnostics.log(
                 "placed_run_scope",
@@ -87,8 +88,25 @@ class InitializePlacer:
                 paragraph=paragraph,
             )
             return
+
+        # Row scope has two causes and they are not the same statement.
+        #
+        #   cursor site      a child cursor inside a parent fetch loop
+        #   population site  the paragraph that fills the group by MOVE
+        #
+        # placed_row_scope says "the child group is cleared once per
+        # parent row". For a flat-file update program with no cursor
+        # there is no parent and no child, and the sentence is false.
+        # Duck-typed: the site may be a CursorOpenSite or an
+        # InitializationSite, and only the former carries a cursor.
+        key = (
+            "placed_row_scope"
+            if getattr(site, "cursor", "")
+            else "placed_population_scope"
+        )
+
         self.diagnostics.log(
-            "placed_row_scope",
+            key,
             group=site.group,
             scope=site.owner,
             paragraph=paragraph,

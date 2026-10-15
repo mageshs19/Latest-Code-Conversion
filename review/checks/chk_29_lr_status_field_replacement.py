@@ -26,62 +26,92 @@ class LRStatusFieldReplacementCheck(Check):
     ORDER = 290
 
     def relevant(self, ctx, view) -> bool:
-        # Check if LR-STATUS was used or LRF-related comments present
-        return view.has_code_token("LR-STATUS") or view.has_comment("LR-STATUS")
+        """True when this program WAS a logical-record program.
+
+        CORRECTION - the gate asked the wrong question.
+
+        It fired only when LR-STATUS text SURVIVED, so a clean
+        conversion and a program that never used LRF both SKIPped. The
+        check could fail but could never meaningfully pass. Relevance is
+        now evidence that LRF conversion HAPPENED; the criteria then
+        assert that it finished.
+        """
+        upper = [l.logical.upper() for l in view.lines]
+        return any(
+            std.LRF_EXPANSION_MARKER in line
+            or std.LR_STATUS_FIELD in line
+            or std.LR_QUALIFIER in line
+            or any(t in line for t in std.IDMS_STATUS_TOKENS)
+            for line in upper
+        )
 
     def not_relevant_reason(self) -> str:
-        return "No LR-STATUS field usage detected."
+        return "Program shows no sign of logical record usage."
 
     def review(self, ctx, view, record):
-        # ---- 01 NO LR-STATUS FIELD USAGE IN OUTPUT -----
-        lr_status_usage = [
-            l for l in view.lines
-            if "LR-STATUS" in l.logical and not l.is_comment
-        ]
+        code = [l for l in view.lines if not l.is_comment]
+
+        # ---- 01 NO LR-STATUS IN EXECUTABLE CODE
         record.expect_none(
             "01",
             "No LR-STATUS field usage remains in generated output",
-            lr_status_usage,
+            [l for l in code if std.LR_STATUS_FIELD in l.logical.upper()],
         )
 
-        # ---- 02 NO COPY IDMS SUBSCHEMA-LR-CTRL --------
-        lr_ctrl_copy = [
-            l for l in view.lines
-            if "LR-CTRL" in l.logical or "SUBSCHEMA-LR" in l.logical
-        ]
+        # ---- 02 NO LR-CTRL COPYBOOK
         record.expect_none(
             "02",
             "COPY IDMS SUBSCHEMA-LR-CTRL directive removed",
-            lr_ctrl_copy,
+            [
+                l for l in code
+                if any(t in l.logical.upper() for t in std.LR_CTRL_TOKENS)
+            ],
         )
 
-        # ---- 03 END-OF-SET MAPPED TO SQLCODE = 100 -----
-        # Status code 0307 replaced with SQLCODE comparison
-        record.ok(
+        # ---- 03 NO RESIDUAL IDMS STATUS TOKEN
+        # The expander emits DB-END-OF-SET / DB-REC-NOT-FOUND /
+        # DB-REC-FOUND as an intermediate form. They are CONDITION NAMES
+        # declared by the copybook the converter removes, so any survivor
+        # is undefined at compile time. Previously an unconditional ok().
+        record.expect_none(
             "03",
-            "End-of-set status (0307) converted to SQLCODE = 100 checks",
+            "No residual IDMS status token remains",
+            [
+                l for l in code
+                if any(t in l.logical.upper() for t in std.IDMS_STATUS_TOKENS)
+            ],
         )
 
-        # ---- 04 RECORD-NOT-FOUND MAPPED TO SQLCODE -----
-        # Status code 0326 replaced with SQLCODE comparison
-        record.ok(
+        # ---- 04 THE STATUS TEST WAS CONVERTED, NOT DELETED
+        upper = [l.logical.upper() for l in code]
+        converted = any(
+            any(t in line for t in std.SQLCODE_END_TESTS)
+            or std.CURSOR_EOC_SUFFIX in line
+            for line in upper
+        )
+        record.expect(
             "04",
-            "Record-not-found status (0326) converted to SQLCODE = 100 checks",
+            "End-of-set test converted to SQLCODE or an end-of-cursor flag",
+            converted,
+            note=(
+                "No SQLCODE = 100 test and no -EOC flag found. The "
+                "LR-STATUS test may have been removed rather than "
+                "translated."
+            ),
         )
 
-        # ---- 05 REPLACEMENT COMMENTS PRESENT --------
-        replacement_comments = [
-            l for l in view.lines
-            if l.is_comment and "LR-STATUS" in l.logical
-        ]
-        if replacement_comments or not lr_status_usage:
-            record.ok(
-                "05",
-                "LR-STATUS replacement documented in comments",
+        # ---- 05 THE CONVERSION IS DOCUMENTED
+        documented = any(
+            l.is_comment
+            and (
+                std.LRF_EXPANSION_MARKER in l.logical.upper()
+                or std.LR_STATUS_FIELD in l.logical.upper()
             )
-        else:
-            record.fail(
-                "05",
-                "LR-STATUS replacement should be documented",
-                ["No replacement comments found for LR-STATUS removal"],
-            )
+            for l in view.lines
+        )
+        record.expect(
+            "05",
+            "LR-STATUS replacement is documented in a comment",
+            documented,
+            note="No LRF or LR-STATUS audit comment found.",
+        )

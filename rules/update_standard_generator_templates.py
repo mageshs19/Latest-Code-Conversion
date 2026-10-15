@@ -116,9 +116,9 @@ RESTART_FOUND_TEMPLATE = """{restart_found}.
     ELSE
         PERFORM {read_count} OF {restart_record} TIMES
             PERFORM READ-FLAT-FILE
+            MOVE {read_count} OF {restart_record}
+              TO {input_counter}
         END-PERFORM
-        MOVE {read_count} OF {restart_record}
-          TO {input_counter}
     END-IF."""
 
 # --- Write restart template ---

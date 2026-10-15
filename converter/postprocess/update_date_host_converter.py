@@ -1,5 +1,9 @@
+# LOCATION: converter/postprocess/update_date_host_converter.py
+# ACTION: REPLACE ENTIRE FILE
+
 from __future__ import annotations
 
+from converter.services.db2_date_sentinel_policy import Db2DateSentinelPolicy
 from converter.services.name_normalizer import NameNormalizer
 from patterns.update_date_host_patterns import (
     END_EXEC_PATTERN,
@@ -35,6 +39,15 @@ class UpdateDateHostConverter:
     - Already-realigned moves (source == DA-DD-MM-CCYY) are skipped.
     - EXEC SQL host references are never touched.
     - No program, record, table, DCLGEN, or host name is hardcoded.
+
+    NULL-DATE SENTINEL
+
+    The low-date guard is NOT written here. Db2DateSentinelPolicy owns that
+    decision for all three builders, so a PARM-supplied date - which is
+    populated by construction - no longer receives a ZERO / SPACES test it
+    can never satisfy. This class reports through the `diagnostics` list
+    apply() already holds, so sentinel messages are buffered during
+    generation and drained once per run.
     """
 
     _ALREADY_REALIGNED_SOURCE = "DADDMMCCYY"
@@ -43,6 +56,7 @@ class UpdateDateHostConverter:
 
     def __init__(self, dclgen_columns: list) -> None:
         self._date_hosts = self._build_date_host_map(dclgen_columns)
+        self._sentinel_messages: list[str] = []
 
     # ------------------------------------------------------------------ #
     # Public entry point
@@ -54,6 +68,8 @@ class UpdateDateHostConverter:
     ) -> str:
         if not text or not self._date_hosts:
             return text or ""
+
+        self._sentinel_messages = []
 
         lines = (
             str(text)
@@ -126,6 +142,11 @@ class UpdateDateHostConverter:
                 "to DD.MM.CCYY realignment form."
             )
 
+        if diagnostics is not None and self._sentinel_messages:
+            diagnostics.extend(self._sentinel_messages)
+
+        self._sentinel_messages = []
+
         return "\n".join(output).rstrip() + "\n"
 
     # ------------------------------------------------------------------ #
@@ -155,13 +176,15 @@ class UpdateDateHostConverter:
         host: str,
         group: str,
     ) -> list[str]:
+        sentinel = Db2DateSentinelPolicy(DB2_DATE_NULL_SENTINEL)
+        guard = sentinel.guard_lines(source)
+        self._sentinel_messages.extend(sentinel.messages)
+
         host_ref = f"{host} OF {group}"
         bodies = [
             "MOVE ZEROES TO DA-CCYYMMDD",
             f"MOVE {source} TO DA-CCYYMMDD",
-            "IF DA-CCYYMMDD = ZERO OR DA-CCYYMMDD = SPACES",
-            f"    MOVE {DB2_DATE_NULL_SENTINEL} TO DA-CCYYMMDD",
-            "END-IF",
+            *guard,
             "MOVE CORR DA-CCYYMMDD-R TO DA-DD-MM-CCYY",
             f"MOVE DA-DD-MM-CCYY TO {host_ref}",
         ]
@@ -240,3 +263,6 @@ class UpdateDateHostConverter:
             left = text[:6]
             return f"{left} {clean.rstrip()}"
         return clean.rstrip()
+
+
+__all__ = ["UpdateDateHostConverter"]

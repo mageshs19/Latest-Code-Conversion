@@ -1,38 +1,66 @@
+# LOCATION: converter/resolvers/lrf_cursor_where_resolver.py
+# ACTION: REPLACE ENTIRE FILE
 """Resolves WHERE clauses for LRF-expanded cursors.
 
-When LRF expansion converts "OBTAIN WHERE <path>" to classical IDMS syntax,
-it leaves a comment marker like:
-    *DB2: Expanded LRF FIRST VMBTL03-R01 WHERE SWEEP-VMBFAS -> VMBFAS
+LRF path expansion leaves a comment marker in the generated program:
 
-This resolver extracts that information and generates the WHERE conditions
-that should be applied to the resulting cursor, based on parent-child
-key relationships.
+    *DB2: Expanded LRF FIRST <logical-record> WHERE <keyword> -> <record>
 
-Key insight: LRF OBTAIN FIRST and OBTAIN NEXT both need WHERE clauses
-based on their access type (parent keys or relationship keys).
+This resolver reads that marker and generates the WHERE conditions that
+belong on the resulting cursor, from parent-child key relationships.
+
+CORRECTION - THE MARKER FORMAT HAD FOUR OWNERS
+
+This module carried a PRIVATE copy of the marker regex. So did
+converter/generators/lrf_host_variable_populator.py. The format is
+owned and documented in patterns/cursor_spec/lrf_comment_patterns.py,
+which publishes three forms: single-line, wrapped, and the continuation
+record that opens a wrapped body.
+
+The private copies drifted. The populator's copy anchored on the comment
+indicator (\\*), which lives in column 7 - OUTSIDE the logical body - so
+it could never match a stripped body and the pass was inert on every
+program. This module's copy declared an optional WITHIN group and then
+unpacked FIVE values from a FOUR-group match.
+
+There is now ONE owner. The shared name is re-exported so existing
+importers keep working; it is never re-assigned.
+
+GROUP NAMES - READ BEFORE USING
+
+The shared single-line pattern captures, in order:
+
+    mode       FIRST | NEXT
+    subschema  the LOGICAL RECORD name
+    sweep      the PATH KEYWORD
+    record     the TARGET RECORD
+
+It does NOT capture a set or an area. A path keyword may resolve WITHIN
+a SET (a join, which has a parent record) or WITHIN an AREA (an
+unqualified sweep, which has no parent at all). Only the parsed
+subschema knows which. Never infer it from the marker.
 """
 
 from __future__ import annotations
 
-import re
 from converter.services.name_normalizer import NameNormalizer
+from patterns.cursor_spec.lrf_comment_patterns import (
+    LRF_CONTINUATION_RECORD_PATTERN,
+    LRF_EXPANSION_PATTERN as _SHARED_LRF_EXPANSION_PATTERN,
+    LRF_EXPANSION_WRAPPED_PATTERN as _SHARED_LRF_WRAPPED_PATTERN,
+)
+
+_MARKER_PROBE = "EXPANDED LRF"
 
 
 class LrfCursorWhereResolver:
     """Generates WHERE conditions for LRF-expanded cursors."""
 
-    # Pattern: *DB2: Expanded LRF {mode} {lr} WHERE {keyword} -> {record} WITHIN {within}
-    LRF_EXPANSION_PATTERN = re.compile(
-        r"\*DB2:\s+Expanded LRF\s+"
-        r"(FIRST|NEXT)\s+"  # mode: FIRST or NEXT
-        r"(\w+)\s+"  # lr name
-        r"WHERE\s+"
-        r"(\w+)\s+"  # path keyword
-        r"->\s+"
-        r"(\w+)"  # record name
-        r"(?:\s+WITHIN\s+(\w+))?",  # optional WITHIN clause
-        re.IGNORECASE,
-    )
+    # One owner for the marker format. This module READS markers; it does
+    # not define what a marker looks like.
+    LRF_EXPANSION_PATTERN = _SHARED_LRF_EXPANSION_PATTERN
+    LRF_EXPANSION_WRAPPED_PATTERN = _SHARED_LRF_WRAPPED_PATTERN
+    LRF_CONTINUATION_RECORD_PATTERN = LRF_CONTINUATION_RECORD_PATTERN
 
     def __init__(
         self,
@@ -46,77 +74,103 @@ class LrfCursorWhereResolver:
         self.cursor_column_resolver = cursor_column_resolver
         self.host_variable_resolver = host_variable_resolver
         self.mapping_repository = mapping_repository
+        self.messages: list[str] = []
+
+    # ------------------------------------------------------------------
+    # Marker extraction
+    # ------------------------------------------------------------------
 
     def extract_lrf_cursors_from_cobol(
-        self, cobol_text: str
+        self,
+        cobol_text: str,
     ) -> dict[str, dict[str, str]]:
         """Extract LRF expansion markers from COBOL source.
 
         Returns:
-            {"record_name": {"mode": "FIRST", "path_keyword": "...", ...}, ...}
+            {"<record>": {"mode": ..., "lr_name": ..., "path_keyword": ...,
+                          "is_lrf_expanded": True}, ...}
+
+        The set name is deliberately NOT returned. It is not in the
+        marker; it belongs to the parsed subschema.
         """
+        self.messages = []
         lrf_cursors: dict[str, dict[str, str]] = {}
 
-        for line in (cobol_text or "").split("\n"):
-            match = self.LRF_EXPANSION_PATTERN.search(line)
-            if not match:
+        lines = str(cobol_text or "").splitlines()
+
+        for index, line in enumerate(lines):
+            body = self._logical_body(line)
+            if not body.strip():
                 continue
 
-            mode, lr_name, path_keyword, record_name, within_set = match.groups()
-            norm_record = NameNormalizer.normalize(record_name)
+            match = self.LRF_EXPANSION_PATTERN.search(body)
+            record_name = ""
 
-            if norm_record not in lrf_cursors:
-                lrf_cursors[norm_record] = {
-                    "mode": mode.upper(),
-                    "lr_name": lr_name.upper(),
-                    "path_keyword": path_keyword.upper(),
-                    "within_set": (within_set or "").upper(),
-                    "is_lrf_expanded": True,
-                }
+            if match is not None:
+                record_name = match.group("record")
+            else:
+                match = self.LRF_EXPANSION_WRAPPED_PATTERN.search(body)
+                if match is None:
+                    if _MARKER_PROBE in body.upper():
+                        self.messages.append(
+                            "LRF where resolver: line "
+                            f"{index + 1} carries 'Expanded LRF' but does "
+                            "not match the shared marker format."
+                        )
+                    continue
+                record_name = self._continuation_record(lines, index)
+                if not record_name:
+                    continue
+
+            norm_record = NameNormalizer.normalize(record_name)
+            if norm_record in lrf_cursors:
+                continue
+
+            lrf_cursors[norm_record] = {
+                "mode": str(match.group("mode")).upper(),
+                "lr_name": str(match.group("subschema")).upper(),
+                "path_keyword": str(match.group("sweep")).upper(),
+                "record_name": str(record_name).upper(),
+                "is_lrf_expanded": True,
+            }
 
         return lrf_cursors
+
+    # ------------------------------------------------------------------
+    # WHERE generation
+    # ------------------------------------------------------------------
 
     def where_conditions_for_lrf_cursor(
         self,
         record_name: str,
         lrf_cursor_info: dict[str, str],
     ) -> list[str]:
-        """Generate WHERE conditions for an LRF-expanded cursor.
+        """WHERE predicates for an LRF-expanded cursor.
 
-        Args:
-            record_name: Child record being fetched
-            lrf_cursor_info: Dict with "mode", "path_keyword", etc.
-
-        Returns:
-            List of WHERE condition strings like:
-            ["NR_CIO_479BFAS = :DCLDZBEFFTV.NR-CIO-FORM-AS", ...]
+        Returns an empty list when the path carries no relationship -
+        an unqualified sweep has no join predicate and must not be given
+        an invented one.
         """
         if not lrf_cursor_info.get("is_lrf_expanded"):
             return []
 
-        # Get relationship info for this child record
         if self.relationship_resolver is None:
             return []
 
         relationship = self.relationship_resolver.resolve_for_child_record(
             record_name
         )
-
-        if not relationship or not relationship.conditions:
-            # No explicit relationship found; return empty
+        if not relationship or not getattr(relationship, "conditions", None):
             return []
 
-        # Convert relationship conditions to WHERE predicates
-        where_conditions = []
+        where_conditions: list[str] = []
         for condition in relationship.conditions:
-            # condition has: child_column, parent_column, parent_host_reference
-            child_col = str(condition.child_column or "")
-            parent_host_ref = str(condition.parent_host_reference or "")
-
+            child_col = str(getattr(condition, "child_column", "") or "")
+            parent_host_ref = str(
+                getattr(condition, "parent_host_reference", "") or ""
+            )
             if child_col and parent_host_ref:
-                # Format: "CHILD_COL = :PARENT_DCL.PARENT_FIELD"
-                predicate = f"{child_col} = {parent_host_ref}"
-                where_conditions.append(predicate)
+                where_conditions.append(f"{child_col} = {parent_host_ref}")
 
         return where_conditions
 
@@ -125,41 +179,34 @@ class LrfCursorWhereResolver:
         cursor_spec: dict[str, object],
         lrf_cursor_info: dict[str, str],
     ) -> None:
-        """Ensure WHERE-referenced key columns are in the SELECT.
+        """Ensure WHERE-referenced key columns appear in the SELECT.
 
-        When a cursor has WHERE conditions based on parent keys,
-        those parent key columns must be selected from the parent table,
-        or the host variables won't be populated.
-
-        Args:
-            cursor_spec: Dict with "select_columns", "where_conditions", etc.
-            lrf_cursor_info: LRF metadata dict
+        A predicate host variable that is never selected is never
+        populated, so the cursor silently filters on spaces or zeroes.
         """
         if not lrf_cursor_info.get("is_lrf_expanded"):
             return
 
         where_conditions = cursor_spec.get("where_conditions", []) or []
         select_columns = list(cursor_spec.get("select_columns", []) or [])
+        existing = {NameNormalizer.normalize(c) for c in select_columns}
 
-        # Extract parent table and columns from WHERE predicates
         for condition in where_conditions:
-            # Pattern: "PARENT_COL = :DCLPARENTTBL.PARENT_FIELD"
-            if ":" not in condition or "." not in condition:
+            text = str(condition)
+            if ":" not in text or "." not in text:
                 continue
 
-            host_part = condition.split(":", 1)[1].strip()
-            dcl_name, host_field = host_part.split(".", 1)
-            dcl_name = dcl_name.strip()
+            host_part = text.split(":", 1)[1].strip()
+            if "." not in host_part:
+                continue
 
-            # Derive parent column name from host field
+            _dcl_name, host_field = host_part.split(".", 1)
             parent_col = NameNormalizer.normalize(
                 host_field.strip().replace("-", "_")
             )
-
-            # Add to SELECT if not already present
-            existing = {NameNormalizer.normalize(c) for c in select_columns}
-            if parent_col not in existing:
+            if parent_col and parent_col not in existing:
                 select_columns.append(parent_col)
+                existing.add(parent_col)
 
         cursor_spec["select_columns"] = select_columns
 
@@ -169,38 +216,53 @@ class LrfCursorWhereResolver:
         lrf_cursor_info: dict[str, str],
         order_by_columns: list[str],
     ) -> list[str]:
-        """Correct ORDER BY direction based on LRF access type.
-
-        LRF OBTAIN NEXT typically requires DESC ordering on the key,
-        while OBTAIN FIRST uses ASC.
-
-        Args:
-            record_name: Record being fetched
-            lrf_cursor_info: LRF metadata with "mode" field
-            order_by_columns: Current ORDER BY expressions
-
-        Returns:
-            Corrected ORDER BY expressions with proper ASC/DESC
-        """
+        """Correct ORDER BY direction from the LRF access mode."""
         if not lrf_cursor_info.get("is_lrf_expanded"):
             return order_by_columns
-
         if not order_by_columns:
             return order_by_columns
 
-        mode = lrf_cursor_info.get("mode", "FIRST").upper()
-        corrected = []
+        mode = str(lrf_cursor_info.get("mode", "FIRST")).upper()
+        corrected: list[str] = []
 
-        for expr in order_by_columns or []:
+        for expr in order_by_columns:
             expr_str = str(expr).strip()
+            upper = expr_str.upper()
+            has_asc = " ASC" in f" {upper}"
+            has_desc = " DESC" in f" {upper}"
 
-            # If mode is NEXT and no direction specified, default to DESC
-            if mode == "NEXT" and "ASC" not in expr_str and "DESC" not in expr_str:
+            if mode == "NEXT" and not has_asc and not has_desc:
                 corrected.append(f"{expr_str} DESC")
-            elif mode == "FIRST" and "DESC" in expr_str and "ASC" not in expr_str:
-                # If mode is FIRST but has DESC, change to ASC
+            elif mode == "FIRST" and has_desc and not has_asc:
                 corrected.append(expr_str.replace("DESC", "ASC").strip())
             else:
                 corrected.append(expr_str)
 
         return corrected
+
+    # ------------------------------------------------------------------
+    # Private: fixed-format access
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _logical_body(line: str) -> str:
+        """Columns 8-72 of a fixed-format record, indicator removed."""
+        text = str(line or "").rstrip("\r\n")
+        if len(text) >= 72 and text[:6].strip().isdigit():
+            return text[7:72]
+        return text
+
+    def _continuation_record(self, lines: list[str], index: int) -> str:
+        """Record name opening the body after a wrapped marker."""
+        for offset in range(index + 1, min(index + 3, len(lines))):
+            body = self._logical_body(lines[offset]).strip()
+            if not body:
+                continue
+            match = self.LRF_CONTINUATION_RECORD_PATTERN.match(body)
+            if match:
+                return match.group("record")
+            break
+        return ""
+
+
+__all__ = ["LrfCursorWhereResolver"]

@@ -17,7 +17,7 @@ from rules.sql_generation_rules import (
     DATE_STAGING_FIELDS,
     DB2_DATE_NULL_SENTINEL,
 )
-
+from converter.services.db2_date_sentinel_policy import Db2DateSentinelPolicy
 
 class DateMoveBuilder:
 
@@ -71,12 +71,16 @@ class DateMoveBuilder:
                 f"{indent}MOVE DA-DD-MM-CCYY TO {host_key}",
             ]
 
+        sentinel = Db2DateSentinelPolicy(DB2_DATE_NULL_SENTINEL)
+        guard = sentinel.guard_lines(source, indent)
+        if not hasattr(self, "messages"):
+            self.messages: list[str] = []
+        self.messages.extend(sentinel.messages)
+
         return [
             f"{indent}MOVE ZEROES TO DA-CCYYMMDD",
             f"{indent}MOVE {source} TO DA-CCYYMMDD",
-            f"{indent}IF DA-CCYYMMDD = ZERO OR DA-CCYYMMDD = SPACES",
-            f"{indent}    MOVE {DB2_DATE_NULL_SENTINEL} TO DA-CCYYMMDD",
-            f"{indent}END-IF",
+            *guard,
             f"{indent}MOVE CORR DA-CCYYMMDD-R TO DA-DD-MM-CCYY",
             f"{indent}MOVE DA-DD-MM-CCYY TO {host_key}",
         ]

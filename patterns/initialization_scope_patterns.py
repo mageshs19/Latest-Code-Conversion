@@ -68,6 +68,10 @@ LITERAL_PROGRAM_MOVE_PATTERN = re.compile(
     r"^MOVE\s+'[^']+'\s+TO\s+PROGRAM-NAME\s*\.?$",
     flags=re.IGNORECASE,
 )
+COBOL_HOST_GROUP_PATTERN = re.compile(
+    r"\b(?:OF|IN)\s+(?P<group>DCL[A-Z0-9-]+)\b",
+    flags=re.IGNORECASE,
+)
 
 __all__ = [
     "PROCEDURE_DIVISION_PATTERN",
@@ -83,4 +87,5 @@ __all__ = [
     "CURSOR_PARAGRAPH_HEADER_PATTERN",
     "PERFORM_PARAGRAPH_PATTERN",
     "LITERAL_PROGRAM_MOVE_PATTERN",
+    "COBOL_HOST_GROUP_PATTERN"
 ]

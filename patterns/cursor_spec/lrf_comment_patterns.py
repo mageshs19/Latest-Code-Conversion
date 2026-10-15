@@ -45,6 +45,17 @@ LRF_EXPANSION_WRAPPED_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+LRF_EXPANSION_WRAPPED_NO_ARROW_PATTERN = re.compile(
+    r"DB2:\s+Expanded\s+LRF\s+" + _MODE +
+    r"\s+(?P<subschema>\S+)\s+WHERE\s+(?P<sweep>\S+)\s*$",
+    flags=re.IGNORECASE,
+)
+
+# A continuation body that OPENS with the arrow.
+LRF_CONTINUATION_ARROW_PATTERN = re.compile(
+    r"^\s*->\s*(?P<record>[A-Z][A-Z0-9-]*)",
+    flags=re.IGNORECASE,
+)
 # The record name opening a wrapped continuation body. Matched against
 # the STRIPPED body, so the leading indicator is already gone and a
 # sequence number can never be captured as a record name.
@@ -53,8 +64,11 @@ LRF_CONTINUATION_RECORD_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+
 __all__ = [
     "LRF_EXPANSION_PATTERN",
     "LRF_EXPANSION_WRAPPED_PATTERN",
+    "LRF_EXPANSION_WRAPPED_NO_ARROW_PATTERN",
+    "LRF_CONTINUATION_ARROW_PATTERN",
     "LRF_CONTINUATION_RECORD_PATTERN",
 ]

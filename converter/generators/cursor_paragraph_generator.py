@@ -163,19 +163,33 @@ class CursorParagraphGenerator:
 
         Returns (modified_cobol, messages).
         """
+# FILE: converter/generators/cursor_paragraph_generator.py
+# ACTION: REPLACE lines 166-178 (from the getattr through the except block).
+
         populator = getattr(self, "_lrf_host_variable_populator", None)
         if not populator:
-            return cobol_text, []
+            # NOT silence. An unattached populator and a program with no
+            # logical records are different facts, and returning [] for
+            # both is why this pass was invisible for three runs.
+            return cobol_text, [
+                "LRF populator: no populator is attached to the cursor "
+                "generator, so no LRF host variable initialisation was "
+                "attempted. Check the wiring in "
+                "conversion_component_factory."
+            ]
 
         try:
             augmented_cobol, messages = populator.augment_procedure_division(
                 cobol_text
             )
-            return augmented_cobol, messages
+            return augmented_cobol, list(messages or [])
 
-        except Exception as e:  # noqa: BLE001
-            error_msg = f"[LRF-POPULATION] augmentation failed: {e}"
-            return cobol_text, [error_msg]
+        except Exception as error:  # noqa: BLE001
+            return cobol_text, [
+                "LRF populator: the pass raised "
+                f"{type(error).__name__}: {error}. The program was left "
+                "unchanged."
+            ]
 
     # =================================================================
     # Block assembly

@@ -6,7 +6,7 @@ These patterns are shared by the cursor flow composer helper classes.
 """
 
 import re
-
+from rules.cursor_eoc_rules import LEGACY_EOC_CONDITIONS
 PERFORM_CURSOR_PATTERN = re.compile(
     r"^\s*PERFORM\s+"
     r"(?P<number>\d{3})-"
@@ -23,10 +23,18 @@ PERFORM_BUSINESS_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
-UNTIL_SQLCODE_100_PATTERN = re.compile(
-    r"^\s*UNTIL\s+SQLCODE\s*=\s*100\.?\s*$",
+_LEGACY_EOC_ALTERNATION = "|".join(
+    r"\s*".join(re.escape(part) for part in condition.split())
+    for condition in LEGACY_EOC_CONDITIONS
+)
+
+UNTIL_LEGACY_EOC_PATTERN = re.compile(
+    r"^\s*UNTIL\s+.*?(?:" + _LEGACY_EOC_ALTERNATION + r").*?\.?\s*$",
     flags=re.IGNORECASE,
 )
+
+# Retained for any caller still reading the old name. NEVER re-assigned.
+UNTIL_SQLCODE_100_PATTERN = UNTIL_LEGACY_EOC_PATTERN
 
 CURSOR_PARAGRAPH_HEADER_PATTERN = re.compile(
     r"^\s*"

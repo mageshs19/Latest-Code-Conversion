@@ -39,6 +39,11 @@ from converter.generators.lrf_host_variable_populator import (
 )
 
 
+# FILE: converter/pipeline/lrf_host_variable_population.py
+# ACTION: REPLACE lines 42 through 67 (def line through the
+#         "# Inject into the generator for later use" comment).
+#         Keep everything after that comment unchanged.
+
 def setup_lrf_host_variable_population(
     cursor_paragraph_generator,
     host_variable_resolver=None,
@@ -46,11 +51,25 @@ def setup_lrf_host_variable_population(
     cursor_name_resolver=None,
     relationship_resolver=None,
     name_normalizer=None,
+    lrf_path_resolver=None,
+    lrf_repository=None,
 ) -> bool:
     """Configure LRF host variable population in the cursor generator.
 
     Attaches the LrfHostVariablePopulator to the cursor generator so it
-    can augment generated PROCEDURE DIVISION with host variable initialization.
+    can augment the generated PROCEDURE DIVISION with host variable
+    initialization.
+
+    lrf_path_resolver is the EXISTING owner of path-keyword resolution
+    (LrfPathResolver). Without it the populator cannot tell a join path
+    from an unqualified area sweep and must refuse every marker.
+
+    lrf_repository is TRANSITIONAL. Delete it once the populator reads
+    LrfPathResolver.plan_for_keyword() instead of the raw repository.
+
+    cursor_name_resolver is now FORWARDED. It was previously accepted
+    and discarded while the populator resolved record -> cursor through
+    host_variable_resolver - two owners for one fact.
 
     Returns True if successful, False if dependencies missing.
     """
@@ -62,7 +81,12 @@ def setup_lrf_host_variable_population(
             host_variable_resolver=host_variable_resolver,
             relationship_resolver=relationship_resolver,
             name_normalizer=name_normalizer,
+            cursor_name_resolver=cursor_name_resolver,
+            lrf_path_resolver=lrf_path_resolver,
+            lrf_repository=lrf_repository,
+            table_name_resolver=table_name_resolver,
         )
+
 
         # Inject into the generator for later use
         cursor_paragraph_generator._lrf_host_variable_populator = populator

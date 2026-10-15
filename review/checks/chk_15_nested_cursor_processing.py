@@ -5,7 +5,7 @@ from __future__ import annotations
 from review.engine import cursors, sql_blocks as sql
 from review.engine.check_base import MAJOR, BOTH, Check
 from review.standards import cobol_standards as std
-
+from review.engine import statements as stmt
 
 class NestedCursorProcessingCheck(Check):
     CHECK_ID = "CHK-15"
@@ -100,7 +100,10 @@ class NestedCursorProcessingCheck(Check):
                 "No nested cursor found.",
             )
         else:
-            code = [sql.norm(line.logical) for line in view.code]
+            # Read JOINED statements. The manual reference splits the
+            # loop after OR, so a one-physical-line match fails correct
+            # code. See review/engine/statements.py.
+            code = [text for _index, text in stmt.joined_statements(view)]
             missing = []
             for group in children.values():
                 fetch = group.get("FETCH")

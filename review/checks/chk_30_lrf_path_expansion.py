@@ -28,80 +28,114 @@ class LrfPathExpansionCheck(Check):
     ORDER = 300
 
     def relevant(self, ctx, view) -> bool:
-        # Check for LRF expansion comments or subschema usage
-        return (
-            view.has_comment("Expanded LRF")
-            or view.has_comment("LRF path")
-            or view.has_comment("subschema")
+        upper = [l.logical.upper() for l in view.lines if l.is_comment]
+        return any(
+            std.LRF_EXPANSION_MARKER in line or std.LRF_KEEP_MARKER in line
+            for line in upper
         )
 
     def not_relevant_reason(self) -> str:
         return "No LRF path expansion detected."
 
+    # ---- helper -----------------------------------------------------
+    @staticmethod
+    def _marker_statements(view) -> list[tuple[int, str]]:
+        """(line number, full marker text) for every LRF marker.
+
+        The emitter wraps at word boundaries, so the WITHIN clause may
+        sit on a continuation comment line. Reading only the first
+        physical line is the same one-line matching defect recorded
+        against CHK-15.06.
+        """
+        out: list[tuple[int, str]] = []
+        lines = list(view.lines)
+
+        for index, line in enumerate(lines):
+            if not line.is_comment:
+                continue
+            text = line.logical.upper()
+            if std.LRF_EXPANSION_MARKER not in text:
+                continue
+
+            joined = text
+            for offset in range(1, std.LRF_MARKER_CONTINUATION_LINES + 1):
+                if index + offset >= len(lines):
+                    break
+                nxt = lines[index + offset]
+                if not nxt.is_comment:
+                    break
+                joined = f"{joined} {nxt.logical.upper()}"
+                if std.LRF_WITHIN_KEYWORD in joined:
+                    break
+
+            out.append((index + 1, joined))
+
+        return out
+
     def review(self, ctx, view, record):
-        # ---- 01 LRF PATH KEYWORD RESOLVED ------
-        # OBTAIN <LR> WHERE <keyword> must find keyword in subschema
-        record.ok(
-            "01",
-            "LRF path keywords resolved from subschema or marked KEEP",
-        )
+        comments = [l for l in view.lines if l.is_comment]
+        markers = self._marker_statements(view)
 
-        # ---- 02 DRIVING RECORD IS DB2-MAPPED -----
-        # Driving record must be in Sheet Mapping (not UNKNOWN)
-        unmapped_lrf = [
-            l for l in view.lines
-            if "LRF driving record" in l.logical and "KEEP" in l.logical
-        ]
-        if unmapped_lrf:
-            record.expect_none(
-                "02",
-                "LRF driving records must be DB2-mapped (not UNKNOWN tables)",
-                unmapped_lrf,
-            )
-        else:
-            record.ok(
-                "02",
-                "LRF driving records are DB2-mapped",
-            )
-
-        # ---- 03 WITHIN SET GENERATED --------
-        # Expanded form must have WITHIN <set-name>
-        record.ok(
-            "03",
-            "Expanded LRF: OBTAIN FIRST/NEXT <record> WITHIN <set>",
-        )
-
-        # ---- 04 EXTRA FILTER CONDITIONS PRESERVED -----
-        # WHERE conditions beyond the path keyword kept as comments
-        extra_filters = [
-            l for l in view.lines
-            if "extra filter" in l.logical or "add to the generated cursor WHERE" in l.logical
-        ]
-        if extra_filters:
-            record.ok(
-                "04",
-                "Extra filter conditions preserved for manual WHERE refinement",
-            )
-        else:
-            record.ok(
-                "04",
-                "No extra filter conditions needed",
-            )
-
-        # ---- 05 UNRESOLVED PATHS DOCUMENTED -------
-        # If subschema path not found, marked with KEEP comment
+        # ---- 01 EVERY PATH KEYWORD RESOLVED
         unresolved = [
-            l for l in view.lines
-            if "not found in the supplied subschema" in l.logical
-            or "no resolvable driving record" in l.logical
+            l for l in comments
+            if any(t in l.logical for t in std.LRF_UNRESOLVED_TEXTS)
         ]
-        if unresolved:
-            record.ok(
-                "05",
-                "Unresolved LRF paths marked for manual expansion",
+        record.expect_none(
+            "01",
+            "Every LRF path keyword resolved from the subschema",
+            unresolved,
+        )
+
+        # ---- 02 DRIVING RECORD IS DB2-MAPPED
+        record.expect_none(
+            "02",
+            "Every LRF driving record is DB2-mapped",
+            [l for l in comments if std.LRF_UNMAPPED_TEXT in l.logical],
+        )
+
+        # ---- 03 EVERY EXPANSION NAMES ITS WITHIN TARGET
+        # Previously an unconditional ok(). The marker is read across its
+        # continuation line, so a wrapped marker is no longer a false fail.
+        missing = [
+            f"line {number}"
+            for number, text in markers
+            if std.LRF_WITHIN_KEYWORD not in text
+        ]
+        if not markers:
+            record.skip(
+                "03",
+                "Expanded LRF names WITHIN <set-or-area>",
+                "No expansion marker found; only KEEP markers present.",
             )
         else:
-            record.ok(
-                "05",
-                "All LRF paths resolved or marked KEEP",
+            record.expect_all(
+                "03",
+                "Expanded LRF names WITHIN <set-or-area>",
+                missing,
             )
+
+        # ---- 04 EXTRA FILTER CONDITIONS PRESERVED
+        extra = [
+            l for l in comments if std.LRF_EXTRA_FILTER_TEXT in l.logical
+        ]
+        if extra:
+            record.ok(
+                "04",
+                f"{len(extra)} extra filter condition(s) preserved",
+            )
+        else:
+            record.skip(
+                "04",
+                "Extra filter conditions preserved",
+                "No LRF statement carried a condition beyond its keyword.",
+            )
+
+        # ---- 05 EXPANSION COUNT REPORTED
+        kept = [l for l in comments if std.LRF_KEEP_MARKER in l.logical.upper()]
+        record.expect(
+            "05",
+            "Every LRF access is either expanded or marked KEEP",
+            bool(markers) or bool(kept),
+            note=f"{len(markers)} expanded, {len(kept)} kept.",
+        )

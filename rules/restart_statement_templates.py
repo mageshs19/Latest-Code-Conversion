@@ -118,6 +118,23 @@ CONTROL_TEMPLATE = (
 # ---------------------------------------------------------------------
 # Two obligations: block a completed run, and reposition a resumed one.
 
+#
+# restart_found
+#
+# Two obligations: block a completed run, and reposition a resumed one.
+#
+# NESTING IS PART OF THE CONTRACT
+#
+# The counter MOVE belongs INSIDE the replay loop, before END-PERFORM.
+# It was previously emitted after END-PERFORM, which made it a sibling
+# of the PERFORM ... TIMES rather than part of its body. The end value of
+# {input_counter} is the same either way, so no test caught it and no
+# program misbehaved - but the shape no longer matched the manual
+# reference the COBOL team reviews against, and a reviewer had to raise
+# it by hand on every generated program.
+#
+# tests/restart/test_m5b_restart_found_nesting.py now asserts the index
+# order, so this cannot drift again.
 RESTART_FOUND_TEMPLATE = (
     "{restart_found_paragraph}.",
     "MOVE {payload_text_field} OF {restart_group}",
@@ -128,9 +145,9 @@ RESTART_FOUND_TEMPLATE = (
     "     PERFORM {abend_paragraph}",
     "ELSE PERFORM {read_count_field} OF {restart_record} TIMES",
     "         PERFORM {read_paragraph}",
+    "         MOVE {read_count_field} OF {restart_record}",
+    "           TO {input_counter}",
     "     END-PERFORM",
-    "     MOVE {read_count_field} OF {restart_record}",
-    "       TO {input_counter}",
     "END-IF.",
 )
 
@@ -249,6 +266,7 @@ COMMIT_ERROR_MESSAGE = "ERROR REC NUMBER : "
 # the first column of Area B. Declared so the contract test and this file
 # cannot drift apart.
 MINIMUM_CONTINUATION_INDENT = 4
+
 
 __all__ = [
     "ABEND_TEMPLATE",
