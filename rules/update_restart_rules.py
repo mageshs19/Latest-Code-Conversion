@@ -156,6 +156,18 @@ UPDATE_RESTART_DIAGNOSTICS = {
     "malformed_sqlerror_fixed": "Fixed malformed PERFORM SQLERROR.END-EVALUATE line.",
     "business_update_extracted": "Extracted inline business UPDATE SQL into standard update paragraph.",
     "business_update_not_found": "Inline business UPDATE SQL block not found for extraction.",
+    "business_update_structural": (
+        "Update SQL: business UPDATE found by block structure in {paragraph}; "
+        "no marker comment or SQL-LOCATION anchor was present."
+    ),
+    "business_update_named_from_group": (
+        "Update SQL: no IDMS record name survived; the UPDATE paragraph is "
+        "named from DCLGEN group {group}."
+    ),
+    "business_update_not_found": (
+        "Update SQL: no inline business UPDATE block found in {paragraph}; "
+        "the SQL was left in place and no row counter was added."
+    ),
 }
 
 __all__ = [

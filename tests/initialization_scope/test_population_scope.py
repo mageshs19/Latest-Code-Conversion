@@ -132,18 +132,6 @@ def test_a_group_owned_by_a_cursor_is_excluded(scanner) -> None:
     assert [site.group for site in sites] == [OTHER]
 
 
-def test_two_paragraphs_touching_one_group_each_get_a_site(scanner) -> None:
-    """Each paragraph is its own unit of work."""
-    lines = _program([
-        "PROCEDURE DIVISION.",
-        "PARA-ONE.",
-        f"    MOVE WS-A TO CT-A OF {GROUP}",
-        "PARA-TWO.",
-        f"    MOVE WS-B TO CT-B OF {GROUP}",
-    ])
-    owners = [site.owner.upper() for site in scanner.sites(lines)]
-    assert owners == ["PARA-ONE", "PARA-TWO"]
-
 
 # ---------------------------------------------------------------- #
 # Refusals
@@ -223,3 +211,104 @@ def test_the_summary_counts_the_population_site() -> None:
         "0 run-level and 1 row-level" in message
         for message in initializer.messages
     )
+
+# ---------------------------------------------------------------- #
+# R1 - the group must be a MOVE TARGET, never a source
+# ---------------------------------------------------------------- #
+def test_a_group_read_as_a_move_source_is_not_a_site(scanner) -> None:
+    """710-JOB-IS-RESTART reads the row the SELECT just returned."""
+    lines = _program([
+        "PROCEDURE DIVISION.",
+        "RESTART-FOUND.",
+        f"    MOVE TE-CH-RS-DATA-TEXT OF {GROUP} TO WS-RESTART-REC",
+    ])
+    assert scanner.sites(lines) == []
+
+
+# ---------------------------------------------------------------- #
+# R2 - a group written in more than one paragraph is carried state
+# ---------------------------------------------------------------- #
+def test_a_group_written_in_two_paragraphs_is_refused(scanner) -> None:
+    """DCLDZ01RSTV carries its key from the control paragraph."""
+    lines = _program([
+        "PROCEDURE DIVISION.",
+        "RESTART-CONTROL.",
+        f"    MOVE CS-PROGRAM TO NM-ID-RS-PROGRAM OF {GROUP}",
+        "WRITE-RESTART.",
+        f"    MOVE '0' TO CO-ID-RS OF {GROUP}",
+    ])
+    assert scanner.sites(lines) == []
+
+def test_running_twice_places_one_initialize() -> None:
+    """R3 makes INITIALIZE the first executable line; without R4 a
+    second run would stack a duplicate on every pass."""
+    from converter.generators.initialization.scope_initializer import (
+        CursorScopedInitializer,
+    )
+
+    source = "\n".join(_program([
+        "WORKING-STORAGE SECTION.",
+        "EXEC SQL INCLUDE AAATV END-EXEC.",
+        "PROCEDURE DIVISION.",
+        "VERWERKING.",
+        f"    MOVE WS-A TO CT-A OF {GROUP}",
+        "    STOP RUN.",
+    ]))
+
+    once  = CursorScopedInitializer(source).process()
+    twice = CursorScopedInitializer(once).process()
+
+    assert once.upper().count(f"INITIALIZE {GROUP}") == 1
+    assert twice.upper().count(f"INITIALIZE {GROUP}") == 1
+
+
+def test_two_buffers_in_one_paragraph_are_both_cleared(scanner) -> None:
+    """R3 anchors both on the first executable line."""
+    lines = _program([
+        "PROCEDURE DIVISION.",
+        "VERWERKING.",
+        f"    MOVE WS-A TO CT-A OF {GROUP}",
+        f"    MOVE WS-B TO CT-B OF {OTHER}",
+    ])
+    groups = sorted(site.group for site in scanner.sites(lines))
+    assert groups == sorted([GROUP, OTHER])
+    assert {site.index for site in scanner.sites(lines)} == {2}
+def test_a_group_written_in_one_paragraph_is_accepted(scanner) -> None:
+    lines = _program([
+        "PROCEDURE DIVISION.",
+        "VERWERKING.",
+        f"    MOVE WS-A TO CT-A OF {GROUP}",
+        f"    MOVE WS-B TO CT-B OF {GROUP}",
+    ])
+    assert [s.group for s in scanner.sites(lines)] == [GROUP]
+
+
+# ---------------------------------------------------------------- #
+# R3 - never inside an open scope
+# ---------------------------------------------------------------- #
+def test_a_write_inside_an_if_is_refused(scanner) -> None:
+    """INITIALIZE between IF and THEN is invalid COBOL."""
+    lines = _program([
+        "PROCEDURE DIVISION.",
+        "PROCESS-COMMIT.",
+        "    MOVE 0 TO WS-TELLER",
+        "    IF VMDZ205I-EOF",
+        f"    THEN MOVE '1' TO CO-ID-RS OF {GROUP}",
+        "    END-IF.",
+    ])
+    assert scanner.sites(lines) == []
+
+
+# ---------------------------------------------------------------- #
+# Wrapped MOVE - the manual writes the qualifier on the next line
+# ---------------------------------------------------------------- #
+def test_a_wrapped_move_resolves_its_group(scanner) -> None:
+    lines = _program([
+        "PROCEDURE DIVISION.",
+        "VERWERKING.",
+        "    MOVE '1815' TO CT-TGDSERV-479BFAR",
+        f"                                  OF {GROUP}",
+    ])
+    sites = scanner.sites(lines)
+    assert len(sites) == 1
+    assert sites[0].index == 2

@@ -173,19 +173,22 @@ class CursorScopedInitializer:
 
         working = self.placer.place(working, placed)
 
-        verified = self._initialization_sites(working)
-        missing = self.placer.verify(working, verified)
+        # Verify by TEXT, not by re-scanning for sites. After placement
+        # the INITIALIZE is itself the paragraph's first executable
+        # line, so a re-scan resolves nothing and both the check and the
+        # summary silently reported zero.
+        missing = self._unplaced_groups(working, placed)
         if missing:
             self.diagnostics.log(
                 "rolled_back",
-                reason=f"INITIALIZE missing for {', '.join(sorted(missing))}",
+                reason=f"INITIALIZE missing for {', '.join(missing)}",
             )
             return text
 
         self.diagnostics.log(
             "summary",
-            run=len(self._scoped_groups(working, SCOPE_RUN)),
-            row=len(self._scoped_groups(working, SCOPE_ROW)),
+            run=len(self._groups_at(placed, SCOPE_RUN)),
+            row=len(self._groups_at(placed, SCOPE_ROW)),
         )
         return self.geometry.join(working)
 
@@ -213,20 +216,23 @@ class CursorScopedInitializer:
 
         return list(cursor_sites) + list(population_sites)
 
-    def _scoped_groups(self, lines: Sequence[str], scope: str) -> Set[str]:
-        """Groups at one scope, counted across BOTH anchors.
-
-        CursorScopeScanner.scoped_groups counts cursor sites only. Using
-        it for the summary made the pass report "0 run-level and 0
-        row-level" immediately after announcing a placement.
-        """
+    @staticmethod
+    def _groups_at(sites, scope) -> Set[str]:
         target = str(scope or "").upper()
         return {
             site.group
-            for site in self._initialization_sites(lines)
+            for site in sites
             if site.is_resolved and str(site.scope or "").upper() == target
         }
 
+    def _unplaced_groups(self, lines, sites) -> List[str]:
+        """Groups that were planned but do not appear in the output."""
+        text = self.geometry.logical_text(lines)
+        return sorted({
+            site.group
+            for site in sites
+            if site.is_resolved and f"INITIALIZE {site.group}" not in text
+        })
 
 def initialize_by_cursor_scope(program_text: str) -> str:
     return CursorScopedInitializer(program_text).process()

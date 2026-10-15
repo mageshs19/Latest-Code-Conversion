@@ -60,3 +60,13 @@ DIAG_PROCESS_PARAGRAPH_NOT_FOUND_TEMPLATE = (
     "Business update SQL standardization skipped. Processing paragraph not "
     "found: {paragraph}."
 )
+
+ENABLE_STRUCTURAL_UPDATE_DETECTION = True
+
+# How far past an EXEC SQL to look for the UPDATE verb.
+UPDATE_VERB_LOOKAHEAD = 4
+
+# Last-resort paragraph token when no IDMS record name survives in the
+# program. Derived from the DCLGEN host group, never invented.
+DCLGEN_GROUP_PREFIX = "DCL"
+DCLGEN_GROUP_SUFFIXES = ("TV", "TB")

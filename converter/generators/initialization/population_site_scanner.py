@@ -1,53 +1,49 @@
 # LOCATION: converter/generators/initialization/population_site_scanner.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """Finds the paragraph that POPULATES a DCLGEN group.
 
-WHY THIS FILE EXISTS
+An update program driven by a flat file through singleton SQL has no
+cursor OPEN, so CursorScopeScanner cannot see it and its business group
+was never cleared.
 
-CursorScopeScanner resolves placement sites from ONE anchor: a
-PERFORM <nnn>-OPEN-<cursor>. That is correct for a cursor program and
-blind to every other shape.
+FOUR REFUSALS, MEASURED AGAINST THE MANUAL REFERENCE
 
-VMDZ1567 is an update program driven by a flat file through singleton
-SQL. It has ZERO cursors, 18 references to DCLDZBFARTV, and populates
-that group field by field at the top of VERWERKING:
+The manual for VMDZ1567 initialises exactly ONE group - DCLDZBFARTV, as
+the first statement of 1000-VERWERKING. It never initialises
+DCLDZ01RSTV. The first version of this scanner emitted four extra
+INITIALIZE statements and broke the restart family three ways.
 
-    VERWERKING.
-        MOVE '1815' TO CT-TGDSERV-479BFAR OF DCLDZBFARTV
-        MOVE NR-CIO-FORM-AS-R TO NR-CIOFMAS-479BFAR OF DCLDZBFARTV
-        ...
+R1  THE GROUP MUST BE A MOVE TARGET
 
-With no cursor OPEN, scope_initializer logged no_cursor_open and
-returned the text unchanged, so the group was never cleared and every
-field the paragraph does not write carried the previous row's value
-into the next UPDATE.
+        MOVE TE-CH-RS-DATA-TEXT OF DCLDZ01RSTV TO WS-RESTART-REC
 
-WHAT THIS SCANNER ADDS
+    READS the group. Matching "OF DCL..." anywhere on the line made
+    710-JOB-IS-RESTART clear the checkpoint row the SELECT had just
+    returned. Only the RECEIVING side of a MOVE is a write.
 
-A second site type: the FIRST line of a paragraph that writes into a
-DCLGEN group. INITIALIZE belongs immediately above that line, inside
-the paragraph, so the group is cleared once per row.
+R2  A GROUP WRITTEN IN MORE THAN ONE PARAGRAPH IS CARRIED STATE
 
-WHY A SEPARATE DATACLASS
+    DCLDZ01RSTV is written in four paragraphs and its key must survive
+    from the control paragraph into the write and commit paragraphs.
+    A per-row buffer is written in exactly one paragraph.
 
-CursorOpenSite.is_resolved reads
+R3  THE ANCHOR IS THE PARAGRAPH'S FIRST EXECUTABLE LINE
 
-    bool(self.cursor) and bool(self.group)
+    Not the write itself. The first version anchored on the write, so a
+    write sitting inside an IF put the statement between IF and THEN -
+    invalid COBOL - and a SECOND group populated later in the same
+    paragraph was silently dropped. Anchoring on the first executable
+    line is the only position that cannot land inside an open scope,
+    and it lets two buffers in one paragraph both be cleared.
 
-A population site has no cursor, so reusing that type would make every
-site unresolved and InitializePlacer would skip it. InitializationSite
-resolves on the GROUP alone, which is the only fact placement needs.
-The placer is duck-typed and takes it unchanged.
+R4  A GROUP THE PARAGRAPH ALREADY CLEARS IS LEFT ALONE
 
-SCOPE
-
-Population sites are always ROW scope. The paragraph is the per-record
-unit of work; clearing once per run would reintroduce the defect for
-every record after the first.
+    R3 makes INITIALIZE itself the first executable line, so a second
+    run would otherwise stack a duplicate on every pass. The pass is
+    idempotent because it refuses a group it has already placed.
 
 No program, paragraph, record, table, DCLGEN group or host variable
-name is hardcoded. Regex is imported from patterns/, constants from
-rules/.
+name is hardcoded. Regex lives in patterns/, constants in rules/.
 """
 
 from __future__ import annotations
@@ -57,14 +53,23 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from converter.generators.initialization.line_geometry import LineGeometry
 from converter.generators.initialization.paragraph_index import ParagraphIndex
-from patterns.initialization_scope_patterns import HOST_GROUP_PATTERN
+from patterns.initialization_scope_patterns import COBOL_HOST_GROUP_PATTERN
 from rules.initialization_placement_rules import (
     DCLGEN_GROUP_PREFIX,
     SCOPE_ROW,
 )
-from patterns.initialization_scope_patterns import COBOL_HOST_GROUP_PATTERN
 
 NO_CURSOR = ""
+
+# COBOL language vocabulary, not business names.
+MOVE_VERB = "MOVE "
+INITIALIZE_VERB = "INITIALIZE "
+TO_KEYWORD = " TO "
+QUALIFIER_OPENERS = ("OF ", "IN ")
+
+# A qualifier follows its data-name immediately; anything further is a
+# separate statement.
+CONTINUATION_SCAN_LIMIT = 2
 
 
 @dataclass
@@ -72,8 +77,8 @@ class InitializationSite:
     """A place where a DCLGEN group must be cleared.
 
     Structurally compatible with CursorOpenSite so InitializePlacer
-    accepts it unchanged. `cursor` is carried only for that
-    compatibility and is always empty for a population site.
+    takes it unchanged. `cursor` exists only for that compatibility and
+    is always empty: resolution is the GROUP.
     """
 
     index: int
@@ -85,12 +90,18 @@ class InitializationSite:
 
     @property
     def is_resolved(self) -> bool:
-        """Resolution is the GROUP. A population site has no cursor."""
         return bool(self.group)
 
 
+@dataclass
+class _Write:
+    index: int
+    group: str
+    owner: str
+
+
 class PopulationSiteScanner:
-    """Locates the first DCLGEN write in every paragraph."""
+    """Locates the one paragraph that fills a per-row DCLGEN buffer."""
 
     def __init__(
         self,
@@ -108,45 +119,55 @@ class PopulationSiteScanner:
         lines: List[str],
         exclude_groups: Optional[Iterable[str]] = None,
     ) -> List[InitializationSite]:
-        """One site per (paragraph, group), at the first write.
-
-        `exclude_groups` carries the groups a cursor site already owns,
-        so a group reached by both anchors is never initialised twice.
-        """
+        source = list(lines)
         excluded = {
             str(name or "").strip().upper()
             for name in (exclude_groups or ())
             if str(name or "").strip()
         }
 
-        seen: Dict[Tuple[str, str], bool] = {}
+        writes = self._writes(source)
+        if not writes:
+            return []
+
+        owners_by_group: Dict[str, Set[str]] = {}
+        for write in writes:
+            owners_by_group.setdefault(write.group, set()).add(
+                write.owner.upper()
+            )
+
+        already = self._already_initialised(source)
+        first_executable = self._first_executable_by_paragraph(source)
+
+        emitted: Set[str] = set()
         output: List[InitializationSite] = []
 
-        for index, line in enumerate(lines):
-            if self.geometry.is_comment_or_blank(line):
+        for write in writes:
+            owner_key = write.owner.upper()
+
+            if write.group in excluded or write.group in emitted:
                 continue
 
-            group = self._group_written_on(line)
-            if not group or group in excluded:
+            # R2 - carried state is never cleared at paragraph entry.
+            if len(owners_by_group[write.group]) != 1:
                 continue
 
-            owner = self.paragraphs.owner_of(lines, index)
-            if not owner:
-                # A write outside any paragraph has no per-row unit of
-                # work to attach to. Refuse rather than guess a scope.
+            # R4 - idempotence.
+            if (owner_key, write.group) in already:
                 continue
 
-            key = (owner.upper(), group)
-            if key in seen:
+            # R3 - anchor on the first executable line of the paragraph.
+            anchor = first_executable.get(owner_key, -1)
+            if anchor < 0:
                 continue
-            seen[key] = True
 
+            emitted.add(write.group)
             output.append(
                 InitializationSite(
-                    index=index,
-                    group=group,
-                    indent=self.geometry.indent_of(line),
-                    owner=owner,
+                    index=anchor,
+                    group=write.group,
+                    indent=self.geometry.indent_of(source[anchor]),
+                    owner=write.owner,
                     scope=SCOPE_ROW,
                 )
             )
@@ -159,31 +180,121 @@ class PopulationSiteScanner:
     # ------------------------------------------------------------------ #
     # Internals
     # ------------------------------------------------------------------ #
-    def _group_written_on(self, line: str) -> str:
-        """The DCLGEN group this line writes into, or ''."""
-        match = HOST_GROUP_PATTERN.search(self.geometry.body(line))
-        if not match:
+    def _writes(self, lines: List[str]) -> List[_Write]:
+        output: List[_Write] = []
+
+        for index, line in enumerate(lines):
+            if self.geometry.is_comment_or_blank(line):
+                continue
+
+            group = self._receiving_group(lines, index)
+            if not group:
+                continue
+
+            owner = self.paragraphs.owner_of(lines, index)
+            if not owner:
+                continue
+
+            output.append(_Write(index=index, group=group, owner=owner))
+
+        return output
+
+    def _already_initialised(
+        self,
+        lines: List[str],
+    ) -> Set[Tuple[str, str]]:
+        found: Set[Tuple[str, str]] = set()
+
+        for index, line in enumerate(lines):
+            if self.geometry.is_comment_or_blank(line):
+                continue
+
+            body = self._body(line)
+            if not body.startswith(INITIALIZE_VERB):
+                continue
+
+            group = self._dclgen_group(body[len(INITIALIZE_VERB):])
+            if not group:
+                continue
+
+            owner = self.paragraphs.owner_of(lines, index)
+            if owner:
+                found.add((owner.upper(), group))
+
+        return found
+
+    def _receiving_group(self, lines: List[str], index: int) -> str:
+        """The DCLGEN group this MOVE writes INTO, or ''."""
+        body = self._body(lines[index])
+        if not body.startswith(MOVE_VERB):
             return ""
-        group = str(match.group("group") or "").upper()
+
+        cut = body.rfind(TO_KEYWORD)
+        if cut < 0:
+            return ""
+
+        group = self._dclgen_group(body[cut + len(TO_KEYWORD):])
+        if group:
+            return group
+
+        # Wrapped form:  MOVE <source> TO <field>
+        #                  OF <group>
+        return self._continuation_group(lines, index)
+
+    def _continuation_group(self, lines: List[str], index: int) -> str:
+        scanned = 0
+        position = index + 1
+
+        while position < len(lines) and scanned < CONTINUATION_SCAN_LIMIT:
+            if self.geometry.is_comment_or_blank(lines[position]):
+                position += 1
+                continue
+
+            scanned += 1
+            tail = self._body(lines[position])
+            if not tail.startswith(QUALIFIER_OPENERS):
+                return ""
+            return self._dclgen_group(tail)
+
+        return ""
+
+    def _dclgen_group(self, text: str) -> str:
+        match = COBOL_HOST_GROUP_PATTERN.search(str(text or ""))
+        if not match:
+            # An unqualified INITIALIZE names the group directly.
+            token = str(text or "").strip().rstrip(".").split(" ")[0]
+            group = token.upper()
+        else:
+            group = str(match.group("group") or "").upper()
+
         if not group.startswith(DCLGEN_GROUP_PREFIX):
             return ""
         return group
 
-    def _group_written_on(self, line: str) -> str:
-        """The DCLGEN group this line writes into, or ''.
+    def _first_executable_by_paragraph(
+        self,
+        lines: List[str],
+    ) -> Dict[str, int]:
+        first: Dict[str, int] = {}
 
-        COBOL qualification only. The SQL host form ":DCLxxx.FIELD"
-        belongs to a FETCH INTO list and is owned by
-        CursorScopeScanner._group_in_span - matching it here would
-        anchor an INITIALIZE inside a generated FETCH paragraph.
-        """
-        match = COBOL_HOST_GROUP_PATTERN.search(self.geometry.body(line))
-        if not match:
-            return ""
-        group = str(match.group("group") or "").upper()
-        if not group.startswith(DCLGEN_GROUP_PREFIX):
-            return ""
-        return group
+        for index, line in enumerate(lines):
+            if self.geometry.is_comment_or_blank(line):
+                continue
+            if self.paragraphs.is_paragraph_header(line):
+                continue
+
+            owner = self.paragraphs.owner_of(lines, index)
+            if not owner:
+                continue
+
+            key = owner.upper()
+            if key not in first:
+                first[key] = index
+
+        return first
+
+    def _body(self, line: str) -> str:
+        return " ".join(self.geometry.body(line).upper().split())
 
 
 __all__ = ["InitializationSite", "PopulationSiteScanner"]

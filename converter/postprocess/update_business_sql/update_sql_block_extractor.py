@@ -25,6 +25,10 @@ from rules.update_business_sql_rules import (
     SQL_ERROR_PARAGRAPH_NAMES,
     SQL_ERROR_ROUTINE_MARKER,
     TOKEN_STAR,
+    DCLGEN_GROUP_PREFIX,
+    DCLGEN_GROUP_SUFFIXES,
+    ENABLE_STRUCTURAL_UPDATE_DETECTION,
+    UPDATE_VERB_LOOKAHEAD,
 )
 from rules.update_restart_rules import (
     RESTART_PARAGRAPH_NAMES,
@@ -145,7 +149,36 @@ class UpdateSqlBlockExtractor:
         diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["business_update_extracted"])
         return updated_lines
 
-    def _find_inline_update_block(self, *, lines, start, end):
+    def _find_inline_update_block(
+        self, *, lines, start, end, diagnostics=None, paragraph=""
+    ):
+        """Locate the inline business UPDATE block, or refuse and say so.
+
+        THREE ANCHORS, IN ORDER OF RELIABILITY
+
+            1. the generated marker comment   *DB2: Converted MODIFY for x
+            2. the SQL-LOCATION literal       MOVE 'UPDATE-x' TO SQL-LOCATION
+            3. the block STRUCTURE            EXEC SQL / UPDATE / END-EXEC /
+                                              EVALUATE SQLCODE / END-EVALUATE
+
+        CORRECTION - detection depended on a deletable comment.
+
+        Anchors 1 and 2 are optional cosmetics. VMDZ1526 carried three
+        SQL-LOCATION lines and was extracted; VMDZ1567 carried neither
+        anchor, so its UPDATE stayed inline in VERWERKING, never reached
+        _replace_update_success_continue, never received ADD 1 TO, and
+        therefore produced no end-of-run total. One missing comment cost
+        three features.
+
+        Anchor 3 reads the shape _find_sqlcode_evaluate_end already
+        recognises, so no new vocabulary is introduced.
+
+        CORRECTION - the refusal was silent.
+
+        The bare `return None` meant a program whose UPDATE was left
+        inline looked identical to a program that had none. Every exit
+        now reports.
+        """
         for index in range(start + 1, end):
             logical = self._logical(lines[index])
             comment_match = CONVERTED_MODIFY_COMMENT_PATTERN.match(logical)
@@ -176,8 +209,87 @@ class UpdateSqlBlockExtractor:
             dcl_group = self._find_dcl_group(lines=lines[block_start:block_end])
             return block_start, block_end, record_name, dcl_group
 
+        found = self._find_update_block_by_structure(
+            lines=lines, start=start, end=end
+        )
+        if found:
+            block_start, block_end, record_name, dcl_group = found
+            self._say(
+                diagnostics, "business_update_structural", paragraph=paragraph
+            )
+            return block_start, block_end, record_name, dcl_group
+
+        self._say(diagnostics, "business_update_not_found", paragraph=paragraph)
         return None
 
+    def _find_update_block_by_structure(self, *, lines, start, end):
+        """The UPDATE block read from its own shape. No comment needed."""
+        if not ENABLE_STRUCTURAL_UPDATE_DETECTION:
+            return None
+
+        for index in range(start + 1, end):
+            if not EXEC_SQL_START_PATTERN.match(self._logical(lines[index])):
+                continue
+            if not self._opens_an_update(lines=lines, index=index, end=end):
+                continue
+
+            block_end = self._find_sqlcode_evaluate_end(
+                lines=lines, start=index, limit=end
+            )
+            if block_end <= index:
+                continue
+
+            dcl_group = self._find_dcl_group(lines=lines[index:block_end])
+            record_name = self._record_from_group(dcl_group)
+            if not record_name:
+                continue
+
+            return index, block_end, record_name, dcl_group
+
+        return None
+
+    def _opens_an_update(self, *, lines, index, end):
+        """True when this EXEC SQL begins an UPDATE statement."""
+        limit = min(index + 1 + UPDATE_VERB_LOOKAHEAD, end)
+        for position in range(index + 1, limit):
+            logical = self._logical(lines[position])
+            if EXEC_SQL_UPDATE_PATTERN.match(logical):
+                return True
+            if END_EXEC_PATTERN.match(logical):
+                return False
+        return False
+
+    @staticmethod
+    def _record_from_group(dcl_group):
+        """DCLDZBFARTV -> DZBFAR. Derived, never invented.
+
+        Used only when no IDMS record name survives anywhere in the
+        program. The paragraph is then named from the DB2 group, which
+        is a faithful name for what the paragraph actually updates.
+        """
+        name = str(dcl_group or "").strip().upper()
+        if not name.startswith(DCLGEN_GROUP_PREFIX):
+            return ""
+        name = name[len(DCLGEN_GROUP_PREFIX):]
+        for suffix in DCLGEN_GROUP_SUFFIXES:
+            if name.endswith(suffix) and len(name) > len(suffix):
+                return name[: -len(suffix)]
+        return name
+
+    @staticmethod
+    def _say(diagnostics, key, **values):
+        """Report, or stay silent only because no collector was given."""
+        if diagnostics is None:
+            return
+        template = UPDATE_RESTART_DIAGNOSTICS.get(key, "")
+        if not template:
+            diagnostics.append(f"Update SQL: {key} {values}")
+            return
+        try:
+            diagnostics.append(template.format(**values))
+        except (IndexError, KeyError):
+            diagnostics.append(template)
+            
     def _find_sqlcode_evaluate_end(self, *, lines, start, limit):
         seen_exec_sql = seen_update = seen_end_exec = seen_evaluate = False
 
