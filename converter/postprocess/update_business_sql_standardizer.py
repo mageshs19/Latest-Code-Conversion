@@ -35,6 +35,9 @@ from rules.update_restart_rules import (
     UPDATE_SQL_PARAGRAPH_PREFIX,
 )
 
+from converter.postprocess.update_business_sql.update_counter_declarer import (
+    UpdateCounterDeclarer,
+)
 
 class UpdateBusinessSqlStandardizer(
     UpdateBusinessSqlLineRenderer,
@@ -103,7 +106,9 @@ class UpdateBusinessSqlStandardizer(
             lines=lines, start=start, end=end
         ):
             diagnostics.append(UPDATE_RESTART_DIAGNOSTICS["business_update_not_found"])
-
+        lines = UpdateCounterDeclarer(self.line_utils).ensure(
+            lines=lines, diagnostics=diagnostics
+        )
         lines = self._cleanup_process_paragraph(
             lines=lines, process_paragraph=process_paragraph
         )

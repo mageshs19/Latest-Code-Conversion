@@ -21,7 +21,9 @@ cursor / host variable names.
 """
 
 from __future__ import annotations
+from rules.counter_rules import COUNTER_TOTALS_ANCHOR
 
+TOTALS_ANCHOR_STATEMENT = COUNTER_TOTALS_ANCHOR
 # =====================================================================
 # Master switch
 # =====================================================================
@@ -46,8 +48,7 @@ COUNTER_DISPLAY_TEMPLATE = "DISPLAY '{label} : ' {name}"
 COUNTER_LABEL_TEMPLATE = "TOTAL {token} RECORDS"
 COUNTER_LABEL_WIDTH = 20
 
-# Totals are emitted immediately before the program terminates.
-TOTALS_ANCHOR_STATEMENT = "STOP RUN"
+
 TOTALS_INDENT = "    "
 
 # =====================================================================

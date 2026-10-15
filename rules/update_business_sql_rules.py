@@ -70,3 +70,22 @@ UPDATE_VERB_LOOKAHEAD = 4
 # program. Derived from the DCLGEN host group, never invented.
 DCLGEN_GROUP_PREFIX = "DCL"
 DCLGEN_GROUP_SUFFIXES = ("TV", "TB")
+
+ENSURE_UPDATE_COUNTER_DECLARED = True
+
+# Cloned from the sibling counter already in the help group, so the
+# column geometry is inherited rather than re-stated here.
+UPDATE_COUNTER_PICTURE = "PIC S9(11) COMP-3 VALUE +0."
+
+UPDATE_COUNTER_DIAGNOSTICS = {
+    "declared": (
+        "Update business SQL: declared row counter {name} beside {sibling}."
+    ),
+    "already": (
+        "Update business SQL: row counter {name} is already declared."
+    ),
+    "no_anchor": (
+        "Update business SQL: {sibling} is not declared, so row counter "
+        "{name} could not be placed; the ADD statement would not compile."
+    ),
+}

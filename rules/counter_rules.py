@@ -81,3 +81,35 @@ COUNTER_MESSAGES = {
         "Counters: added {count} end-of-run total display line(s)."
     ),
 }
+
+COUNTER_TOTAL_NAME_PREFIX = "WS-NB-"
+
+# Wording is site data. Longest suffix wins, so a specific rule is
+# never shadowed by a shorter one.
+COUNTER_TOTAL_LABEL_BY_SUFFIX = {
+    "-INPUT-UPD-I": "NUMBER OF RECORDS PROCESSED",
+    "-UPD-I": "NUMBER OF UPDATE {token}",
+}
+COUNTER_TOTAL_LABEL_DEFAULT = "TOTAL {token} RECORDS"
+
+COUNTER_TOTAL_MESSAGES = {
+    "resolved": (
+        "Restart totals: resolved {count} counter(s) from PROCEDURE "
+        "DIVISION increments: {names}."
+    ),
+    "none": (
+        "Restart totals: the PROCEDURE DIVISION increments no counter; "
+        "no end-of-run total was supplied to the mainline."
+    ),
+}
+
+COUNTER_TOTAL_GUARANTEED_ROLES = ("input_counter",)
+
+COUNTER_TOTAL_MESSAGES["guaranteed"] = (
+    "Restart totals: included {name}; the restart reader will increment "
+    "it, so the reference does not exist yet."
+)
+COUNTER_TOTAL_MESSAGES["guarantee_unresolved"] = (
+    "Restart totals: role {role} could not be read from the storage "
+    "catalogue; its total was not included."
+)

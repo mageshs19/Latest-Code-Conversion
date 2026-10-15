@@ -49,7 +49,14 @@ from converter.composers.restart.restart_injection_composer import (
     RestartInjectionComposer,
 )
 from converter.resolvers.restart_role_resolver import RestartRoleResolver
-
+from converter.generators.restart.restart_totals_resolver import (
+    RestartTotalsResolver,
+)
+from catalogs.restart_storage_catalog import GENERATED_STORAGE_FIELDS
+from rules.counter_rules import (
+    COUNTER_TOTAL_GUARANTEED_ROLES,
+    COUNTER_TOTAL_MESSAGES,
+)
 MESSAGE_PREFIX = "Restart stage:"
 
 
@@ -156,7 +163,7 @@ class RestartStageAdapter:
             source,
             role=role,
             program_kind=context.program_kind,
-            totals=tuple(context.totals or ()),
+            totals=self._totals(source, context),
         )
         self.messages.extend(messages)
         return text
@@ -164,6 +171,63 @@ class RestartStageAdapter:
     def _say(self, message: str) -> None:
         self.messages.append(f"{MESSAGE_PREFIX} {message}")
 
+    def _totals(self, source: str, context) -> tuple[str, ...]:
+        """The end-of-run DISPLAY lines for this program.
+
+        A caller that supplies totals always wins. When none are supplied
+        - which was ALWAYS, because RestartRunContext is built with
+        totals=() - they are resolved from the counters the PROCEDURE
+        DIVISION actually increments, rather than left empty and silently
+        dropped by the mainline builder.
+        """
+        supplied = tuple(context.totals or ())
+        if supplied:
+            return supplied
+
+        resolver = RestartTotalsResolver(self.line_utils)
+        totals = resolver.resolve(
+            str(source or "").splitlines(),
+            guaranteed=self._guaranteed_counters(),
+        )
+        self.messages.extend(resolver.messages)
+        return totals
+
+    def _guaranteed_counters(self) -> tuple[str, ...]:
+        """Counter names the restart family will certainly increment.
+
+        The catalogue has shipped as a mapping and as a sequence of field
+        specs, so the role is LOOKED UP rather than assumed, and a shape
+        this cannot read is reported instead of silently yielding none.
+        """
+        found: list[str] = []
+
+        for role in COUNTER_TOTAL_GUARANTEED_ROLES:
+            name = self._catalogue_name(role)
+            if name:
+                found.append(name)
+            else:
+                self._say(
+                    COUNTER_TOTAL_MESSAGES["guarantee_unresolved"].format(
+                        role=role
+                    )
+                )
+
+        return tuple(found)
+
+    @staticmethod
+    def _catalogue_name(role: str) -> str:
+        fields = GENERATED_STORAGE_FIELDS
+
+        if isinstance(fields, dict):
+            return str(fields.get(role) or "").strip().upper()
+
+        for entry in fields or ():
+            if isinstance(entry, dict) and str(entry.get("role")) == role:
+                return str(entry.get("name") or "").strip().upper()
+            if getattr(entry, "role", None) == role:
+                return str(getattr(entry, "name", "") or "").strip().upper()
+
+        return ""
 
 __all__ = [
     "MESSAGE_PREFIX",
