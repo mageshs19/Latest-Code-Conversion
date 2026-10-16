@@ -1,3 +1,6 @@
+# LOCATION: converter/postprocess/update_business_sql/update_sql_block_extractor.py
+# ACTION: REPLACE ENTIRE FILE
+
 from __future__ import annotations
 
 from patterns.update_business_sql_patterns import (
@@ -88,6 +91,40 @@ class UpdateSqlBlockExtractor:
     The middle two have a DATA consequence: without the INITIALIZE,
     every column the SET list does not assign keeps the previous row's
     value. A pass that declines to place it must say so.
+
+    CORRECTION 4 - the span measured a STATEMENT and spliced a SENTENCE
+    -------------------------------------------------------------------
+    _find_sqlcode_evaluate_end returned `index + 1` at END-EVALUATE.
+    END-EVALUATE closes the SCOPE; the period that closes the SENTENCE
+    is a separate line, and the blank run after it separated this
+    sentence from its neighbour. Both belonged to the text being
+    extracted, and both were left behind:
+
+        PERFORM 1100-UPDATE-DZBFAR.
+        <- replacement ends here
+        .                       <- orphan terminator
+                                <- blank run, one longer on every run
+        IF WS-TELLER > 99
+
+    An orphan terminator is an empty sentence, and the blank run grew
+    because each writer added its own separator on top of the one the
+    previous writer never removed. The region now ends where the
+    SENTENCE ends, and the replacement emits exactly ONE separator, so
+    running twice measures the same region and writes the same lines.
+    Idempotent by construction, not by a cleanup scan.
+
+    CORRECTION 5 - two authors of the per-record commit cadence
+    ------------------------------------------------------------
+    Measured on VMDZ1567: VERWERKING carried TWO identical commit tests.
+    The restart family writes one from PROCESS_TAIL_TEMPLATE and this
+    pass writes another from COMMIT_CHECK_IF_TEMPLATE, and this pass
+    runs LAST, so the restart injector could not clean up after it.
+
+    The restart family OWNS the commit cadence when it is present -
+    exactly as it owns the restart paragraphs. This pass keeps the
+    PERFORM of the extracted paragraph, which is its own, and stands
+    down from the commit block on the evidence that the cadence already
+    exists.
     """
 
     #
@@ -112,9 +149,10 @@ class UpdateSqlBlockExtractor:
         replacement = self._replacement_in_process(
             reference_line=lines[block_start],
             update_paragraph=update_paragraph,
+            restart_owns_commit=self._restart_owns_commit(lines),
+            diagnostics=diagnostics,
         )
         updated_lines = lines[:block_start] + replacement + lines[block_end:]
-
         process_range = self.line_utils.find_paragraph_range(
             updated_lines, process_paragraph
         )
@@ -289,7 +327,10 @@ class UpdateSqlBlockExtractor:
             diagnostics.append(template.format(**values))
         except (IndexError, KeyError):
             diagnostics.append(template)
-            
+
+    #
+    # Span measurement
+    #
     def _find_sqlcode_evaluate_end(self, *, lines, start, limit):
         seen_exec_sql = seen_update = seen_end_exec = seen_evaluate = False
 
@@ -308,39 +349,146 @@ class UpdateSqlBlockExtractor:
                 seen_evaluate = True
                 continue
             if seen_evaluate and END_EVALUATE_PATTERN.match(logical):
-                return index + 1
+                return self._sentence_end(lines=lines, index=index, limit=limit)
 
         return -1
+
+    def _sentence_end(self, *, lines, index, limit):
+        """End of the SENTENCE that closed at `index`. See CORRECTION 4.
+
+        END-EVALUATE closes the SCOPE. The period that closes the
+        SENTENCE stands on its own line, and the blank run after it
+        separated this sentence from its neighbour. Both belong to the
+        text being extracted.
+
+        Conservative by design: only a line whose WHOLE logical body is
+        the terminator is consumed, and the walk stops at the first
+        comment or executable line, so no statement and no decision
+        record can be swallowed.
+        """
+        cursor = min(index + 1, limit)
+
+        while cursor < limit:
+            if self._is_comment_line(lines[cursor]):
+                break
+            body = " ".join(str(self._logical(lines[cursor]) or "").split())
+            if not body:
+                break
+            if body == SENTENCE_TERMINATOR:
+                cursor += 1
+            break
+
+        while cursor < limit:
+            if self._is_comment_line(lines[cursor]):
+                break
+            if str(self._logical(lines[cursor]) or "").strip():
+                break
+            cursor += 1
+
+        return cursor
 
     #
     # Rendering
     #
-    def _replacement_in_process(self, *, reference_line, update_paragraph):
+    def _replacement_in_process(
+        self,
+        *,
+        reference_line,
+        update_paragraph,
+        restart_owns_commit: bool = False,
+        diagnostics=None,
+    ):
+        """The call site that replaces the extracted inline UPDATE.
+
+        Ends with exactly ONE separator. The span it replaces now
+        absorbs the sentence terminator AND the blank run that followed
+        it (CORRECTION 4), so this method is the single owner of the gap
+        between the call site and whatever comes next. One owner, one
+        blank, no drift on a second run.
+
+        `restart_owns_commit` defaults to False so a program WITHOUT
+        restart control is unaffected and still receives its commit
+        cadence from here (CORRECTION 5).
+        """
         names = UPDATE_RESTART_WS_NAMES
-        return [
+
+        output = [
             self._active_line_like(
                 reference_line=reference_line,
                 body=PERFORM_TEMPLATE.format(paragraph=update_paragraph),
             ),
-            "",
-            self._active_line_like(
-                reference_line=reference_line,
-                body=COMMIT_CHECK_IF_TEMPLATE.format(
-                    counter=names["commit_counter"],
-                    threshold=UPDATE_COMMIT_THRESHOLD,
-                ),
-            ),
-            self._active_line_like(
-                reference_line=reference_line,
-                body=COMMIT_CHECK_PERFORM_TEMPLATE.format(
-                    indent=NESTED_INDENT,
-                    commit_paragraph=RESTART_PARAGRAPH_NAMES["commit"],
-                ),
-            ),
-            self._active_line_like(
-                reference_line=reference_line, body=END_IF_STATEMENT
-            ),
         ]
+
+        if restart_owns_commit:
+            self._say(diagnostics, "commit_owned_by_restart")
+            output.append("")
+            return output
+
+        output.extend(
+            [
+                "",
+                self._active_line_like(
+                    reference_line=reference_line,
+                    body=COMMIT_CHECK_IF_TEMPLATE.format(
+                        counter=names["commit_counter"],
+                        threshold=UPDATE_COMMIT_THRESHOLD,
+                    ),
+                ),
+                self._active_line_like(
+                    reference_line=reference_line,
+                    body=COMMIT_CHECK_PERFORM_TEMPLATE.format(
+                        indent=NESTED_INDENT,
+                        commit_paragraph=RESTART_PARAGRAPH_NAMES["commit"],
+                    ),
+                ),
+                self._active_line_like(
+                    reference_line=reference_line, body=END_IF_STATEMENT
+                ),
+                "",
+            ]
+        )
+        return output
+
+    def _restart_owns_commit(self, lines) -> bool:
+        """True when the restart family already performs the commit paragraph.
+
+        EVIDENCE, NOT A FLAG
+
+        No new vocabulary and no new guess: the commit paragraph name is
+        already imported here, and the restart tail performs it inside the
+        business paragraph. If that PERFORM exists anywhere in the program,
+        the cadence exists and a second one is a duplicate.
+
+        READ THROUGH THE HOST'S LINE READER
+
+        `self.line_utils.logical` does not strip the fixed-format sequence
+        area, so an exact comparison measured
+
+            "002310        PERFORM 800-PROCESS-COMMIT        02310000"
+
+        against "PERFORM 800-PROCESS-COMMIT" and never matched. The host's
+        _logical() is the sequence-aware reader this module uses everywhere
+        else, and the body is whitespace-collapsed before the test, so
+        neither column geometry nor indentation can hide the evidence.
+        """
+        commit = str(RESTART_PARAGRAPH_NAMES.get("commit", "") or "").upper()
+        if not commit:
+            return False
+
+        target = f"PERFORM {commit}"
+
+        for line in lines or []:
+            if self._is_comment_line(line):
+                continue
+
+            logical = " ".join(str(self._logical(line) or "").upper().split())
+            if not logical:
+                continue
+
+            if target in logical:
+                return True
+
+        return False
 
     def _build_update_paragraph(self, *, paragraph_name, extracted_block):
         cleaned_block = self._strip_existing_final_period(extracted_block)

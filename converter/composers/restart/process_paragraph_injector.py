@@ -2,13 +2,16 @@
 # ACTION: REPLACE ENTIRE FILE
 """Repairs the business processing paragraph of an update program.
 
-FIVE THINGS IT DOES, IN ORDER
+SEVEN THINGS IT DOES, IN ORDER
 
-    1. remove a per-record inline COMMIT
-    2. remove an orphan scope terminator
-    3. refuse to act twice
-    4. remove a trailing reader PERFORM the tail is about to re-supply
-    5. append the commit test and the tail read
+    1.  remove a per-record inline COMMIT
+    1b. remove a scope this pass emptied
+    2.  remove an orphan scope terminator
+    2b. remove a redundant sentence terminator
+    2c. remove a legacy commit test the appended tail will re-supply
+    3.  refuse to act twice
+    4.  remove a trailing reader PERFORM the tail is about to re-supply
+    5.  append the commit test and the tail read
 
 CORRECTION 1 - the paragraph was read as LOGICAL TEXT
 
@@ -54,6 +57,58 @@ CORRECTION 3 - the orphan pass ran BEFORE the COMMIT pass
     two passes to converge is itself the evidence the order was wrong:
     one pass over settled text is the contract.
 
+CORRECTION 4 - a legacy commit test was preserved and then DUPLICATED
+
+    Measured on VMDZ1567: VERWERKING carried TWO commit tests.
+
+        IF WS-TELLER > 99                 <- the program's own
+            PERFORM 800-PROCESS-COMMIT
+        END-IF.
+        .
+        IF WS-TELLER > 99                 <- appended by step 5
+            PERFORM 800-PROCESS-COMMIT
+        END-IF.
+        PERFORM READ-FLAT-FILE.
+
+    No step could see the first one:
+
+      * step 1b removes an EMPTY scope only - "a scope with a body is
+        never touched" - and this one holds a PERFORM,
+      * step 3 compares the FULL tail (commit test + tail read) against
+        the END of the body, so a lone commit test matches nothing.
+
+    Step 5 then appends unconditionally, and the stated contract
+    "running twice does not append two tails" held only because the
+    DUPLICATE was created inside a single run.
+
+    Step 2c removes a commit test built from the RESOLVED names - the
+    commit counter and the commit paragraph - and only when it is NOT
+    followed by the tail read. The complete tail therefore survives,
+    step 3 still fires, and the "already present" decision is reported
+    rather than bypassed. A legacy counter the program uses for
+    anything else is never touched, because the counter must be the one
+    this program resolved.
+
+CORRECTION 5 - the period reset in _track was unreachable
+
+        tokens = logical.replace(PERIOD, " ").split()
+        if not tokens:
+            return                      <- a lone "." exits HERE
+        ...
+        if logical.rstrip().endswith(PERIOD):
+            for verb in SCOPED_VERBS:
+                depth[verb] = 0         <- never ran for a lone period
+
+    A line whose logical body is "." produces NO tokens, so the reset
+    written for exactly that shape was dead code. The period test now
+    runs FIRST and returns, which is also correct: a lone period opens
+    nothing.
+
+    Step 2b then removes the period itself, but ONLY when the statement
+    above it already carries its own terminator. A lone period that
+    closes an unterminated statement or an EVALUATE is required by the
+    manual reference and is left alone.
+
 CONSERVATIVE BY DESIGN
 
 Orphan detection covers IF and EVALUATE only. PERFORM and READ have
@@ -71,7 +126,8 @@ silence is what made CORRECTION 3 take three runs to find.
 
 IDEMPOTENT
 
-Running twice does not append two tails.
+Running twice does not append two tails, and never creates a second one
+inside a single run.
 
 No program, paragraph, record, table, DCLGEN, cursor or host variable
 name is hardcoded. Constants live in rules/, regex in patterns/.
@@ -82,7 +138,7 @@ from __future__ import annotations
 from converter.composers.restart.restart_line_utils import RestartLineUtils
 from converter.generators.restart.restart_config import RestartConfig
 from patterns.restart_patterns import ORPHAN_SCOPE_TERMINATOR_PATTERN
-from rules.restart_standard_rules import COMMIT_BLOCK_SCAN_LIMIT
+from rules.restart_standard_rules import COMMIT_BLOCK_SCAN_LIMIT, ROLE_COMMIT
 from rules.restart_statement_templates import PROCESS_TAIL_TEMPLATE
 
 # Verbs whose scope terminator is MANDATORY once the scope is opened.
@@ -93,9 +149,16 @@ EXEC_SQL_OPEN = "EXEC SQL"
 EXEC_SQL_CLOSE = "END-EXEC"
 COMMIT_VERB = "COMMIT"
 PERFORM_VERB = "PERFORM"
+IF_VERB = "IF"
+END_IF = "END-IF"
 PERIOD = "."
 
 SQL_LOCATION_TOKEN = "TO SQL-LOCATION"
+
+# How far past a commit test the tail read may sit before the block is
+# treated as incomplete. Blank lines do not count.
+TAIL_READ_LOOKAHEAD = 3
+
 
 class ProcessParagraphInjector:
     """Cleans and completes the business processing paragraph."""
@@ -130,6 +193,12 @@ class ProcessParagraphInjector:
         body = self._strip_inline_commit(list(lines or []))
         body = self._strip_emptied_scopes(body)
         body = self._strip_orphan_terminators(body)
+
+        # The redundant period goes BEFORE the legacy-test scan, so the
+        # scan reads the real next statement instead of a stray
+        # terminator left by the COMMIT removal.
+        body = self._strip_redundant_periods(body)
+        body = self._strip_legacy_commit_test(body)
 
         tail = self.tail()
         if self._already_injected(body, tail):
@@ -236,7 +305,7 @@ class ProcessParagraphInjector:
             return 0
 
         return 0
-    
+
     def _commit_block_span(self, lines: list[str], start: int) -> int | None:
         """Index after a bare COMMIT block starting at `start`, else None."""
         logical = self._logical(lines[start])
@@ -326,6 +395,7 @@ class ProcessParagraphInjector:
             return None
 
         return None
+
     # -----------------------------------------------------------------
     # 2. Orphan scope terminators
     # -----------------------------------------------------------------
@@ -379,21 +449,196 @@ class ProcessParagraphInjector:
         An opener STARTS the statement. "IF" appearing mid-line is part
         of a condition, not a new scope, so tokens.count() was wrong as
         well as doubled.
+
+        CORRECTION 5 - the period test runs FIRST.
+
+        A period closes EVERY open scope, and a line whose whole body is
+        a period produces NO tokens. Testing tokens first returned
+        before the reset could run, so the one shape the reset was
+        written for - a lone period - never reached it. A lone period
+        also opens nothing, so returning here loses no information.
         """
-        tokens = logical.replace(PERIOD, " ").split()
+        if logical.rstrip().endswith(PERIOD):
+            for verb in SCOPED_VERBS:
+                depth[verb] = 0
+            return
+
+        tokens = logical.split()
         if not tokens:
             return
+
         for verb in SCOPED_VERBS:
             if tokens[0] == verb:
                 depth[verb] += 1
 
-        # A period closes EVERY open scope. Without this the depth
-        # carries across sentences, a genuine orphan reads as
-        # balanced, and the terminator is KEPT. That is how the
-        # END-IF following a lone period survived this pass.
-        if logical.rstrip().endswith(PERIOD):
-            for verb in SCOPED_VERBS:
-                depth[verb] = 0
+    # -----------------------------------------------------------------
+    # 2b. Redundant sentence terminators
+    # -----------------------------------------------------------------
+
+    def _strip_redundant_periods(self, lines: list[str]) -> list[str]:
+        """Remove a lone period after an already-terminated sentence.
+
+        Residue of the COMMIT removal: the statement went, its sentence
+        terminator stayed. Measured on VMDZ1567, one such period sat
+        between the two commit tests.
+
+        A lone period is LEGAL and REQUIRED when it closes a statement
+        that carries no terminator of its own, and the manual reference
+        uses exactly that shape after END-EVALUATE. It is therefore
+        removed ONLY when the previous logical line already ends in a
+        period. Everything else is left alone.
+        """
+        out: list[str] = []
+        previous = ""
+        removed = 0
+
+        for line in lines:
+            logical = self._logical(line)
+
+            if logical == PERIOD and previous.endswith(PERIOD):
+                removed += 1
+                continue
+
+            if logical:
+                previous = logical
+            out.append(line)
+
+        if removed:
+            self.messages.append(
+                f"Process paragraph: removed {removed} redundant sentence "
+                "terminator(s); the statement above already closed the "
+                "sentence."
+            )
+        return out
+
+    # -----------------------------------------------------------------
+    # 2c. A legacy commit test the appended tail will re-supply
+    # -----------------------------------------------------------------
+
+    def _strip_legacy_commit_test(self, lines: list[str]) -> list[str]:
+        """Remove a commit test that carries no tail read.
+
+        See CORRECTION 4. The block must match the RESOLVED names - this
+        program's commit counter and its commit paragraph - so a legacy
+        counter used for anything else is never caught, and no name is
+        hardcoded.
+
+        The COMPLETE tail (commit test immediately followed by the tail
+        read) is left in place: step 3 owns that decision and reports
+        it.
+        """
+        counter = self._commit_counter_name()
+        commit = self._commit_paragraph_name()
+        if not counter or not commit:
+            self.messages.append(
+                "Process paragraph: the commit counter or commit paragraph "
+                "is unresolved; no legacy commit test was examined."
+            )
+            return lines
+
+        out: list[str] = []
+        index = 0
+        removed = 0
+
+        while index < len(lines):
+            end = self._legacy_commit_block_end(lines, index, counter, commit)
+
+            if end < 0:
+                out.append(lines[index])
+                index += 1
+                continue
+
+            if self._has_tail_read(lines, end):
+                out.extend(lines[index : end + 1])
+                index = end + 1
+                continue
+
+            removed += 1
+            index = end + 1
+
+        if removed:
+            self.messages.append(
+                f"Process paragraph: removed {removed} legacy commit "
+                f"test(s) on {counter} that carried no tail read; the "
+                "appended tail supplies both statements."
+            )
+        return out
+
+    def _legacy_commit_block_end(
+        self,
+        lines: list[str],
+        start: int,
+        counter: str,
+        commit: str,
+    ) -> int:
+        """Index of the END-IF closing a commit test at `start`, else -1.
+
+        Only the exact three-statement shape is recognised:
+
+            IF <counter> > <n>
+                PERFORM <commit paragraph>
+            END-IF.
+
+        Any other statement inside the scope means this is business
+        logic and the block is left untouched.
+        """
+        head = self._logical(lines[start])
+        tokens = head.replace(PERIOD, " ").split()
+
+        if not tokens or tokens[0] != IF_VERB or counter not in tokens:
+            return -1
+
+        performed = False
+        limit = min(len(lines), start + 1 + COMMIT_BLOCK_SCAN_LIMIT)
+
+        for cursor in range(start + 1, limit):
+            body = self._logical(lines[cursor])
+            if not body:
+                continue
+
+            if body.rstrip(PERIOD) == END_IF:
+                return cursor if performed else -1
+
+            if body.startswith(PERFORM_VERB) and commit in body:
+                performed = True
+                continue
+
+            return -1
+
+        return -1
+
+    def _has_tail_read(self, lines: list[str], end: int) -> bool:
+        """True when the tail read follows the block closed at `end`."""
+        reader = str(self.config.names.read_paragraph or "").strip().upper()
+        if not reader:
+            return False
+
+        seen = 0
+        for cursor in range(end + 1, len(lines)):
+            body = self._logical(lines[cursor])
+            if not body:
+                continue
+
+            seen += 1
+            if seen > TAIL_READ_LOOKAHEAD:
+                return False
+
+            return body.startswith(PERFORM_VERB) and reader in body
+
+        return False
+
+    def _commit_counter_name(self) -> str:
+        names = getattr(self.config, "names", None)
+        return str(getattr(names, "commit_counter", "") or "").strip().upper()
+
+    def _commit_paragraph_name(self) -> str:
+        resolver = getattr(self.config, "paragraph", None)
+        if not callable(resolver):
+            return ""
+        try:
+            return str(resolver(ROLE_COMMIT) or "").strip().upper()
+        except Exception:  # noqa: BLE001 - an unusable config must not raise
+            return ""
 
     # -----------------------------------------------------------------
     # 3. Idempotency
@@ -465,4 +710,5 @@ class ProcessParagraphInjector:
 __all__ = [
     "ProcessParagraphInjector",
     "SCOPED_VERBS",
+    "TAIL_READ_LOOKAHEAD",
 ]

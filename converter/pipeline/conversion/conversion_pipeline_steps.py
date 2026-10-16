@@ -203,10 +203,52 @@ class ConversionPipelineSteps:
         program_kind: str,
         validation_messages: list[str],
     ):
-        """Build the run-scoped restart context, or None with a reason."""
+        """Build the run-scoped restart context, or None with a reason.
+
+        WHY TOTALS ARE RESOLVED HERE
+
+        RestartMainFlowBuilder renders the totals block from whatever it
+        is handed and never authors a DISPLAY itself, deliberately: two
+        authors mean two sets of totals that disagree. RestartTotalsResolver
+        is the author. Nothing connected the two, so every update program
+        with restart control terminated without reporting how many records
+        it read or wrote.
+
+        WHY `guaranteed` IS SUPPLIED
+
+        The resolver is reference-driven: it displays a counter only when
+        something adds to it. The business-UPDATE row counter does not
+        exist yet at this point in the run - the pass that declares and
+        increments it has not executed. `guaranteed` is the resolver's own
+        hook for exactly that case: names the CALLER can prove a later pass
+        will increment. They come from the restart working-storage rules,
+        which already own those two names, so none is hardcoded here.
+        """
         from converter.resolvers.restart_context_builder import (
             RestartContextBuilder,
         )
+        from converter.generators.restart.restart_totals_resolver import (
+            RestartTotalsResolver,
+        )
+        from rules.update_restart_rules import UPDATE_RESTART_WS_NAMES
+
+        is_update = program_kind == KIND_UPDATE
+
+        totals: tuple[str, ...] = ()
+        if is_update:
+            resolver = RestartTotalsResolver()
+            guaranteed = tuple(
+                str(UPDATE_RESTART_WS_NAMES.get(key, "") or "").strip()
+                for key in ("input_counter", "update_counter")
+            )
+            totals = tuple(
+                resolver.resolve(
+                    str(source_text or "").splitlines(),
+                    guaranteed=guaranteed,
+                )
+                or ()
+            )
+            validation_messages.extend(resolver.messages)
 
         builder = RestartContextBuilder(
             dclgen_resolver=self._restart_dclgen_resolver(validation_messages),
@@ -214,11 +256,12 @@ class ConversionPipelineSteps:
         context, messages = builder.build(
             source_text=source_text,
             dclgen_columns=conversion_input.dclgen_columns,
-            is_update=(program_kind == KIND_UPDATE),
+            is_update=is_update,
+            totals=totals,
         )
         validation_messages.extend(messages)
         return context
-
+    
     def _apply_legacy_restart_generator(
         self,
         *,

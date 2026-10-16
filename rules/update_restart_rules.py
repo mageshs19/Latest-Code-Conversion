@@ -168,6 +168,12 @@ UPDATE_RESTART_DIAGNOSTICS = {
         "Update SQL: no inline business UPDATE block found in {paragraph}; "
         "the SQL was left in place and no row counter was added."
     ),
+    "commit_owned_by_restart": (
+        "Business update SQL: the restart family already performs the "
+        "commit paragraph in this program; no second commit test was "
+        "written at the extracted UPDATE call site."
+    ),
+
 }
 
 __all__ = [
