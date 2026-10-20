@@ -19,3 +19,6 @@ cleanup_caps_*.log
 
 # --- Review runner artefacts ---
 review/report/output/
+
+trace/
+baseline/
