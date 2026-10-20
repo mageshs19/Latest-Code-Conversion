@@ -23,6 +23,11 @@ UNMAPPED_FIELD_TEMPLATE = (
     "the Sheet Mapping; {count} other field(s) of {record} are mapped. "
     "Left unchanged."
 )
+GROUP_SPLIT_AT_USE_TEMPLATE = (
+    "Field decomposition: {field} OF {record} is referenced here and "
+    "maps to {count} DB2 columns ({columns}). A 1:N split needs a HELP- "
+    "staging group and {count} MOVE statement(s); left unchanged."
+)
 
 
 class FieldReferenceReplacementEngine:
@@ -30,8 +35,8 @@ class FieldReferenceReplacementEngine:
     Rewrites qualified and bare IDMS field references using resolved
     Sheet Mapping + DCLGEN host-reference maps.
 
-    CORRECTION - AN UNMAPPED FIELD WAS DROPPED IN SILENCE
-    ------------------------------------------------------
+    CORRECTION 1 - AN UNMAPPED FIELD WAS DROPPED IN SILENCE
+    ---------------------------------------------------------
     ``rewrite_qualified_references`` ended its no-target branch with::
 
         if not target:
@@ -52,35 +57,31 @@ class FieldReferenceReplacementEngine:
       * so the loop that exits on that predicate could never satisfy it,
       * so the program drained the whole set and abended.
 
-    The only trace anywhere was a DIFFERENT pass noticing the symptom::
-
-        Structural safety: VMBEVEF is referenced 3 time(s) but declared
-        nowhere; First at line 262: OR CT-EVENT OF VMBEVEF = '0092'
-
     THE REPORT IS DELIBERATELY NARROW. ``QUALIFIED_REFERENCE_PATTERN``
     matches every ``FIELD OF RECORD`` in the program, and most of them
     are not IDMS records at all - ``CC OF TS-SYSTEM``,
-    ``NR-ST-FORM-AS OF VMDZ205I``, ``DD OF DA-DD-MM-CCYY``. Reporting
-    all of those would bury the finding in noise.
+    ``NR-ST-FORM-AS OF VMDZ205I``, ``DD OF DA-DD-MM-CCYY``. A message is
+    emitted ONLY when the record IS in record_field_map and the named
+    field is not, and it is deduplicated per (record, field).
 
-    A message is emitted ONLY when the record IS in record_field_map -
-    i.e. this program mapped that record and some of its fields - and
-    the named field is not. That is exactly the 1:N / GROUP signal:
+    CORRECTION 2 - THE 1:N WORK LIST CAME FROM THE WRONG PLACE
+    ------------------------------------------------------------
+    FieldReferenceContextBuilder analyses every record in the WORKBOOK,
+    so reporting a 1:N group split from there produced twenty-five
+    findings per program for three real problems - the 01 RECORD rows,
+    layout scaffolding no COBOL statement names, and records the program
+    never touches.
 
-        CT-EVENT        GROUP        -> CT_RKTEVPR(4) [+ CT_RKTGDSV(4)]
-        NR-ID-STOCK-CD  PIC X(13)    -> NR_IDSTOCK(12) + NR_CDSTK(1)
-        NR-CI                        -> NR_CI1POS + NR_CI26POS
+    The builder now records the column list as DATA (``group_columns``)
+    and this engine reports it at the REFERENCE SITE, because only the
+    engine knows the field is actually used. ``group_columns`` is
+    optional and defaults to None, so an older builder still works -
+    the richer message simply does not appear.
 
-    Deduplicated per (record, field), because one field is typically
-    referenced several times and three copies of a finding read as three
-    findings.
-
-    THIS ENGINE STILL DOES NOT FIX IT, AND CANNOT. record_field_map is
-    ``dict[str, dict[str, str]]`` - ONE host per field - and a split
+    THIS ENGINE STILL DOES NOT FIX A SPLIT, AND CANNOT. record_field_map
+    is ``dict[str, dict[str, str]]`` - ONE host per field - and a split
     needs 1 -> 3 statements plus a REDEFINES group in WORKING-STORAGE.
-    Substitution cannot emit statements or declarations. The report is
-    what makes the gap visible per program so the decision can be taken
-    against evidence rather than discovered from a run-time abend.
+    Substitution cannot emit statements or declarations.
 
     BARE references are not reported: ``rewrite_bare_references``
     iterates the MAPPED fields, so an unmapped identifier is never a
@@ -93,9 +94,14 @@ class FieldReferenceReplacementEngine:
         *,
         record_field_map: dict[str, dict[str, str]],
         rewrite_messages: list[str],
+        group_columns: dict[str, dict[str, list[str]]] | None = None,
     ) -> None:
         self.record_field_map = record_field_map
         self.rewrite_messages = rewrite_messages
+
+        # record -> field -> the DB2 columns a 1:N split would need.
+        # Optional so an older builder still constructs this engine.
+        self.group_columns = group_columns or {}
 
         # Per-program. FieldReferenceRewriter.rewrite() builds a fresh
         # engine for every program, so this never leaks across a batch.
@@ -144,6 +150,9 @@ class FieldReferenceReplacementEngine:
         Silent for a record that is not in the map at all: that is a
         COBOL group, a copybook layout or a work area, not an IDMS
         record this conversion is responsible for.
+
+        When the builder knows the group's columns, the richer 1:N
+        message is emitted instead - it names the fix.
         """
         record_key = NameNormalizer.normalize(record)
         field_key = self.field_key(field)
@@ -165,10 +174,25 @@ class FieldReferenceReplacementEngine:
             return
 
         self.unmapped_fields.add(marker)
+        record_display = NameNormalizer.to_cobol(record_key)
+
+        columns = self.group_columns.get(record_key, {}).get(field_key)
+
+        if columns:
+            self.rewrite_messages.append(
+                GROUP_SPLIT_AT_USE_TEMPLATE.format(
+                    field=field_key,
+                    record=record_display,
+                    count=len(columns),
+                    columns=", ".join(columns),
+                )
+            )
+            return
+
         self.rewrite_messages.append(
             UNMAPPED_FIELD_TEMPLATE.format(
                 field=field_key,
-                record=NameNormalizer.to_cobol(record_key),
+                record=record_display,
                 count=len(mapped),
             )
         )
