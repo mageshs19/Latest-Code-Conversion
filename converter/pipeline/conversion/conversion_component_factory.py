@@ -87,7 +87,8 @@ from rules.final_feedback_fix_rules import (
     ORDER_BY_COLUMNS_IN_SELECT_DEFAULT,
 )
 from rules.idms_transformer_messages import TRANSFORMER_MESSAGES
-
+from converter.transformers.lrf_path_expander import LrfPathExpander
+from converter.transformers.lrf_update_expander import LrfUpdateExpander
 
 class ConversionComponentFactory:
     """Builds repositories, resolvers, generators, transformers, composers.
@@ -511,6 +512,10 @@ class ConversionComponentFactory:
             "lrf_path_expander": LrfPathExpander(
                 path_resolver=resolvers["lrf_path"],
             ),
+            "lrf_update_expander": LrfUpdateExpander(
+                path_resolver=resolvers["lrf_path"],
+            ),
+            "lr_status_token_replacer": LrStatusTokenReplacer(),
             # Runs IMMEDIATELY AFTER the expander, in the same pipeline
             # step. The expander emits an IDMS status TOKEN; this turns
             # that token into the DB2 condition. Takes no collaborators -

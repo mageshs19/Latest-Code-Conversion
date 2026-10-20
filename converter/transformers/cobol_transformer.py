@@ -1,4 +1,4 @@
-# LOCATION: converter/transformers/cobol_transformer.py
+﻿# LOCATION: converter/transformers/cobol_transformer.py
 # ACTION: REPLACE ENTIRE FILE
 """Converts IDMS COBOL statements to DB2-compatible COBOL.
 
@@ -98,6 +98,59 @@ and ``messages`` is drained into ``validation_messages`` - the residual
 cleanup immediately after the line loop, the name sync immediately
 after it runs. That is the same contract every composer in the pipeline
 already honours.
+
+CORRECTION 5 - THE STATEMENT TRANSFORMER WAS NEVER RESET OR DRAINED
+--------------------------------------------------------------------
+``IdmsStatementTransformer.reset()`` carries this instruction::
+
+    MUST be called once per program by CobolTransformer.transform(),
+    before the first transform_line(). Without it a batch run carries
+    one program's diagnostics and unmapped records into the next.
+
+CORRECTION 4 added exactly that call for ``residual_cleanup`` and
+``program_name_sync`` - and not for the statement transformer, which is
+the component the instruction names. One instance is built in
+ConversionComponentFactory and reused for every program in the folder,
+so across a six-program run ``unmapped_records`` and ``messages``
+accumulated from the first program to the last. A record that had no
+DB2 target in program 1 was still listed as unmapped while program 6
+was converting.
+
+Its ``messages`` were never drained either, so every
+``_keep_and_comment_unmapped`` refusal - the diagnostic that explains
+why an IDMS access was left as a comment instead of becoming SQL - went
+nowhere. That is the same defect as CORRECTION 4, in the same method,
+on the one collaborator CORRECTION 4 missed.
+
+BLAST RADIUS, STATED PLAINLY: draining ``messages`` only lengthens the
+run log and cannot change generated COBOL. Calling ``reset()`` CAN:
+programs 2..n no longer inherit earlier unmapped records, so a record
+that was being commented purely because an earlier program could not
+map it will stop being commented. Diff every program against the frozen
+baseline after applying this.
+
+CORRECTION 6 - NO SEAM FOR BLOCK-LEVEL ANALYSIS
+------------------------------------------------
+``IdmsStatementTransformer`` converts ONE LINE at a time and receives
+only (line, division, sql_error_paragraph). It therefore cannot tell an
+LR WALK from an LR BOUNDED SEARCH, because that is a property of the
+enclosing PERFORM UNTIL, and it mapped every OBTAIN FIRST / NEXT to a
+cursor unconditionally.
+
+This method is the only place that holds the whole expanded program AND
+the transformer instance, so it is the correct seam. An optional
+``lr_access_analyser`` collaborator is read ONCE per program, before the
+line loop, and its result is published onto the transformer in the same
+shape ``unmapped_records`` already uses.
+
+The collaborator defaults to None, so a build that does not supply one
+behaves exactly as before - the transformer sees an empty mapping and
+every OBTAIN keeps the cursor path.
+
+DO NOT WIRE AN ANALYSER UNTIL THE LOOP-REMOVAL PASS EXISTS. When a
+record is classified as a bounded search the in-loop OBTAIN NEXT becomes
+a comment, which leaves the program's own PERFORM UNTIL with an empty
+body and an unchanging condition - an infinite loop at run time.
 """
 
 from __future__ import annotations
@@ -147,6 +200,20 @@ from rules.cobol_transformer_rules import (
 # resumes rather than deleting the rest of the program.
 IDMS_ABORT_BODY_LINE_LIMIT = 20
 
+# Attribute the bounded-search mapping is published under. The reading
+# end declares the same name; keeping it in one place is what stops the
+# producer and the consumer drifting apart.
+BOUNDED_SEARCH_ATTRIBUTE = "bounded_search_records"
+
+ANALYSER_FAILED_TEMPLATE = (
+    "LR access analysis: skipped, every OBTAIN keeps the cursor path. "
+    "Reason: {reason}"
+)
+ANALYSER_RESULT_TEMPLATE = (
+    "LR access analysis: {count} record(s) classified as a bounded "
+    "search ({records})."
+)
+
 
 class CobolTransformer:
     """Converts IDMS COBOL statements to DB2-compatible COBOL."""
@@ -154,8 +221,15 @@ class CobolTransformer:
     def __init__(
         self,
         idms_statement_transformer: IdmsStatementTransformer,
+        lr_access_analyser=None,
     ) -> None:
         self.idms_statement_transformer = idms_statement_transformer
+
+        # Optional. None -> no bounded-search classification is made and
+        # the statement transformer behaves exactly as before.
+        # See CORRECTION 6.
+        self.lr_access_analyser = lr_access_analyser
+
         self.parser = CobolParser()
 
         self.line_utils = CobolTransformerLineUtils()
@@ -190,14 +264,21 @@ class CobolTransformer:
 
         # ---- Per-transformation state.
         #
-        # residual_cleanup and program_name_sync are built ONCE in
-        # __init__ and reused for every program, so their collectors
-        # must be emptied here. Without this a batch run reports
-        # program 1's removals and renames against program 2.
-        # See CORRECTION 4.
+        # residual_cleanup, program_name_sync and the statement
+        # transformer are built ONCE and reused for every program, so
+        # their collectors must be emptied here. Without this a batch run
+        # reports program 1's removals, renames and unmapped records
+        # against program 2. See CORRECTION 4 and CORRECTION 5.
         self._in_working_storage = False
         self.residual_cleanup.reset()
         self.program_name_sync.reset()
+        self._reset_statement_transformer()
+
+        # ---- Block-level classification, once, before the line loop.
+        self._publish_bounded_search_records(
+            cobol_text=cobol_text,
+            validation_messages=validation_messages,
+        )
 
         skip_idms_abort_body = False
         idms_abort_skipped = 0
@@ -401,8 +482,12 @@ class CobolTransformer:
         #
         # Drained here, AFTER the loop, because every removal and every
         # refusal must reach the run log. A pass that silently deletes
-        # generated output cannot be reviewed. See CORRECTION 4.
+        # generated output cannot be reviewed. See CORRECTION 4 and
+        # CORRECTION 5.
         validation_messages.extend(self.residual_cleanup.messages)
+        validation_messages.extend(
+            list(getattr(self.idms_statement_transformer, "messages", []) or [])
+        )
 
         if not compiler_option_seen:
             self._ensure_compiler_option(output_lines, validation_messages)
@@ -425,6 +510,71 @@ class CobolTransformer:
         validation_messages.extend(self.program_name_sync.messages)
 
         return converted_text, validation_messages, operations
+
+    # =================================================================
+    # Per-program collaborator state
+    # =================================================================
+    def _reset_statement_transformer(self) -> None:
+        """Clear the statement transformer's per-program state.
+
+        Tolerates a transformer without reset() so a stub or an older
+        build still runs; the attributes it owns are cleared directly in
+        that case rather than left to accumulate. See CORRECTION 5.
+        """
+        transformer = self.idms_statement_transformer
+
+        reset = getattr(transformer, "reset", None)
+        if callable(reset):
+            reset()
+            return
+
+        if hasattr(transformer, "messages"):
+            transformer.messages = []
+        if hasattr(transformer, "unmapped_records"):
+            transformer.unmapped_records = set()
+
+    def _publish_bounded_search_records(
+        self,
+        *,
+        cobol_text: str,
+        validation_messages: list[str],
+    ) -> None:
+        """Classify LR accesses once, then hand the result to the line pass.
+
+        Always leaves the attribute DEFINED, so the reading end never has
+        to distinguish "no analyser" from "analyser found nothing" by the
+        absence of an attribute. Never raises: a failed classification
+        falls back to the cursor path for every record and says so.
+        See CORRECTION 6.
+        """
+        transformer = self.idms_statement_transformer
+        setattr(transformer, BOUNDED_SEARCH_ATTRIBUTE, {})
+
+        if self.lr_access_analyser is None:
+            return
+
+        try:
+            found = self.lr_access_analyser.bounded_searches(cobol_text)
+        except Exception as exc:  # noqa: BLE001
+            validation_messages.append(
+                ANALYSER_FAILED_TEMPLATE.format(reason=exc)
+            )
+            return
+
+        records = dict(found or {})
+        setattr(transformer, BOUNDED_SEARCH_ATTRIBUTE, records)
+
+        validation_messages.extend(
+            list(getattr(self.lr_access_analyser, "messages", []) or [])
+        )
+
+        if records:
+            validation_messages.append(
+                ANALYSER_RESULT_TEMPLATE.format(
+                    count=len(records),
+                    records=", ".join(sorted(records)),
+                )
+            )
 
     # =================================================================
     # Helpers

@@ -1,7 +1,8 @@
 ﻿# LOCATION: converter/pipeline/conversion/conversion_pipeline.py
 # ACTION: REPLACE ENTIRE FILE
-
 from __future__ import annotations
+
+import os
 
 from converter.analyzers.program_flow_analyzer import ProgramFlowAnalyzer
 from converter.domain.models import ConversionInput
@@ -17,6 +18,38 @@ from converter.pipeline.conversion.conversion_pipeline_steps import (  # noqa: F
 )
 from converter.validators.mapping_scope_filter import MappingScopeFilter
 from converter.validators.mapping_validator import MappingValidator
+
+# ----------------------------------------------------------------------
+# LRF stage vocabulary
+#
+# These are message TEMPLATES and factory KEYS, kept here beside the only
+# code that uses them, matching the literals this module already carried.
+# They belong in rules/lrf_conversion_rules.py once that module owns the
+# pipeline-side vocabulary as well as the transformer-side vocabulary.
+# ----------------------------------------------------------------------
+TRANSFORMER_LRF_PATH_EXPANDER = "lrf_path_expander"
+TRANSFORMER_LRF_UPDATE_EXPANDER = "lrf_update_expander"
+TRANSFORMER_LR_STATUS_REPLACER = "lr_status_token_replacer"
+
+LABEL_LRF_READ = "LRF expansion"
+LABEL_LRF_UPDATE = "LRF update expansion"
+LABEL_LR_STATUS = "LR-STATUS tokens"
+
+METHOD_EXPAND = "expand"
+METHOD_APPLY = "apply"
+
+LRF_STAGE_NOT_WIRED_TEMPLATE = (
+    "{label}: no component was wired under '{key}'; the logical-record "
+    "syntax it owns will reach the output unconverted."
+)
+LRF_STAGE_NO_METHOD_TEMPLATE = (
+    "{label}: the component wired under '{key}' has no {method}() method; "
+    "the stage was skipped."
+)
+LRF_STAGE_FAILED_TEMPLATE = (
+    "{label}: skipped, the text from the previous stage will be used. "
+    "Reason: {reason}"
+)
 
 
 class ConversionPipeline(ConversionPipelineSteps):
@@ -37,23 +70,36 @@ class ConversionPipeline(ConversionPipelineSteps):
 
     Pass-ordering contracts (content phase)
     ---------------------------------------
-    0a. ``LrfPathExpander`` rewrites Logical Record Facility syntax into the
-        classic IDMS syntax the rest of the converter already understands::
+    0a. LOGICAL RECORD EXPANSION. THREE stages, in this order, all inside
+        ``_expand_logical_records``:
 
-            OBTAIN FIRST <LR> WHERE <keyword>  ->  OBTAIN FIRST <rec> WITHIN <set>
-            LR-STATUS = 'X-EOA'                ->  DB-END-OF-SET
-            FIELD OF <rec> OF LR               ->  FIELD OF <rec>
+        1. ``LrfPathExpander``  - the READ and DELETE side::
 
-        It MUST run first, because the PROGRAM KIND resolver,
-        MappingScopeFilter, CobolTransformer and ProgramFlowAnalyzer all
-        read the source text. Every pass after this point sees classic
-        IDMS and needs no logical-record knowledge.
+               OBTAIN FIRST <LR> WHERE <keyword> -> OBTAIN FIRST <rec> WITHIN <set>
+               ERASE <LR> WHERE <keyword>        -> ERASE <rec>
+               FIELD OF <rec> OF LR              -> FIELD OF <rec>
+
+        2. ``LrfUpdateExpander`` - the WRITE side::
+
+               MODIFY <LR> WHERE <keyword>       -> MODIFY <rec>
+               STORE  <LR> WHERE <keyword>       -> STORE <rec>
+
+        3. ``LrStatusTokenReplacer`` - the status literals both expanders
+           may leave behind::
+
+               LR-STATUS = 'X-EOA'               -> DB-END-OF-SET -> SQLCODE = 100
+
+        Stage 3 MUST run last: it consumes tokens the first two emit.
+
+        The group MUST run first in the pipeline, because the PROGRAM KIND
+        resolver, MappingScopeFilter, CobolTransformer and
+        ProgramFlowAnalyzer all read the source text. Every pass after this
+        point sees classic IDMS and needs no logical-record knowledge.
 
     0b. ``ProgramKindResolver`` measures UPDATE vs RETRIEVAL from the
-        EXPANDED source. After 0a, because the update-side LRF forms
-        (``MODIFY <logical-record> WHERE <keyword>``) are rewritten there;
-        before statement transformation, which removes the write verbs
-        entirely.
+        EXPANDED source. After 0a, because the update-side LRF forms are
+        rewritten in stage 2 above; before statement transformation, which
+        removes the write verbs entirely.
 
     0c. ``MappingScopeFilter`` rescopes the mapping validation report to the
         program being converted. MappingValidator audits the WHOLE Sheet
@@ -70,6 +116,46 @@ class ConversionPipeline(ConversionPipelineSteps):
 
     Steps 2 through 8 are owned by ConversionLayoutPipeline and documented
     there.
+
+    CORRECTION 1 - THE WRITE SIDE WAS DOCUMENTED BUT NEVER RUN
+    ----------------------------------------------------------
+    Contract 0b used to claim the update-side LRF forms "are rewritten
+    there", meaning by LrfPathExpander in 0a. That expander carries exactly
+    three patterns - OBTAIN, OBTAIN continued, ERASE. It has never held a
+    MODIFY or a STORE pattern, so an Update-with-LRF program kept::
+
+        STORE  VMBTL07-R01 WHERE ST-VMBEVEF.
+        MODIFY VMBTL07-R01 WHERE MO-VMBEVEF.
+
+    all the way to the output, while the run log reported::
+
+        LRF expansion: expanded 1 statement(s), skipped 0.
+
+    "skipped 0" was not reassurance. A statement is only counted as skipped
+    once it has MATCHED an LR pattern and then been refused. MODIFY and
+    STORE matched nothing, so they were never seen as logical-record
+    statements and never counted at all.
+
+    ``LrfUpdateExpander`` had already been written and unit-tested for
+    exactly these two verbs. It had no call site anywhere in the
+    composition root - only in its own test module. Stage 2 above is that
+    missing call site. The docstring claim is now true.
+
+    CORRECTION 2 - THREE SILENT EXITS
+    ---------------------------------
+    ``_expand_logical_records`` returned the unmodified source whenever a
+    transformer key was absent from the factory dict, and said nothing::
+
+        expander = transformers.get("lrf_path_expander")
+        if expander is None:
+            return source_text          # no message
+
+    A pass that was never WIRED is not the same thing as a program with no
+    logical records, and silence cannot tell those apart. That is the same
+    failure mode already recorded against the bare ``except Exception:
+    pass`` that hid the LRF populator for three conversion cycles. Every
+    stage now reports a missing component, a missing method, and a raised
+    exception, and drains the component's own messages in all three cases.
 
     PROGRAM KIND - MEASURED, NOT CONFIGURED
     ---------------------------------------
@@ -94,6 +180,12 @@ class ConversionPipeline(ConversionPipelineSteps):
     is therefore built from the EXPANDED source - the checkpoint record
     is IDMS syntax and must be seen before it is converted away - and
     handed to ConversionLayoutPipeline through its constructor.
+
+    The checkpoint record is written with the CLASSIC form - ``MODIFY
+    FFRECAB``, ``STORE FFRECAB`` - which carries no ``WHERE <keyword>``
+    clause. LR_MODIFY_WHERE_PATTERN requires that clause, so stage 2
+    cannot match a checkpoint operation and restart handling is
+    structurally out of its reach.
 
     TWO RESTART GENERATORS, ONE OWNER
     ---------------------------------
@@ -299,44 +391,128 @@ class ConversionPipeline(ConversionPipelineSteps):
     ) -> str:
         """Rewrite LRF syntax into classic IDMS syntax.
 
-        Returns the source text every later pass must use. Never raises:
-        an expansion failure falls back to the original source and is
-        reported as a validation message, because an unconverted LRF verb
-        is caught downstream by the residual-IDMS checks anyway.
+        Returns the source text every later pass must use.
+
+        THREE stages, applied in order, each independent of the others:
+
+            1. read / delete side   LrfPathExpander.expand
+            2. write side           LrfUpdateExpander.expand
+            3. status literals      LrStatusTokenReplacer.apply
+
+        Never raises. A stage that is missing, malformed or that throws is
+        REPORTED and skipped, and the text from the previous stage carries
+        on - an unconverted LRF verb is caught downstream by the
+        residual-IDMS checks anyway. What must never happen is a stage
+        failing in silence, because then a wiring fault is indistinguishable
+        from a program that has no logical records.
         """
-        source_text = str(conversion_input.idms_cobol_text or "")
+        text = str(conversion_input.idms_cobol_text or "")
+        if not text.strip():
+            return text
 
-        expander = transformers.get("lrf_path_expander")
-        if expander is None:
-            return source_text
+        text = self._lrf_stage(
+            transformers=transformers,
+            key=TRANSFORMER_LRF_PATH_EXPANDER,
+            method=METHOD_EXPAND,
+            label=LABEL_LRF_READ,
+            text=text,
+            validation_messages=validation_messages,
+        )
+
+        text = self._lrf_stage(
+            transformers=transformers,
+            key=TRANSFORMER_LRF_UPDATE_EXPANDER,
+            method=METHOD_EXPAND,
+            label=LABEL_LRF_UPDATE,
+            text=text,
+            validation_messages=validation_messages,
+        )
+
+        text = self._lrf_stage(
+            transformers=transformers,
+            key=TRANSFORMER_LR_STATUS_REPLACER,
+            method=METHOD_APPLY,
+            label=LABEL_LR_STATUS,
+            text=text,
+            validation_messages=validation_messages,
+        )
+        self._dump_expanded(conversion_input, text)
+        return text
+
+    @staticmethod
+    def _dump_expanded(conversion_input: ConversionInput, text: str) -> None:
+        """Write the fully expanded source when DUMP_EXPANDED is set.
+
+        TEMPORARY INSTRUMENTATION. The expanded text exists only in
+        memory, so the block-level analyser cannot be written against a
+        shape anybody has actually seen. Delete this method and its one
+        call site once the LR access analyser is in place.
+        """
+        folder = os.environ.get("DUMP_EXPANDED", "")
+        if not folder:
+            return
+        try:
+            os.makedirs(folder, exist_ok=True)
+            name = str(
+                getattr(conversion_input, "target_program_id", "") or "UNKNOWN"
+            ).strip()
+            path = os.path.join(folder, f"{name}_expanded.cbl")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(text)
+        except Exception:  # noqa: BLE001
+            return
+        
+    def _lrf_stage(
+        self,
+        *,
+        transformers: dict,
+        key: str,
+        method: str,
+        label: str,
+        text: str,
+        validation_messages: list[str],
+    ) -> str:
+        """Run ONE logical-record stage. Reports every way it can decline.
+
+        Four outcomes, all visible:
+
+          * the factory produced no component under ``key``
+          * the component has no ``method``
+          * the call raised
+          * the call returned
+
+        The component's own messages are drained in the last two cases,
+        including the failure case: a transformer that reported two
+        findings and then threw on the third must not lose the two.
+        """
+        component = transformers.get(key)
+
+        if component is None:
+            validation_messages.append(
+                LRF_STAGE_NOT_WIRED_TEMPLATE.format(label=label, key=key)
+            )
+            return text
+
+        run = getattr(component, method, None)
+        if not callable(run):
+            validation_messages.append(
+                LRF_STAGE_NO_METHOD_TEMPLATE.format(
+                    label=label, key=key, method=method
+                )
+            )
+            return text
 
         try:
-            expanded = expander.expand(source_text)
+            produced = run(text)
         except Exception as exc:  # noqa: BLE001
+            validation_messages.extend(self._component_messages(component))
             validation_messages.append(
-                "LRF expansion: skipped, original IDMS source will be used. "
-                f"Reason: {exc}"
+                LRF_STAGE_FAILED_TEMPLATE.format(label=label, reason=exc)
             )
-            return source_text
+            return text
 
-        validation_messages.extend(self._component_messages(expander))
-        expanded = expanded or source_text
-
-        replacer = transformers.get("lr_status_token_replacer")
-        if replacer is None:
-            return expanded
-
-        try:
-            replaced = replacer.apply(expanded)
-        except Exception as exc:  # noqa: BLE001
-            validation_messages.append(
-                "LR-STATUS tokens: skipped, expanded source will be used. "
-                f"Reason: {exc}"
-            )
-            return expanded
-
-        validation_messages.extend(self._component_messages(replacer))
-        return replaced or expanded
+        validation_messages.extend(self._component_messages(component))
+        return produced or text
 
 
 __all__ = ["ConversionPipeline"]

@@ -1,3 +1,6 @@
+# LOCATION: converter/transformers/field_reference_replacement_engine.py
+# ACTION: REPLACE ENTIRE FILE
+
 from __future__ import annotations
 
 import re
@@ -10,11 +13,79 @@ from patterns.field_reference_rewriter_patterns import (
 )
 from rules.field_reference_rewriter_rules import PROTECTED_BARE_PREFIXES
 
+# Reported once per (record, field) when a QUALIFIED reference names a
+# record this program DID map, but a field of it that carries no DB2
+# column. Belongs in rules/field_reference_rewriter_rules.py beside
+# FIELD_REFERENCE_GEOMETRY_MESSAGES once that module owns the
+# field-gap vocabulary.
+UNMAPPED_FIELD_TEMPLATE = (
+    "Qualified field rewrite: {field} OF {record} has no DB2 column in "
+    "the Sheet Mapping; {count} other field(s) of {record} are mapped. "
+    "Left unchanged."
+)
+
 
 class FieldReferenceReplacementEngine:
     """
     Rewrites qualified and bare IDMS field references using resolved
     Sheet Mapping + DCLGEN host-reference maps.
+
+    CORRECTION - AN UNMAPPED FIELD WAS DROPPED IN SILENCE
+    ------------------------------------------------------
+    ``rewrite_qualified_references`` ended its no-target branch with::
+
+        if not target:
+            return match.group(0)
+
+    and said nothing. A qualified reference whose RECORD is mapped but
+    whose FIELD is not therefore survived into the output unchanged,
+    with no entry in the run log. VM4BD310 shipped::
+
+        OR CT-EVENT OF VMBEVEF = '0092'
+
+    because ``CT-EVENT`` is a GROUP item and the Sheet Mapping row
+    carries no ``New DB2_Field name``. The consequences were real and
+    traceable only by accident:
+
+      * the field usage analyzer counted ``condition=0`` for VMBEVEF,
+      * so the column never reached the cursor SELECT list,
+      * so the loop that exits on that predicate could never satisfy it,
+      * so the program drained the whole set and abended.
+
+    The only trace anywhere was a DIFFERENT pass noticing the symptom::
+
+        Structural safety: VMBEVEF is referenced 3 time(s) but declared
+        nowhere; First at line 262: OR CT-EVENT OF VMBEVEF = '0092'
+
+    THE REPORT IS DELIBERATELY NARROW. ``QUALIFIED_REFERENCE_PATTERN``
+    matches every ``FIELD OF RECORD`` in the program, and most of them
+    are not IDMS records at all - ``CC OF TS-SYSTEM``,
+    ``NR-ST-FORM-AS OF VMDZ205I``, ``DD OF DA-DD-MM-CCYY``. Reporting
+    all of those would bury the finding in noise.
+
+    A message is emitted ONLY when the record IS in record_field_map -
+    i.e. this program mapped that record and some of its fields - and
+    the named field is not. That is exactly the 1:N / GROUP signal:
+
+        CT-EVENT        GROUP        -> CT_RKTEVPR(4) [+ CT_RKTGDSV(4)]
+        NR-ID-STOCK-CD  PIC X(13)    -> NR_IDSTOCK(12) + NR_CDSTK(1)
+        NR-CI                        -> NR_CI1POS + NR_CI26POS
+
+    Deduplicated per (record, field), because one field is typically
+    referenced several times and three copies of a finding read as three
+    findings.
+
+    THIS ENGINE STILL DOES NOT FIX IT, AND CANNOT. record_field_map is
+    ``dict[str, dict[str, str]]`` - ONE host per field - and a split
+    needs 1 -> 3 statements plus a REDEFINES group in WORKING-STORAGE.
+    Substitution cannot emit statements or declarations. The report is
+    what makes the gap visible per program so the decision can be taken
+    against evidence rather than discovered from a run-time abend.
+
+    BARE references are not reported: ``rewrite_bare_references``
+    iterates the MAPPED fields, so an unmapped identifier is never a
+    candidate and the engine has no way to tell a missing field from any
+    other word on the line.
     """
 
     def __init__(
@@ -25,6 +96,10 @@ class FieldReferenceReplacementEngine:
     ) -> None:
         self.record_field_map = record_field_map
         self.rewrite_messages = rewrite_messages
+
+        # Per-program. FieldReferenceRewriter.rewrite() builds a fresh
+        # engine for every program, so this never leaks across a batch.
+        self.unmapped_fields: set[tuple[str, str]] = set()
 
     def rewrite_qualified_references(
         self,
@@ -40,6 +115,10 @@ class FieldReferenceReplacementEngine:
             )
 
             if not target:
+                self.report_unmapped_field(
+                    record=source_record,
+                    field=source_field,
+                )
                 return match.group(0)
 
             self.rewrite_messages.append(
@@ -52,6 +131,46 @@ class FieldReferenceReplacementEngine:
         return QUALIFIED_REFERENCE_PATTERN.sub(
             repl,
             text,
+        )
+
+    def report_unmapped_field(
+        self,
+        *,
+        record: str,
+        field: str,
+    ) -> None:
+        """Report a field gap on a record this program DID map.
+
+        Silent for a record that is not in the map at all: that is a
+        COBOL group, a copybook layout or a work area, not an IDMS
+        record this conversion is responsible for.
+        """
+        record_key = NameNormalizer.normalize(record)
+        field_key = self.field_key(field)
+
+        if not record_key or not field_key:
+            return
+
+        mapped = self.record_field_map.get(record_key)
+
+        if not mapped:
+            return
+
+        if field_key in mapped:
+            return
+
+        marker = (record_key, field_key)
+
+        if marker in self.unmapped_fields:
+            return
+
+        self.unmapped_fields.add(marker)
+        self.rewrite_messages.append(
+            UNMAPPED_FIELD_TEMPLATE.format(
+                field=field_key,
+                record=NameNormalizer.to_cobol(record_key),
+                count=len(mapped),
+            )
         )
 
     def rewrite_bare_references(

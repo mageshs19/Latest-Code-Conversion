@@ -92,6 +92,32 @@ class FieldReferenceRewriter:
 
     rewrite() now calls the context builder directly, so no helper is
     required, and the helper itself is declared next to __init__.
+
+    CORRECTION 5 - THE 1:N WORK LIST WAS REPORTED FROM THE WRONG PLACE
+    -------------------------------------------------------------------
+    FieldReferenceContextBuilder analyses EVERY record in the Sheet
+    Mapping workbook, so reporting a 1:N group split from there produced
+    twenty-five findings per program for three real problems::
+
+        VMBEFF OF VMBEFF is a GROUP over 16 DB2 column(s)     <- the 01 RECORD row
+        NR-RK-PRODUCT-V03 OF VMBEFF is a GROUP over 4 ...     <- layout scaffolding,
+        GR-ID-PRODUCT-V03 OF VMBEFF is a GROUP over 3 ...        never named by any
+        NR-ID-STOCK OF VMBEFF is a GROUP over 3 ...              COBOL statement
+        AT-FORM-AS OF VMBFAS is a GROUP over 42 ...           <- a record this
+                                                                 program never uses
+
+    multiplied by six programs a run. A finding nobody can act on is
+    noise, and noise is how the three that matter get missed.
+
+    The builder now RECORDS the column list as data - ``group_columns`` -
+    and says nothing. The replacement engine reports it at the REFERENCE
+    SITE, because only the engine knows the field is actually used, and
+    it already deduplicates per (record, field). Three findings instead
+    of twenty-five, each naming a line the program executes and the
+    columns a fix must produce.
+
+    ``group_columns`` is passed by keyword and the engine defaults it to
+    None, so an older engine still constructs.
     """
 
     def __init__(
@@ -129,6 +155,7 @@ class FieldReferenceRewriter:
             self.table_record_map,
             self.group_record_map,
         ) = self.context_builder.build_reference_maps()
+        self.rewrite_messages.extend(self.context_builder.messages)
 
     #
     # Public entry point
@@ -152,6 +179,11 @@ class FieldReferenceRewriter:
             self.group_record_map,
         ) = self.context_builder.build_reference_maps()
 
+        # The builder resolves a group with ONE mapped column and reports
+        # it. A group over SEVERAL columns is recorded as data and
+        # reported by the engine at the reference site. See CORRECTION 5.
+        self.rewrite_messages.extend(self.context_builder.messages)
+
         if not self.record_field_map:
             return str(text or "").rstrip() + "\n"
 
@@ -170,6 +202,7 @@ class FieldReferenceRewriter:
         replacement_engine = FieldReferenceReplacementEngine(
             record_field_map=self.record_field_map,
             rewrite_messages=self.rewrite_messages,
+            group_columns=getattr(self.context_builder, "group_columns", {}),
         )
 
         output_lines: list[str] = []

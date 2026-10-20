@@ -1,5 +1,5 @@
 # LOCATION: converter/composers/record_materialisation/record_field.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 """One COBOL data description entry of a materialised record.
 
 Shape and policy only. This class never reads a Sheet Mapping row and
@@ -22,6 +22,19 @@ GOVERNING PRINCIPLE
                             parent. Declare it, skip it, never block.
     Column DCLGEN does
     not know             -> a genuine metadata gap. Refuse.
+
+EVERY FIELD CARRIES A DEFAULT
+
+    declared_bytes lost its default in transit and became a positional
+    field declared AFTER fields that have one. A dataclass rejects that
+    at CLASS CREATION::
+
+        TypeError: non-default argument 'declared_bytes' follows
+        default argument
+
+    which is an IMPORT-time failure, not a run-time one - the whole
+    record_materialisation package stops loading. Keep a default on
+    every field in this dataclass.
 """
 
 from __future__ import annotations
@@ -51,6 +64,8 @@ class RecordFieldPlan:
     db2_column: str = ""
     db2_type: str = ""
     host_reference: str = ""
+    # Read from 'Length of Field Bytes'. 0 for a group, whose size is
+    # the sum of its children - see occupies_storage.
     declared_bytes: int = 0
 
     # ------------------------------------------------------------ shape

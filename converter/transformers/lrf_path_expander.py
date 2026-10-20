@@ -33,6 +33,44 @@ A condition this module cannot rewrite SAFELY is also left unchanged -
 see the abbreviated combined relation guard in _rewrite_lr_status. A
 half-rewritten condition compiles to nonsense; an untouched one is a
 finding a reviewer can act on.
+
+CORRECTION - A PERIOD WAS APPENDED TO EVERY GENERATED STATEMENT
+----------------------------------------------------------------
+``_statement`` ended every emitted line with STATEMENT_TERMINATOR
+unconditionally. That is right for a statement that stands alone and
+WRONG for one inside an inline block. VM4BD310 carries::
+
+    PERFORM UNTIL LR-STATUS = 'NO-MORE-VMBEVEF'
+               OR CT-EVENT OF VMBEVEF = '0092'
+       OBTAIN NEXT VMBTL07-R01 WHERE ALL-VMBEVEF-BY-VMBEFF      <- no period
+    END-PERFORM.
+
+and the expansion produced::
+
+    PERFORM UNTIL DB-END-OF-SET
+               OR CT-EVENT OF VMBEVEF = '0092'
+      *DB2: Expanded LRF NEXT ...
+       OBTAIN NEXT VMBEVEF WITHIN VMBEFF-VMBEVEF.               <- period ADDED
+    END-PERFORM.
+
+A period closes the COBOL SENTENCE. The ``END-PERFORM`` on the next line
+then has no ``PERFORM`` to close and the program does not compile. The
+defect is invisible in the final output because a later pass deletes the
+converted fetch and the stray terminator migrates onto whatever line now
+ends the sentence - which is how it surfaced as
+
+    OR CT-EVENT OF VMBEVEF = '0092'.
+
+sitting between a PERFORM UNTIL and its END-PERFORM.
+
+The generated statement now MIRRORS the source statement's termination.
+A source OBTAIN that ended in a period still produces one, so every
+standalone access is byte-identical to before; only a statement that was
+NOT terminated in the source stops being terminated here.
+
+SCOPE OF THIS CORRECTION: the terminator only. Two further defects in
+this file are recorded at the bottom of the module and deliberately left
+for a separate, separately measured change.
 """
 
 from __future__ import annotations
@@ -124,6 +162,7 @@ class LrfPathExpander:
         status_rewrites = 0
         status_refusals = 0
         qualifier_strips = 0
+        unterminated = 0
         # Source line indices already absorbed as continuation lines of a
         # multi-line OBTAIN ... WHERE statement.
         pending_consumed: set[int] = set()
@@ -150,19 +189,23 @@ class LrfPathExpander:
                 output.extend(rendered)
                 expanded += 1 if ok else 0
                 skipped += 0 if ok else 1
+                unterminated += 0 if self._is_terminated(logical) else 1
                 continue
 
             prefix = LR_OBTAIN_WHERE_PREFIX_PATTERN.match(logical)
             if prefix:
-                consumed, rendered, ok = self._expand_obtain_multiline(
-                    lines=lines,
-                    start_index=index,
-                    first_logical=logical,
-                    prefix=prefix,
+                consumed, rendered, ok, closed = (
+                    self._expand_obtain_multiline(
+                        lines=lines,
+                        start_index=index,
+                        first_logical=logical,
+                        prefix=prefix,
+                    )
                 )
                 output.extend(rendered)
                 expanded += 1 if ok else 0
                 skipped += 0 if ok else 1
+                unterminated += 0 if closed else 1
                 # Mark the continuation lines this statement absorbed so the
                 # outer loop skips re-emitting them as live orphans.
                 for offset in range(1, consumed):
@@ -175,6 +218,7 @@ class LrfPathExpander:
                 output.extend(rendered)
                 expanded += 1 if ok else 0
                 skipped += 0 if ok else 1
+                unterminated += 0 if self._is_terminated(logical) else 1
                 continue
 
             # Counted HERE, not inside _rewrite_lr_status, so that method
@@ -201,6 +245,8 @@ class LrfPathExpander:
             self._log("status_refused_abbreviated", count=status_refusals)
         if qualifier_strips:
             self._log("qualifier_stripped", count=qualifier_strips)
+        if unterminated:
+            self._log("statement_unterminated", count=unterminated)
         if expanded or skipped:
             self._log("summary", expanded=expanded, skipped=skipped)
 
@@ -215,12 +261,18 @@ class LrfPathExpander:
         lr_name = cobol_name(match.group("lr"))
         keyword = cobol_name(match.group("keyword"))
 
+        # match.string IS the logical line the pattern was matched
+        # against, so the source terminator is available here without
+        # changing the caller.
+        terminated = self._is_terminated(match.string)
+
         return self._render_obtain(
             line=line,
             mode=mode,
             lr_name=lr_name,
             keyword=keyword,
             extra_conditions="",
+            terminated=terminated,
         )
 
     def _expand_obtain_multiline(
@@ -230,13 +282,14 @@ class LrfPathExpander:
         start_index: int,
         first_logical: str,
         prefix,
-    ) -> tuple[int, list[str], bool]:
+    ) -> tuple[int, list[str], bool, bool]:
         """Expand an OBTAIN ... WHERE whose WHERE clause carries extra
         AND/OR conditions and/or continues onto following source lines.
 
-        Returns (lines_consumed, rendered, ok). lines_consumed counts the
-        source lines the statement spans, so the caller can skip the
-        continuation lines it already absorbed.
+        Returns (lines_consumed, rendered, ok, closed). lines_consumed
+        counts the source lines the statement spans, so the caller can
+        skip the continuation lines it already absorbed. closed reports
+        whether the assembled source statement ended in a period.
         """
         mode = str(prefix.group("mode") or "").upper()
         lr_name = cobol_name(prefix.group("lr"))
@@ -252,13 +305,14 @@ class LrfPathExpander:
                 continue
             assembled = f"{assembled} {nxt}".strip()
 
+        closed = self._is_terminated(assembled)
         keyword, extra = self._split_where(assembled)
 
         if not keyword:
             return consumed, self._keep(
                 lines[start_index],
                 SKIPPED_NO_PATH_TEMPLATE.format(keyword=lr_name),
-            ), False
+            ), False, closed
 
         rendered, ok = self._render_obtain(
             line=lines[start_index],
@@ -266,8 +320,9 @@ class LrfPathExpander:
             lr_name=lr_name,
             keyword=cobol_name(keyword),
             extra_conditions=extra,
+            terminated=closed,
         )
-        return consumed, rendered, ok
+        return consumed, rendered, ok, closed
 
     @staticmethod
     def _split_where(assembled: str) -> tuple[str, str]:
@@ -307,6 +362,7 @@ class LrfPathExpander:
         lr_name: str,
         keyword: str,
         extra_conditions: str,
+        terminated: bool,
     ) -> tuple[list[str], bool]:
         plan = self.path_resolver.plan_for_keyword(keyword)
 
@@ -355,10 +411,14 @@ class LrfPathExpander:
                 ))
             )
             rendered.extend(
-                self._statement(line, FIND_FIRST_TEMPLATE.format(
-                    record=parent.record_name,
-                    within=parent.within_name,
-                ))
+                self._statement(
+                    line,
+                    FIND_FIRST_TEMPLATE.format(
+                        record=parent.record_name,
+                        within=parent.within_name,
+                    ),
+                    terminate=terminated,
+                )
             )
             self._log(
                 "parent_emitted",
@@ -372,7 +432,11 @@ class LrfPathExpander:
             else OBTAIN_FIRST_TEMPLATE
         )
         rendered.extend(
-            self._statement(line, template.format(record=record, within=within))
+            self._statement(
+                line,
+                template.format(record=record, within=within),
+                terminate=terminated,
+            )
         )
 
         self._log(
@@ -384,6 +448,7 @@ class LrfPathExpander:
 
     def _expand_erase(self, line: str, match) -> tuple[list[str], bool]:
         keyword = cobol_name(match.group("keyword"))
+        terminated = self._is_terminated(match.string)
         plan = self.path_resolver.plan_for_keyword(keyword)
 
         if plan is None or not plan.is_usable:
@@ -404,7 +469,9 @@ class LrfPathExpander:
             mode="ERASE", lr=plan.logical_record, keyword=keyword,
             record=record, within=plan.driving.within_name,
         ))
-        rendered.extend(self._statement(line, f"ERASE {record}"))
+        rendered.extend(
+            self._statement(line, f"ERASE {record}", terminate=terminated)
+        )
         return rendered, True
 
     # ------------------------------------------------ status/qualifier
@@ -545,9 +612,25 @@ class LrfPathExpander:
         return second, a + b
 
     # ---------------------------------------------------------- render
-    def _statement(self, template_line: str, body: str) -> list[str]:
+    def _statement(
+        self,
+        template_line: str,
+        body: str,
+        terminate: bool = True,
+    ) -> list[str]:
+        """Render one generated statement.
+
+        ``terminate`` MIRRORS the source statement. A source OBTAIN that
+        ended in a period produces one, so every standalone access is
+        unchanged. A source OBTAIN inside an inline PERFORM ...
+        END-PERFORM carried no period, and adding one closes the sentence
+        and orphans the END-PERFORM. See the module CORRECTION.
+
+        Defaults to True so any caller added later behaves as this method
+        always did unless it opts in.
+        """
         text = body.rstrip()
-        if not text.endswith(STATEMENT_TERMINATOR):
+        if terminate and not text.endswith(STATEMENT_TERMINATOR):
             text = f"{text}{STATEMENT_TERMINATOR}"
         indent = self._body_indent(template_line)
         return self._emit(template_line, f"{indent}{text}", indicator=" ")
@@ -582,6 +665,11 @@ class LrfPathExpander:
         return self.fixed_format.replace_body(line, text)
 
     # --------------------------------------------------------- helpers
+    @staticmethod
+    def _is_terminated(text: str) -> bool:
+        """True when the SOURCE statement ended in a period."""
+        return str(text or "").rstrip().endswith(STATEMENT_TERMINATOR)
+
     def _logical(self, line: str) -> str:
         try:
             return str(self.fixed_format.logical(line) or "").strip()
@@ -606,6 +694,11 @@ class LrfPathExpander:
 
     @staticmethod
     def _is_comment(line: str) -> bool:
+        # DEFERRED DEFECT 1: the free-format fallback treats 'D' and '-'
+        # as comment indicators on a STRIPPED line, so 'DISPLAY ...' on a
+        # record with a blank sequence area is classified as a comment.
+        # Column 7 is authoritative in fixed format only. Not changed
+        # here so the terminator correction can be measured alone.
         text = str(line or "")
         if len(text) >= 7 and text[:6].strip().isdigit():
             return text[6] in COMMENT_INDICATORS
@@ -613,6 +706,12 @@ class LrfPathExpander:
 
     @staticmethod
     def _contains_lrf_syntax(text: str) -> bool:
+        # DEFERRED DEFECT 2: the three pattern tests below run on RAW
+        # lines, so the anchored OBTAIN / ERASE patterns cannot match a
+        # fixed-format record. The gate only passes today because the two
+        # substring tests above them fire first. A program carrying an
+        # OBTAIN ... WHERE and no LR-STATUS and no ' OF LR' would no-op
+        # silently. Not changed here.
         upper = str(text or "").upper()
         if LR_STATUS_TOKEN_PATTERN.search(upper):
             return True
