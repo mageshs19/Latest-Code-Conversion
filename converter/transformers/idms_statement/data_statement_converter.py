@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from converter.resolvers.program_kind_resolver import KIND_RETRIEVAL
 from converter.services.name_normalizer import NameNormalizer
 from patterns.idms_patterns import (
     ERASE_PATTERN,
@@ -21,6 +22,9 @@ from rules.idms_transformer_messages import (
     CONVERTED_OBTAIN_NEXT_TEMPLATE,
     DIRECT_UPDATE_COMPOSITE_KEY,
     FIND_FIRST_OUTSIDE_PROCEDURE_TEMPLATE,
+    LRF_CALC_READ_CONVERTED_TEMPLATE,
+    LRF_CALC_READ_MARKER_TEMPLATE,
+    LRF_CALC_READ_NO_SQL_TEMPLATE,
     OBTAIN_CALC_OUTSIDE_PROCEDURE_TEMPLATE,
     OBTAIN_OUTSIDE_PROCEDURE_TEMPLATE,
     OPERATION_ERASE,
@@ -53,9 +57,11 @@ NO_OPENED_SET = ""
 SENTENCE_TERMINATOR = "."
 GENERATED_COMMENT_PREFIX = "*"
 
-# Per-program state attribute the bounded-search branch reads. Declared
-# as a name so the producer and the consumer cannot drift.
+# Per-program state attributes this mixin READS. Declared as names so the
+# producer and the consumer cannot drift apart.
 BOUNDED_SEARCH_ATTRIBUTE = "bounded_search_records"
+PROGRAM_KIND_ATTRIBUTE = "program_kind"
+LRF_CALC_RECORDS_ATTRIBUTE = "lrf_calc_records"
 
 # Comment bodies for the bounded-search branch. These belong in
 # rules/idms_transformer_messages.py beside CONVERTED_OBTAIN_* once that
@@ -145,13 +151,7 @@ class DataStatementConverterMixin:
     The loop does not process every member; it advances until the first
     row satisfying a DATA PREDICATE and stops. The COBOL team's manual
     reference writes that as ONE statement - no DECLARE, no OPEN, no
-    FETCH, no CLOSE, no end-of-cursor flag::
-
-        SELECT ... FROM DZEVEFTV
-         WHERE <four key predicates>
-           AND CT_RKTEVPR_479EVEF = :DCLDZEVEFTV.CT-RKTEVPR-479EVEF
-         ORDER BY NR_ID_479EVEF DESC
-         FETCH FIRST ROW ONLY
+    FETCH, no CLOSE, no end-of-cursor flag.
 
     "Walk or bounded search" is a property of the enclosing BLOCK, so it
     cannot be decided here. It is decided by an analyser that reads the
@@ -192,23 +192,98 @@ class DataStatementConverterMixin:
            PERFORM 720-FETCH-DZEVEFC1.        <- period CLOSES the sentence
         END-PERFORM.                          <- now orphaned
 
-    A period inside an inline PERFORM terminates the sentence and with it
-    the inline PERFORM, so the ``END-PERFORM`` has nothing to close and
-    the program does not compile.
-
     This is the SAME defect already corrected in LrfPathExpander, one
-    stage later in the pipeline. The expander stopped forcing a period on
-    the IDMS statement; this converter then put one back on the COBOL it
-    generated from it.
+    stage earlier in the pipeline. The expander stopped forcing a period
+    on the IDMS statement; this converter then put one back on the COBOL
+    it generated from it.
 
-    The generated statement now MIRRORS the source statement. An OBTAIN
-    that ended in a period still produces a terminated PERFORM, so every
-    standalone access is byte-identical to before; only a statement that
-    was NOT terminated in the source stops being terminated here. Comment
-    lines are never touched - a *DB2: audit line carries no sentence.
+    The generated statement now MIRRORS the source statement.
 
-    ``stripped_line`` is the logical source statement, so the terminator
-    is available without widening the signature or the dispatcher arity.
+    CORRECTION 7 - ONE SEMANTIC FOR OBTAIN CALC, APPLIED TO BOTH KINDS
+    -------------------------------------------------------------------
+    ``_convert_obtain_calc`` emits exactly one outcome::
+
+        *DB2: Removed OBTAIN CALC SELECT for {record}.
+        *DB2: Direct UPDATE will use mapped composite key WHERE clause.
+        CONTINUE.
+
+    For an UPDATE program that is correct: a direct
+    ``UPDATE ... WHERE <composite key>`` does not need a positioning
+    read. For a RETRIEVAL program it is wrong - the OBTAIN CALC is the
+    ONLY population of the DCLGEN host group.
+
+    Measured: VMDZ4310 shipped with twelve MOVEs out of DCLDZBEFFTV and
+    no SELECT at all, and the removal left no trace: the comment was
+    consumed by REMOVED_OBTAIN_CALC_PATTERN and the orphaned CONTINUE by
+    _maybe_skip_redundant_continue.
+
+    The converter could not discriminate because it was never handed the
+    program kind: ConversionPipelineSteps._hand_off_program_kind had one
+    call site, for retrieval_commit_cleanup, and
+    IdmsStatementTransformer carried no ``program_kind`` attribute, so
+    the handoff would have been REFUSED even if it had been offered.
+
+    ``_convert_lrf_calc_read`` is registered AHEAD of
+    ``_convert_obtain_calc`` and refuses - returns None - on every path
+    that is not an LRF-generated keyed parent in a retrieval program
+    whose record resolves to a table. Every refusal hands the line
+    straight to the existing converter, so today's behaviour is the
+    default and no program outside that intersection can move.
+
+    A hand-written OBTAIN CALC in a retrieval program - VMBWCEF in
+    VM4BD302 - is NOT in ``lrf_calc_records`` and keeps its current
+    behaviour. Its missing read is a real finding and is deliberately
+    NOT fixed here; it gets its own change with its own measurement.
+
+    CORRECTION 8 - THE FIRST MARKER CHOICE WAS DELETED DOWNSTREAM
+    ---------------------------------------------------------------
+    The generated read first carried CONVERTED_OBTAIN_CALC_TEMPLATE::
+
+        *DB2: Converted OBTAIN CALC for VMBEFF.
+
+    on the reasoning that reusing an existing contract was safer than
+    inventing a spelling. The reverse was true. That text is matched by
+    CONVERTED_OBTAIN_CALC_PATTERN, whose ONLY consumer is
+    ObtainCalcRemover, which calls skip_generated_sql_and_sqlcode() to
+    swallow the block behind the marker and substitutes::
+
+        *DB2: Removed OBTAIN CALC SELECT for VMBEFF.
+        *DB2: Direct UPDATE will use mapped composite key WHERE clause.
+        CONTINUE.
+
+    Correct before a direct UPDATE. Fatal for a retrieval program, and
+    measured exactly so on VMDZ4310: the converter logged "VMBEFF
+    converted to a keyed SELECT" and the output carried the removal
+    comment instead, claiming a direct UPDATE a read-only program does
+    not contain.
+
+    ObtainCalcRemover reaches every program - it is behind
+    update_program_feedback, which _apply_cleanup_composers runs
+    unconditionally and without the program kind. It had never fired
+    before, because nothing had ever written the marker it matches.
+
+    LRF_CALC_READ_MARKER_TEMPLATE is deliberately a spelling NO
+    downstream pass consumes. Teaching ObtainCalcRemover the program
+    kind is the better long-term fix and is the RIGHT fix for the update
+    side; it is out of scope here, because this change is retrieval-LR
+    only and must not edit a file the update path executes.
+
+    SELF.SQL_GENERATOR - PRESENT, REACHED ONLY FROM A DORMANT BRANCH
+    -----------------------------------------------------------------
+    ``select_by_key`` is already referenced by ``_convert_bounded_search``.
+    That branch is gated on ``bounded_search_records``, which has no
+    producer, so in practice the call has never executed. The builder was
+    wired, written against, and never reached - the same shape as
+    LrfUpdateExpander and ConversionInput.logical_records before them.
+
+    KNOWN DUPLICATION
+    -----------------
+    ``KIND_RETRIEVAL`` is imported here from
+    ``converter.resolvers.program_kind_resolver``;
+    ``rules.program_kind_rules`` declares the same two constants with the
+    same values. One fact, two owners. The rules module should own them
+    and the resolver re-export. Not changed here, so this step stays
+    measurable.
     """
 
     #
@@ -220,7 +295,9 @@ class DataStatementConverterMixin:
         if not match:
             return None
 
-        statement = str(match.group("statement") or "").strip().rstrip(".").strip()
+        statement = str(
+            match.group("statement") or ""
+        ).strip().rstrip(".").strip()
 
         # Bare ON on its own line: open the guard only. The guarded
         # statement is on the following source line and the IF closes at
@@ -233,6 +310,92 @@ class DataStatementConverterMixin:
             f"{GUARDED_STATEMENT_INDENT}{statement}",
             SQLCODE_100_IF_CLOSE,
         ]
+
+    #
+    # LR KEYED PARENT READ - retrieval only. See CORRECTION 7 and 8.
+    #
+    def _convert_lrf_calc_read(self, upper, stripped_line, current_division):
+        """Convert an LRF keyed parent access into a keyed SELECT.
+
+        FIVE REFUSALS, ALL RETURNING None. None means 'not handled', so
+        the dispatcher offers the line to _convert_obtain_calc and the
+        existing behaviour is the default for every other case.
+
+            1. not in the PROCEDURE DIVISION
+            2. not a retrieval program
+            3. not an OBTAIN CALC at all
+            4. not a record THIS CONVERSION generated - hand-written
+               keyed reads are out of scope by design
+            5. no DB2 table for the record
+
+        Only the intersection of all five produces SQL.
+        """
+        if current_division != PROCEDURE_DIVISION_NAME:
+            return None
+
+        kind = str(
+            getattr(self, PROGRAM_KIND_ATTRIBUTE, "") or ""
+        ).strip().lower()
+        if kind != KIND_RETRIEVAL:
+            return None
+
+        match = OBTAIN_CALC_PATTERN.search(upper) or (
+            OBTAIN_CALC_REVERSED_PATTERN.search(upper)
+        )
+        if not match:
+            return None
+
+        record_key = NameNormalizer.normalize(match.group("record"))
+        if not record_key:
+            return None
+        record_display = NameNormalizer.to_cobol(record_key)
+
+        # LRF-GENERATED ONLY. Published by LrfPathExpander as
+        # calc_parent_records and handed over by the pipeline. Both name
+        # forms are tested because the publisher works in COBOL form and
+        # the lookup key is the DB2 form.
+        generated = getattr(self, LRF_CALC_RECORDS_ATTRIBUTE, None) or set()
+        if record_display not in generated and record_key not in generated:
+            return None
+
+        if not self.table_name_resolver.table_for_record(record_key):
+            return None
+
+        try:
+            sql_lines = self.sql_generator.select_by_key(record_key)
+        except Exception:  # noqa: BLE001
+            # One unbuildable statement must not abort a conversion, but
+            # it must not be silent either.
+            self.messages.append(
+                LRF_CALC_READ_NO_SQL_TEMPLATE.format(record=record_display)
+            )
+            return None
+
+        if not sql_lines:
+            # Resolved but unbuildable. A silent return here is
+            # indistinguishable from 'this converter never looked'.
+            self.messages.append(
+                LRF_CALC_READ_NO_SQL_TEMPLATE.format(record=record_display)
+            )
+            return None
+
+        # A marker NO downstream pass consumes. See CORRECTION 8:
+        # CONVERTED_OBTAIN_CALC_TEMPLATE is matched by
+        # CONVERTED_OBTAIN_CALC_PATTERN, and its only consumer -
+        # ObtainCalcRemover - swallows the SQL block behind it and
+        # writes the removal comment in its place.
+        body = [LRF_CALC_READ_MARKER_TEMPLATE.format(record=record_display)]
+        body.extend(sql_lines)
+
+        self.messages.append(
+            LRF_CALC_READ_CONVERTED_TEMPLATE.format(record=record_display)
+        )
+
+        # The SQL generator owns the shape of an EXEC SQL block including
+        # its terminator, so the block is NOT re-punctuated. _terminate
+        # strips a period only when the SOURCE carried none, and leaves
+        # comment lines alone.
+        return self._terminate(body, self._is_terminated(stripped_line))
 
     #
     # OBTAIN ... CALC
@@ -579,7 +742,8 @@ class DataStatementConverterMixin:
             output.append(text)
 
         return output
-        #
+
+    #
     # Shared cursor resolution
     #
     def _resolve_cursor_name(self, record_key: str) -> str:

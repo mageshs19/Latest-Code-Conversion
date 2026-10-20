@@ -110,6 +110,7 @@ class UpdateSqlCleanupComposer(UpdateSqlCleanupBase):
         )
         self._obtain_calc = ObtainCalcRemover(self, self._scanner)
         self._modify_update = ModifyUpdateRewriter(self, self._scanner)
+        self.program_kind: str = ""
 
     def compose(self, text: str) -> str:
         self.messages = []

@@ -62,6 +62,39 @@ class IdmsStatementTransformer(
     -------------------------------------------------------
     Seven closures were allocated for every source line. The chain is a
     fixed table of bound methods built once in __init__.
+
+    CORRECTION 4 - THE PROGRAM KIND WAS MEASURED AND NEVER DELIVERED
+    -----------------------------------------------------------------
+    ConversionPipelineSteps._hand_off_program_kind refuses, and reports
+    the refusal, when a component does not already declare the attribute
+    named by PROGRAM_KIND_ATTRIBUTE - "program_kind". This class declared
+    no such attribute and was never offered the kind in any case: that
+    method has exactly ONE call site, for retrieval_commit_cleanup.
+
+    The consequence was not cosmetic. _convert_obtain_calc encodes the
+    UPDATE semantic only - 'the direct UPDATE carries the composite key,
+    so the positioning read is redundant' - and applied it to retrieval
+    programs, where the OBTAIN CALC is the only population of the DCLGEN
+    host group. VMDZ4310 shipped with twelve MOVEs out of DCLDZBEFFTV and
+    no SELECT. The kind was measured correctly for all six programs on
+    every run and simply never arrived.
+
+    CORRECTION 5 - WHY reset() DOES NOT CLEAR THE TWO NEW ATTRIBUTES
+    -----------------------------------------------------------------
+    ``messages`` and ``unmapped_records`` are OUTPUTS: this class produces
+    them, so clearing them at the start of a program is correct.
+
+    ``program_kind`` and ``lrf_calc_records`` are INPUTS. They are
+    delivered by the pipeline BEFORE transform() runs, and reset() runs
+    INSIDE transform(). Clearing them there would erase the handoff
+    between the moment it is made and the moment it is read, and the
+    converter would silently fall back to update semantics on every
+    program - reproducing the exact defect CORRECTION 4 fixes.
+
+    They are therefore overwritten WHOLESALE by the pipeline for each
+    program rather than cleared here. A missing handoff is visible:
+    _hand_off_program_kind reports it, and _convert_lrf_calc_read refuses
+    on an empty kind, which is the safe direction.
     """
 
     def __init__(
@@ -81,16 +114,41 @@ class IdmsStatementTransformer(
         # the WHOLE record block at record level.
         self.unmapped_records: set[str] = set()
 
+        # ---- per-program INPUTS, supplied by the pipeline -----------
+        #
+        # PROGRAM_KIND_ATTRIBUTE. Declared so
+        # ConversionPipelineSteps._hand_off_program_kind stops refusing.
+        # Empty means 'not delivered', and every kind-gated branch
+        # refuses on empty, so an un-wired build behaves exactly as this
+        # class did before. See CORRECTION 4 and CORRECTION 5.
+        self.program_kind: str = ""
+
+        # COBOL-form records for which LrfPathExpander emitted an
+        # OBTAIN CALC parent access, published as its
+        # calc_parent_records. Distinguishes an LRF-GENERATED keyed read
+        # from a hand-written one, which must keep its behaviour.
+        self.lrf_calc_records: set[str] = set()
+
+        # Records an analyser classified as bounded searches. No producer
+        # exists yet; declared here so the shape has one owner.
+        self.bounded_search_records: dict[str, str] = {}
+
         # Converters that never open a cursor set, in dispatch order.
         # Order matters: OBTAIN CALC must be offered the line before
         # OBTAIN FIRST / NEXT, and every declarative form before any
         # executable form.
+        #
+        # _convert_lrf_calc_read sits immediately AHEAD of
+        # _convert_obtain_calc and returns None on every path that is not
+        # an LRF-generated keyed parent in a retrieval program, so the
+        # existing converter is offered exactly the lines it sees today.
         self._plain_converters = (
             (self._convert_declarative_or_control, ARITY_UPPER_LINE),
             (self._convert_finish_or_commit, ARITY_WITH_DIVISION),
             (self._convert_bind_ready_connect_disconnect, ARITY_WITH_DIVISION),
             (self._convert_status_abort_perform, ARITY_WITH_DIVISION),
             (self._convert_on_db_rec_not_found, ARITY_LINE),
+            (self._convert_lrf_calc_read, ARITY_WITH_DIVISION),
             (self._convert_obtain_calc, ARITY_WITH_SQL_ERROR),
             (self._convert_find_current, ARITY_WITH_DIVISION),
         )
@@ -105,11 +163,15 @@ class IdmsStatementTransformer(
     # Per-program lifecycle
     #
     def reset(self) -> None:
-        """Clear per-program state.
+        """Clear per-program OUTPUT state.
 
         MUST be called once per program by CobolTransformer.transform(),
         before the first transform_line(). Without it a batch run carries
         one program's diagnostics and unmapped records into the next.
+
+        program_kind and lrf_calc_records are deliberately NOT cleared -
+        they are INPUTS delivered before transform() runs, and this
+        method runs inside it. See CORRECTION 5.
         """
         self.messages = []
         self.unmapped_records = set()
@@ -242,6 +304,10 @@ class IdmsStatementTransformer(
         An EMPTY list used to mean the same thing by accident, but the old
         dispatcher accepted it and the source statement vanished with no
         *DB2: comment. Empty is now treated as "not handled".
+
+        This is also what makes _convert_lrf_calc_read safe to place
+        ahead of _convert_obtain_calc: its five refusals all return None,
+        so the line falls through to the existing converter untouched.
         """
         return result is not None and len(result) > 0
 

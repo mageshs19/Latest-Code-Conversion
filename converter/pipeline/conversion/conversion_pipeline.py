@@ -108,6 +108,18 @@ class ConversionPipeline(ConversionPipelineSteps):
         stays an error for a table this program references, and becomes a
         workbook note for any other.
 
+    0d. ``_publish_lr_retrieval_state`` DELIVERS what 0a and 0b produced -
+        the program kind, and the records for which 0a emitted a keyed
+        parent access - to the statement transformer.
+
+        MUST sit after 0b and BEFORE the transform, and nowhere else. The
+        statement transformer does not appear in ``transformers`` under
+        its own key: it is a constructor argument of CobolTransformer, so
+        it was never offered the kind, and ``transform()`` calls
+        ``_reset_statement_transformer()`` on entry. Publishing after the
+        transform would arrive too late. See ConversionPipelineSteps
+        CORRECTION 3.
+
     1.  ``feedback_cleanup`` (CobolCleanupComposer) runs
         ``OutputWritePlacementCleanup``, which lifts a guarded output WRITE
         out of the child-row paragraph into the PARENT paragraph, after the
@@ -157,6 +169,21 @@ class ConversionPipeline(ConversionPipelineSteps):
     stage now reports a missing component, a missing method, and a raised
     exception, and drains the component's own messages in all three cases.
 
+    CORRECTION 3 - STEP 0d DID NOT EXIST
+    ------------------------------------
+    "The kind is now measured from the source, ONCE, and handed to every
+    consumer that needs it", below, was true of the MEASUREMENT and false
+    of the HANDOFF. ``_hand_off_program_kind`` had exactly ONE call site -
+    ``retrieval_commit_cleanup``, inside ``_apply_commit_cleanup``. The
+    statement transformer, which decides whether an OBTAIN CALC is a
+    redundant positioning read or the only population of a DCLGEN host
+    group, was never offered it.
+
+    Measured on VMDZ4310: twelve MOVEs out of DCLDZBEFFTV and no SELECT,
+    because the update rule was applied to a retrieval program. The kind
+    was correct for all six programs on every run; only delivery was
+    missing. Step 0d is that delivery.
+
     PROGRAM KIND - MEASURED, NOT CONFIGURED
     ---------------------------------------
     The kind used to come from ``self._program_is_update(conversion_input)``.
@@ -168,8 +195,8 @@ class ConversionPipeline(ConversionPipelineSteps):
     COMMIT and their business UPDATE, and the run log reported "Retrieval
     DB2 COBOL generation completed." for all of them.
 
-    The kind is now measured from the source, ONCE, and handed to every
-    consumer that needs it. The input may still PROMOTE a program to
+    The kind is now measured from the source, ONCE, and handed to the
+    consumers that need it. The input may still PROMOTE a program to
     update; it may not demote one whose source carries a write verb.
 
     RESTART CONTEXT
@@ -284,6 +311,28 @@ class ConversionPipeline(ConversionPipelineSteps):
             validation_messages=validation_messages,
         )
 
+        # --- 0d. Deliver what 0a and 0b produced ----------------------
+        #
+        # MUST sit between 0b and the transform, and nowhere else.
+        #
+        # The statement transformer is not in `transformers` under its
+        # own key - it is a constructor argument of CobolTransformer -
+        # so it was never offered the program kind, and it declared no
+        # attribute to receive one. _convert_obtain_calc therefore
+        # applied UPDATE semantics to retrieval programs and deleted
+        # the single read that populates the DCLGEN host group.
+        #
+        # ORDER IS LOAD-BEARING. transform() calls
+        # _reset_statement_transformer() on entry; reset() clears the
+        # transformer's OUTPUTS and deliberately leaves these two
+        # INPUTS alone. Publishing after transform() would arrive too
+        # late. See ConversionPipelineSteps CORRECTION 3.
+        self._publish_lr_retrieval_state(
+            transformers=transformers,
+            program_kind=program_kind,
+            validation_messages=validation_messages,
+        )
+
         # --- IDMS -> DB2 statement transformation ---------------------
         converted_cobol, transform_messages, operations = transformers[
             "cobol"
@@ -347,6 +396,14 @@ class ConversionPipeline(ConversionPipelineSteps):
         )
 
         # --- Safe cleanup passes --------------------------------------
+        #
+        # NOT given the program kind. update_program_feedback reaches
+        # ObtainCalcRemover, which is update-side and kind-blind, but
+        # this change is retrieval-LR only and must not edit a file the
+        # update path executes. The LR keyed read avoids that pass by
+        # carrying a marker it does not match - see
+        # DataStatementConverterMixin CORRECTION 8. Teaching the remover
+        # the kind is the right follow-up, with its own measurement.
         converted_cobol = self._apply_cleanup_composers(
             converted_cobol=converted_cobol,
             composers=composers,
@@ -405,6 +462,12 @@ class ConversionPipeline(ConversionPipelineSteps):
         residual-IDMS checks anyway. What must never happen is a stage
         failing in silence, because then a wiring fault is indistinguishable
         from a program that has no logical records.
+
+        SIDE EFFECT READ BY STEP 0d: stage 1 leaves its
+        ``calc_parent_records`` populated on the expander instance. Step
+        0d reads it from the same ``transformers`` dict, so the producer
+        and the consumer share one object and no value has to be
+        threaded through this method's return.
         """
         text = str(conversion_input.idms_cobol_text or "")
         if not text.strip():
@@ -436,6 +499,7 @@ class ConversionPipeline(ConversionPipelineSteps):
             text=text,
             validation_messages=validation_messages,
         )
+
         self._dump_expanded(conversion_input, text)
         return text
 
@@ -461,7 +525,7 @@ class ConversionPipeline(ConversionPipelineSteps):
                 handle.write(text)
         except Exception:  # noqa: BLE001
             return
-        
+
     def _lrf_stage(
         self,
         *,

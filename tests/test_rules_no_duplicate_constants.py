@@ -80,3 +80,4 @@ def test_sentinels_are_re_exported_not_redeclared() -> None:
         cursor_declaration_rules.NON_COLUMN_SENTINELS
         is record_materialisation_rules.NON_COLUMN_SENTINELS
     )
+

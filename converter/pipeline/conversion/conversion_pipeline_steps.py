@@ -1,5 +1,5 @@
 # LOCATION: converter/pipeline/conversion/conversion_pipeline_steps.py
-# ACTION: CREATE NEW FILE
+# ACTION: REPLACE ENTIRE FILE
 
 """Helper steps for the CONTENT phase of the IDMS->DB2 conversion.
 
@@ -32,6 +32,53 @@ The kind is now MEASURED from the expanded source, once, and every
 consumer is TOLD. Two classifiers eventually disagree, and the
 disagreement is invisible until a cleanup pass deletes the COMMIT the
 restart pass just injected.
+
+CORRECTION 3 - THE KIND REACHED ONE CONSUMER OUT OF THREE
+-----------------------------------------------------------
+CORRECTION 2 ends with "every consumer is TOLD". Measured, exactly ONE
+consumer was ever offered it - retrieval_commit_cleanup, from
+``_apply_commit_cleanup``. The run log says so plainly::
+
+    Program kind: retrieval_commit_cleanup does not accept a program
+                  kind; it will classify independently and may disagree.
+    Update postprocess: no program kind supplied; the caller must pass
+                  the kind the pipeline already resolved.
+
+and IdmsStatementTransformer appears in neither line, because it was
+never offered the kind at all.
+
+That was not cosmetic. ``_convert_obtain_calc`` encodes ONE semantic -
+"the direct UPDATE carries the composite key, so the positioning read is
+redundant" - and applied it to retrieval programs, where an OBTAIN CALC
+is the ONLY population of the DCLGEN host group. VMDZ4310 shipped with
+twelve MOVEs out of DCLDZBEFFTV and no SELECT; the removal comment was
+then consumed by REMOVED_OBTAIN_CALC_PATTERN and the orphaned CONTINUE
+by _maybe_skip_redundant_continue, so the deleted read left NO TRACE in
+the output and no diagnostic anywhere.
+
+``_publish_lr_retrieval_state`` closes that gap. It delivers two values
+to the statement transformer, which lives behind CobolTransformer:
+
+    program_kind        measured here, every program, already correct
+    lrf_calc_records    the records LrfPathExpander emitted an
+                        OBTAIN CALC for, published as its
+                        calc_parent_records
+
+Both are needed. The kind alone would convert a hand-written OBTAIN CALC
+in a retrieval program - VMBWCEF in VM4BD302 - which is a real finding
+but a DIFFERENT one, to be fixed with its own measurement. The record
+set alone would convert the LRF keyed parent in an UPDATE program with
+LRF syntax - VMDZ1526 - where removing the read is correct.
+
+KNOWN DUPLICATION - THE KIND CONSTANTS HAVE TWO OWNERS
+--------------------------------------------------------
+``KIND_UPDATE`` is imported here from ``rules.program_kind_rules``.
+``converter.resolvers.program_kind_resolver`` also defines
+``KIND_RETRIEVAL`` and ``KIND_UPDATE``. One fact, two modules: the day a
+third kind is added, one of them will be missed. The rules module should
+own them and the resolver should re-export, as
+``rules/cursor_spec/cursor_spec_rules.py`` already does for
+CURSOR_OPERATIONS. Not changed here, so this step stays measurable.
 """
 
 from __future__ import annotations
@@ -61,6 +108,9 @@ LEGACY_RESTART_SKIPPED = (
     "restart pass owns this program."
 )
 
+# ---------------------------------------------------------------------
+# Program kind delivery
+# ---------------------------------------------------------------------
 # One classifier, consulted once. Any composer that needs the kind is
 # TOLD, never left to work it out again.
 PROGRAM_KIND_ATTRIBUTE = "program_kind"
@@ -69,6 +119,32 @@ PROGRAM_KIND_HANDOFF_REFUSED = (
     "Program kind: {component} does not accept a program kind; it will "
     "classify independently and may disagree."
 )
+
+# The statement transformer is not in the transformers map under its own
+# key: it is a constructor argument of CobolTransformer, which owns
+# per-program publication to it - see _publish_bounded_search_records.
+# Declared as names so producer and consumer cannot drift on a literal.
+COBOL_TRANSFORMER_KEY = "cobol"
+STATEMENT_TRANSFORMER_ATTRIBUTE = "idms_statement_transformer"
+STATEMENT_TRANSFORMER_NAME = "idms_statement_transformer"
+LRF_EXPANDER_KEY = "lrf_path_expander"
+LRF_CALC_RECORDS_ATTRIBUTE = "lrf_calc_records"
+CALC_PARENT_RECORDS_ATTRIBUTE = "calc_parent_records"
+
+STATEMENT_TRANSFORMER_UNREACHABLE = (
+    "Program kind: the statement transformer could not be reached "
+    "behind the COBOL transformer; it will classify OBTAIN CALC with "
+    "UPDATE semantics regardless of the program kind."
+)
+LRF_CALC_RECORDS_PUBLISHED = (
+    "LRF keyed read: published {count} keyed parent record(s) to the "
+    "statement transformer ({records})."
+)
+LRF_CALC_RECORDS_NONE = (
+    "LRF keyed read: the expansion produced no keyed parent access; "
+    "every OBTAIN CALC keeps its existing treatment."
+)
+
 COMMIT_CLEANUP_MISSING = (
     "Retrieval cleanup: composer is not registered; a COMMIT in a "
     "read-only program will not be removed."
@@ -172,6 +248,84 @@ class ConversionPipelineSteps:
         )
 
     # ------------------------------------------------------------------
+    # LR retrieval state - see CORRECTION 3
+    # ------------------------------------------------------------------
+    def _statement_transformer(self, transformers: dict):
+        """The IdmsStatementTransformer behind the COBOL transformer.
+
+        None when it cannot be reached, so the caller reports rather
+        than raising. A conversion that loses one keyed read is a
+        finding; a conversion that aborts on an attribute lookup is an
+        outage.
+        """
+        cobol_transformer = (transformers or {}).get(COBOL_TRANSFORMER_KEY)
+        if cobol_transformer is None:
+            return None
+        return getattr(
+            cobol_transformer, STATEMENT_TRANSFORMER_ATTRIBUTE, None
+        )
+
+    def _publish_lr_retrieval_state(
+        self,
+        *,
+        transformers: dict,
+        program_kind: str,
+        validation_messages: list[str],
+    ) -> None:
+        """Deliver the kind and the LRF keyed-parent records.
+
+        CALL THIS IMMEDIATELY BEFORE transformers["cobol"].transform().
+
+        ORDER IS LOAD-BEARING. transform() calls
+        _reset_statement_transformer() on entry, which calls reset().
+        reset() clears the transformer's OUTPUTS - messages,
+        unmapped_records - and deliberately does NOT clear these two
+        INPUTS. Publishing after transform() would arrive too late;
+        clearing them in reset() would erase the handoff between the
+        moment it is made and the moment it is read.
+
+        The record set is ALWAYS set, never merged and never left
+        absent, so the reading end can never confuse "no expander" with
+        "expander found nothing" - the same contract
+        CobolTransformer._publish_bounded_search_records established.
+        """
+        statement_transformer = self._statement_transformer(transformers)
+
+        if statement_transformer is None:
+            validation_messages.append(STATEMENT_TRANSFORMER_UNREACHABLE)
+            return
+
+        self._hand_off_program_kind(
+            component=statement_transformer,
+            component_name=STATEMENT_TRANSFORMER_NAME,
+            program_kind=program_kind,
+            validation_messages=validation_messages,
+        )
+
+        expander = (transformers or {}).get(LRF_EXPANDER_KEY)
+        records = set(
+            getattr(expander, CALC_PARENT_RECORDS_ATTRIBUTE, None) or set()
+        )
+
+        try:
+            setattr(
+                statement_transformer, LRF_CALC_RECORDS_ATTRIBUTE, records
+            )
+        except Exception:  # noqa: BLE001
+            validation_messages.append(STATEMENT_TRANSFORMER_UNREACHABLE)
+            return
+
+        if records:
+            validation_messages.append(
+                LRF_CALC_RECORDS_PUBLISHED.format(
+                    count=len(records),
+                    records=", ".join(sorted(records)),
+                )
+            )
+        else:
+            validation_messages.append(LRF_CALC_RECORDS_NONE)
+
+    # ------------------------------------------------------------------
     # Restart context
     # ------------------------------------------------------------------
     def _restart_dclgen_resolver(self, validation_messages: list[str]):
@@ -209,10 +363,10 @@ class ConversionPipelineSteps:
 
         RestartMainFlowBuilder renders the totals block from whatever it
         is handed and never authors a DISPLAY itself, deliberately: two
-        authors mean two sets of totals that disagree. RestartTotalsResolver
-        is the author. Nothing connected the two, so every update program
-        with restart control terminated without reporting how many records
-        it read or wrote.
+        authors mean two sets of totals that disagree.
+        RestartTotalsResolver is the author. Nothing connected the two,
+        so every update program with restart control terminated without
+        reporting how many records it read or wrote.
 
         WHY `guaranteed` IS SUPPLIED
 
@@ -261,7 +415,7 @@ class ConversionPipelineSteps:
         )
         validation_messages.extend(messages)
         return context
-    
+
     def _apply_legacy_restart_generator(
         self,
         *,
@@ -389,6 +543,11 @@ class ConversionPipelineSteps:
     # ------------------------------------------------------------------
     # Cleanup passes
     # ------------------------------------------------------------------
+# LOCATION: converter/pipeline/conversion/conversion_pipeline_steps.py
+# ACTION: REPLACE THE _apply_cleanup_composers METHOD
+# LOCATION: converter/pipeline/conversion/conversion_pipeline_steps.py
+# ACTION: REPLACE THE _apply_cleanup_composers METHOD
+
     def _apply_cleanup_composers(
         self,
         *,
@@ -403,6 +562,26 @@ class ConversionPipelineSteps:
         out of the child-row paragraph into the parent paragraph. The
         paragraph EXTRACTION in the finishing phase depends on that
         relocation having already happened.
+
+        DELIBERATELY NOT GIVEN THE PROGRAM KIND
+        ----------------------------------------
+        update_program_feedback reaches UpdateSqlCleanupComposer and
+        through it ObtainCalcRemover, which strips a generated
+        OBTAIN CALC SELECT block because "the direct UPDATE will use the
+        composite key". That pass is kind-blind and runs on retrieval
+        programs too, where there is no direct UPDATE and the SELECT it
+        would delete is the only population of the DCLGEN host group.
+
+        Teaching it the kind is the correct fix and is NOT made here:
+        this change is retrieval-LR only and must not edit a file the
+        update path executes. The LR keyed read avoids the pass instead,
+        by carrying a marker ObtainCalcRemover does not match - see
+        DataStatementConverterMixin CORRECTION 8.
+
+        A follow-up should hand the kind to this loop and make
+        ObtainCalcRemover stand down on retrieval, with its own
+        measurement. Until then the omission is a decision, not an
+        oversight, and is recorded as one.
         """
         for name in (
             "feedback_cleanup",
@@ -420,7 +599,7 @@ class ConversionPipelineSteps:
         )
 
         return converted_cobol
-
+        
     def _apply_commit_cleanup(
         self,
         *,
@@ -461,4 +640,17 @@ __all__ = [
     "GATE_LEGACY_RESTART_GENERATOR",
     "LEGACY_RESTART_SKIPPED",
     "PROGRAM_KIND_ATTRIBUTE",
+    "PROGRAM_KIND_HANDOFF_OK",
+    "PROGRAM_KIND_HANDOFF_REFUSED",
+    "COBOL_TRANSFORMER_KEY",
+    "STATEMENT_TRANSFORMER_ATTRIBUTE",
+    "STATEMENT_TRANSFORMER_NAME",
+    "STATEMENT_TRANSFORMER_UNREACHABLE",
+    "LRF_EXPANDER_KEY",
+    "LRF_CALC_RECORDS_ATTRIBUTE",
+    "CALC_PARENT_RECORDS_ATTRIBUTE",
+    "LRF_CALC_RECORDS_PUBLISHED",
+    "LRF_CALC_RECORDS_NONE",
+    "COMMIT_CLEANUP_MISSING",
+    "DATE_COMPARE_MISSING",
 ]
